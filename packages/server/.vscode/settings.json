@@ -1,0 +1,17 @@
+{
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.import.maven.enabled": true,
+    "java.import.gradle.enabled": false,
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.maven.userSettings": null,
+    "java.sources.organizeImports.starThreshold": 99,
+    "java.sources.organizeImports.staticStarThreshold": 99,
+    "java.project.sourcePaths": [
+        "examples/org.eclipse.glsp.example.bigraph/src/main/java"
+    ],
+    "java.project.referencedLibraries": [
+        "examples/org.eclipse.glsp.example.bigraph/target/lib/*.jar"
+    ],
+    "java.debug.settings.enableRunDebugCodeLens": true,
+    "java.debug.logLevel": "verbose"
+} 

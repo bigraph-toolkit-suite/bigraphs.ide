@@ -1,0 +1,7 @@
+target/
+.m2
+.tycho-consumer-pom.xml
+**/.DS_Store
+
+# Maven Shade (regenerated on package; do not commit)
+**/dependency-reduced-pom.xml

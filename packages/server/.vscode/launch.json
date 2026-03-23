@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0", 
+    "configurations": [
+        {
+            "name": "Build and Debug Bigraph GLSP Server",
+            "type": "java",
+            "request": "attach",
+            "hostName": "localhost",
+            "port": 5005,
+            "sourcePaths": [
+                "${workspaceFolder}/examples/org.eclipse.glsp.example.bigraph/src/main/java"
+            ],
+            "projectName": "org.eclipse.glsp.example.bigraph",
+            "preLaunchTask": "Build and Launch JAR with Debug"
+        },
+        {
+            "name": "Attach to Bigraph GLSP Server",
+            "type": "java",
+            "request": "attach",
+            "hostName": "localhost",
+            "port": 5005,
+            "sourcePaths": [
+                "${workspaceFolder}/examples/org.eclipse.glsp.example.bigraph/src/main/java"
+            ],
+            "projectName": "org.eclipse.glsp.example.bigraph"
+        }
+    ]
+}
+

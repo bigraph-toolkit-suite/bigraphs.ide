@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' {{CSP_SOURCE}}; style-src 'unsafe-inline' {{CSP_SOURCE}};">
+	<style>
+		body { padding: 0.5rem 0.75rem 0; font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); box-sizing: border-box; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+		* { box-sizing: border-box; }
+		#placeholder { color: var(--vscode-descriptionForeground); padding: 0.5rem 0; }
+		#form-area { flex: 1; overflow-y: auto; padding-bottom: 0.5rem; }
+		#form { display: none; }
+		#form.visible { display: block; }
+		.field { margin-bottom: 0.6rem; }
+		.field label { display: block; font-size: 0.85em; color: var(--vscode-descriptionForeground); margin-bottom: 0.2rem; }
+		.field input[type="text"] { width: 100%; padding: 0.25rem 0.4rem; font-family: inherit; font-size: inherit; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
+		.field input[readonly] { opacity: 0.75; cursor: default; }
+		.field input[type="number"] { width: 100%; padding: 0.25rem 0.4rem; font-family: inherit; font-size: inherit; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
+		.field input[type="number"]:disabled { opacity: 0.4; cursor: default; }
+		.max-ops-row { display: flex; align-items: center; gap: 0.4rem; }
+		.max-ops-row input[type="checkbox"] { margin: 0; flex-shrink: 0; }
+		.max-ops-row label { margin: 0; color: var(--vscode-foreground); white-space: nowrap; font-size: 0.85em; color: var(--vscode-descriptionForeground); }
+		.max-ops-row input[type="number"] { flex: 1; min-width: 0; }
+		.rewrite-rules-list { border: 1px solid var(--vscode-input-border); background: var(--vscode-input-background); min-height: 4rem; padding: 0.25rem; font-size: 0.9em; overflow-y: auto; max-height: 9rem; }
+		.rewrite-rules-list .item { display: flex; align-items: center; justify-content: space-between; padding: 0.15rem 0.25rem; border-bottom: 1px solid var(--vscode-widget-border); }
+		.rewrite-rules-list .item:last-child { border-bottom: none; }
+		.rule-name { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+		.rule-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.rule-subtitle { font-size: 0.78em; color: var(--vscode-descriptionForeground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.rule-tag { flex-shrink: 0; margin-left: 0.4rem; padding: 0.05rem 0.45rem; border-radius: 3px; border: 1px solid var(--vscode-input-border); font-size: 0.72em; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; user-select: none; transition: color 0.1s, border-color 0.1s; background: transparent; color: var(--vscode-descriptionForeground); }
+		.rule-tag.active { background: transparent; color: var(--vscode-foreground); border-color: var(--vscode-foreground); }
+		/* ── Verification bigraphs ──────────────────────────────────────────── */
+		.verification-list { border: 1px solid var(--vscode-input-border); background: var(--vscode-input-background); min-height: 3.5rem; padding: 0.25rem; font-size: 0.9em; overflow-y: auto; max-height: 8rem; position: relative; transition: outline-color 0.15s; }
+		.verification-list.drag-over { outline: 2px dashed var(--vscode-focusBorder); outline-offset: -2px; }
+		.verification-list .item { display: flex; align-items: center; justify-content: space-between; padding: 0.15rem 0.25rem; border-bottom: 1px solid var(--vscode-widget-border); gap: 0.3rem; }
+		.verification-list .item:last-child { border-bottom: none; }
+		.verification-item-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.3rem; overflow: hidden; }
+		.verification-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default; }
+		.verification-rename-input { flex: 1; min-width: 0; padding: 0.1rem 0.25rem; font-family: inherit; font-size: inherit; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-focusBorder); outline: none; }
+		.verification-pen-btn { background: none; border: none; color: var(--vscode-descriptionForeground); cursor: pointer; padding: 0.1rem; display: flex; align-items: center; opacity: 0.7; flex-shrink: 0; }
+		.verification-pen-btn:hover { opacity: 1; color: var(--vscode-foreground); }
+		.verification-pen-btn svg { width: 11px; height: 11px; fill: currentColor; }
+		.verification-drop-hint { color: var(--vscode-descriptionForeground); font-style: italic; font-size: 0.85em; padding: 0.35rem 0.25rem; user-select: none; }
+		.vb-check-btn { background: none; border: 1px solid var(--vscode-input-border); color: var(--vscode-descriptionForeground); cursor: pointer; padding: 0.05rem 0.35rem; border-radius: 3px; font-size: 0.72em; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; flex-shrink: 0; transition: color 0.1s, border-color 0.1s; white-space: nowrap; }
+		.vb-check-btn:hover { color: var(--vscode-foreground); border-color: var(--vscode-foreground); }
+		.vb-check-btn:disabled { opacity: 0.4; cursor: default; }
+		.vb-check-btn:disabled:hover { color: var(--vscode-descriptionForeground); border-color: var(--vscode-input-border); }
+		.vb-state-icon { flex-shrink: 0; display: flex; align-items: center; width: 16px; justify-content: center; }
+		.vb-state-icon.matched svg { fill: #4ade80; }
+		.vb-state-icon.unmatched svg { fill: #f87171; }
+		.vb-state-icon svg { width: 13px; height: 13px; }
+		.checkbox-row { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; }
+		.checkbox-row input { margin: 0; }
+		.checkbox-row label { margin: 0; color: var(--vscode-foreground); }
+		#action-bar { display: flex; align-items: center; gap: 0.25rem; padding: 0.4rem 0.5rem; border-top: 1px solid var(--vscode-widget-border); background: var(--vscode-sideBar-background); margin: 0 -0.75rem; padding-left: 0.75rem; padding-right: 0.75rem; }
+		.action-btn { background: none; border: none; color: var(--vscode-foreground); cursor: pointer; padding: 0.6rem; border-radius: 3px; display: flex; align-items: center; justify-content: center; opacity: 0.8; }
+		.action-btn:hover { background: var(--vscode-toolbar-hoverBackground); opacity: 1; }
+		.action-btn svg { width: 32px; height: 32px; fill: currentColor; }
+		.action-btn:disabled { opacity: 0.35; cursor: default; }
+		.action-btn:disabled:hover { background: none; }
+		details.history { margin-top: 0.75rem; border-top: 1px solid var(--vscode-widget-border); padding-top: 0.5rem; }
+		details.history summary { cursor: pointer; font-size: 0.85em; color: var(--vscode-descriptionForeground); user-select: none; list-style: none; display: flex; align-items: center; gap: 0.3rem; }
+		details.history summary::before { content: '▶'; font-size: 0.65em; transition: transform 0.15s; }
+		details.history[open] summary::before { transform: rotate(90deg); }
+		details.history summary::-webkit-details-marker { display: none; }
+		.history-list { margin-top: 0.4rem; font-size: 0.85em; color: var(--vscode-foreground); }
+		.history-list .history-item { display: flex; justify-content: space-between; align-items: center; padding: 0.2rem 0.25rem; border-bottom: 1px solid var(--vscode-widget-border); }
+		.history-list .history-item:last-child { border-bottom: none; }
+		.history-list .history-label { color: var(--vscode-foreground); }
+		.history-list .history-date { color: var(--vscode-descriptionForeground); font-size: 0.8em; margin-left: 0.5rem; flex-shrink: 0; }
+		.history-list .empty-hint { color: var(--vscode-descriptionForeground); font-style: italic; padding: 0.2rem 0.25rem; }
+		#config-path-bar { display: none; font-size: 0.78em; color: var(--vscode-descriptionForeground); padding: 0.3rem 0 0.4rem 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		#config-path-bar.visible { display: block; }
+		/* ── Evolution Tree ─────────────────────────────────────────────── */
+		#tree-section { display: none; border-top: 1px solid var(--vscode-widget-border); margin: 0 -0.75rem; padding: 0 0.75rem; }
+		#tree-section.visible { display: block; }
+		#tree-header { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0 0.3rem; }
+		#tree-title { font-size: 0.85em; font-weight: 600; color: var(--vscode-foreground); letter-spacing: 0.03em; text-transform: uppercase; }
+		#tree-controls { display: flex; gap: 0.3rem; }
+		.tree-ctrl-btn { background: none; border: 1px solid var(--vscode-input-border); color: var(--vscode-foreground); cursor: pointer; padding: 0.1rem 0.45rem; border-radius: 3px; font-size: 0.78em; opacity: 0.75; }
+		.tree-ctrl-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
+		#tree-canvas-wrap { position: relative; width: 100%; height: 220px; overflow: hidden; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 4px; cursor: grab; margin-bottom: 0.6rem; }
+		#tree-canvas-wrap:active { cursor: grabbing; }
+		#tree-svg { position: absolute; top: 0; left: 0; }
+		/* node circles */
+		.t-node-bg { stroke-width: 2; transition: filter 0.15s; }
+		.t-node-bg.state-none  { fill: var(--vscode-input-background); stroke: #555; }
+		.t-node-bg.state-has-checkpoint { fill: #3b82f6; stroke: #60a5fa; }
+		.t-node-bg.state-cursor { fill: #f59e0b; stroke: #fbbf24; }
+		.t-node-hit { fill: transparent; cursor: default; }
+		.t-node-hit:hover ~ .t-node-bg { filter: brightness(1.3); }
+		.t-edge { stroke: #555; stroke-width: 1.5; fill: none; stroke-linecap: round; }
+		.t-label { font-size: 9px; fill: var(--vscode-foreground); text-anchor: middle; dominant-baseline: central; pointer-events: none; opacity: 0.85; }
+		/* tooltip */
+		#tree-tooltip { position: absolute; background: var(--vscode-editorHoverWidget-background, #252526); color: var(--vscode-editorHoverWidget-foreground, #ccc); border: 1px solid var(--vscode-editorHoverWidget-border, #454545); border-radius: 4px; padding: 0.3rem 0.5rem; font-size: 0.75em; pointer-events: none; white-space: nowrap; display: none; z-index: 10; max-width: 260px; white-space: normal; line-height: 1.4; }
+	</style>
+</head>
+<body>
+	<div id="config-path-bar" title=""></div>
+	<div id="form-area">
+		<div id="placeholder">No evolution selected. Click an entry in the Evolutions list above.</div>
+		<form id="form" class="">
+			<div class="field">
+				<label for="evolutionLabel">Evolution label</label>
+				<input type="text" id="evolutionLabel" placeholder="e.g. my-evolution" />
+			</div>
+			<div class="field">
+				<label for="bigraphPath">Bigraph</label>
+				<input type="text" id="bigraphPath" placeholder="Open an .xmi tab to auto-fill" readonly />
+			</div>
+			<div class="field">
+				<label>Rewrite rules</label>
+				<div class="rewrite-rules-list" id="rewriteRulesList">
+					<div class="item">(mock) rule-set-a / rule-1</div>
+					<div class="item">(mock) rule-set-a / rule-2</div>
+					<div class="item">(mock) rule-set-b / rule-1</div>
+				</div>
+			</div>
+			<div class="field">
+				<label>Verification</label>
+				<div class="verification-list" id="verificationList">
+					<div class="verification-drop-hint">Drop bigraphs from the explorer here…</div>
+				</div>
+			</div>
+			<div class="field">
+				<div class="max-ops-row">
+					<input type="checkbox" id="maxOperationsEnabled" checked />
+					<label for="maxOperationsEnabled">Max operations</label>
+					<input type="number" id="maxOperations" min="1" value="10" />
+				</div>
+			</div>
+			<div class="checkbox-row">
+				<input type="checkbox" id="checkpointFileGeneration" checked />
+				<label for="checkpointFileGeneration">Checkpoint file generation</label>
+			</div>
+			<div class="checkbox-row">
+				<input type="checkbox" id="visualizeIntermediateSteps" />
+				<label for="visualizeIntermediateSteps">Visualize intermediate steps</label>
+			</div>
+		</form>
+		<details class="history" id="historySection">
+			<summary>Evolution History</summary>
+			<div class="history-list" id="historyList">
+				<div class="empty-hint">No history yet.</div>
+			</div>
+		</details>
+	</div>
+	<div id="action-bar">
+		<!-- Play -->
+		<button type="button" class="action-btn" id="btnPlay" title="Play evolution">
+			<svg viewBox="0 0 16 16"><path d="M3 2l11 6-11 6V2z"/></svg>
+		</button>
+		<!-- Step -->
+		<button type="button" class="action-btn" id="btnStep" title="Step (one operation)">
+			<svg viewBox="0 0 16 16"><path d="M3 2l8 6-8 6V2z"/><rect x="12" y="2" width="2" height="12"/></svg>
+		</button>
+		<!-- Pause -->
+		<button type="button" class="action-btn" id="btnPause" title="Pause evolution">
+			<svg viewBox="0 0 16 16"><rect x="3" y="2" width="4" height="12"/><rect x="9" y="2" width="4" height="12"/></svg>
+		</button>
+	</div>
+	<!-- Evolution Tree -->
+	<div id="tree-section">
+		<div id="tree-header">
+			<span id="tree-title">Evolution Tree</span>
+			<div id="tree-controls">
+				<button class="tree-ctrl-btn" id="treeBtnZoomIn"  title="Zoom in">+</button>
+				<button class="tree-ctrl-btn" id="treeBtnZoomOut" title="Zoom out">−</button>
+				<button class="tree-ctrl-btn" id="treeBtnReset"   title="Reset view">⟲</button>
+			</div>
+		</div>
+		<div id="tree-canvas-wrap">
+			<svg id="tree-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+			<div id="tree-tooltip"></div>
+		</div>
+	</div>
+	<script>{{SCRIPT_CONTENT}}</script>
+</body>
+</html>

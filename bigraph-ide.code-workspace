@@ -1,0 +1,17 @@
+{
+  "folders": [
+    {
+      "name": "ROOT",
+      "path": "."
+    },
+    {
+      "name": "Server",
+      "path": "packages/server"
+    },
+    {
+      "name": "VSCode Extension",
+      "path": "packages/vscode-extension"
+    }
+  ],
+  "settings": {}
+}

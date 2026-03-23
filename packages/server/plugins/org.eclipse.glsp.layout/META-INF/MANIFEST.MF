@@ -1,0 +1,15 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: GLSP Layout
+Bundle-SymbolicName: org.eclipse.glsp.layout
+Bundle-Version: 2.5.0.qualifier
+Bundle-Vendor: EclispeSource
+Automatic-Module-Name: org.eclipse.glsp.layout
+Bundle-RequiredExecutionEnvironment: JavaSE-17
+Require-Bundle: com.google.inject;bundle-version="[7.0.0,8.0.0)",
+ org.apache.commons.cli;bundle-version="1.6.0",
+ org.eclipse.emf.common;bundle-version="2.29.0",
+ org.eclipse.elk.core;bundle-version="0.8.1",
+ org.eclipse.elk.graph;bundle-version="0.8.1",
+ org.eclipse.glsp.server;bundle-version="[2.3.0,3.0.0)"
+Export-Package: org.eclipse.glsp.layout

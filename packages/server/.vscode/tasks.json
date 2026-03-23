@@ -1,0 +1,180 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build GLSP Bigraph Server",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "clean",
+                "package",
+                "-DskipTests"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/examples/org.eclipse.glsp.example.bigraph"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": ["$maven"]
+        },
+        {
+            "label": "Build and Launch JAR with Debug",
+            "dependsOn": "Build GLSP Bigraph Server",
+            "dependsOrder": "sequence",
+            "type": "shell",
+            "command": "java",
+            "args": [
+                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005",
+                "-Xmx1g",
+                "-Xms512m",
+                "-Dlogging.level.root=DEBUG",
+                "-jar",
+                "target/org.eclipse.glsp.example.bigraph-2.5.0-SNAPSHOT.jar",
+                "-p",
+                "52579"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/examples/org.eclipse.glsp.example.bigraph"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": ".*"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^Listening for transport dt_socket at address:.*",
+                    "endsPattern": ".*Startup completed.*Accepting requests on port:.*"
+                }
+            }
+        },
+        {
+            "label": "Launch JAR with Debug",
+            "type": "shell",
+            "command": "java",
+            "args": [
+                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005",
+                "-Xmx1g",
+                "-Xms512m",
+                "-jar",
+                "target/org.eclipse.glsp.example.bigraph-2.5.0-SNAPSHOT.jar",
+                "-p",
+                "52579"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/examples/org.eclipse.glsp.example.bigraph"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "new"
+            },
+            "isBackground": true,
+            "problemMatcher": {
+                "owner": "custom",
+                "pattern": {
+                    "regexp": ".*"
+                },
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^Listening for transport dt_socket at address:.*",
+                    "endsPattern": ".*Startup completed.*Accepting requests on port:.*"
+                }
+            }
+        },
+        {
+            "label": "Start Server with Debug (Manual)",
+            "type": "shell",
+            "command": "java",
+            "args": [
+                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005",
+                "-Xmx1g",
+                "-Xms512m",
+                "-jar",
+                "target/org.eclipse.glsp.example.bigraph-2.5.0-SNAPSHOT.jar",
+                "-p",
+                "52579"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/examples/org.eclipse.glsp.example.bigraph"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "isBackground": false,
+            "problemMatcher": []
+        },
+        {
+            "label": "Start Server with Debug (Suspend)",
+            "type": "shell",
+            "command": "java",
+            "args": [
+                "-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005",
+                "-Xmx1g",
+                "-Xms512m",
+                "-jar",
+                "target/org.eclipse.glsp.example.bigraph-2.5.0-SNAPSHOT.jar",
+                "-p",
+                "52579"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/examples/org.eclipse.glsp.example.bigraph"
+            },
+            "group": "build",
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "new"
+            },
+            "isBackground": false,
+            "problemMatcher": []
+        },
+        {
+            "label": "Test GLSP Bigraph Server",
+            "type": "shell",
+            "command": "mvn",
+            "args": [
+                "test"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/examples/org.eclipse.glsp.example.bigraph"
+            },
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "focus": false,
+                "panel": "shared"
+            },
+            "problemMatcher": [
+                "$maven"
+            ]
+        }
+    ]
+} 

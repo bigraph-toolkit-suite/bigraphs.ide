@@ -1,0 +1,315 @@
+/* Bigraph Node Styles */
+
+/* Toolbar shake animation — triggered when a canvas operation fails */
+@keyframes bigraph-palette-shake {
+    0%   { transform: translateX(0);    outline: 2px solid transparent; border-radius: 4px; }
+    20%  { transform: translateX(-3px); outline: 2px solid #e74c3c;     border-radius: 4px; }
+    40%  { transform: translateX(3px);  outline: 2px solid #e74c3c;     border-radius: 4px; }
+    60%  { transform: translateX(-2px); outline: 2px solid #e74c3c;     border-radius: 4px; }
+    80%  { transform: translateX(2px);  outline: 2px solid #e74c3c;     border-radius: 4px; }
+    100% { transform: translateX(0);    outline: 2px solid transparent; border-radius: 4px; }
+}
+
+.bigraph-palette-shake {
+    animation: bigraph-palette-shake 0.35s ease-in-out;
+}
+
+/* Base node styles - all place graph nodes */
+.bigraph-node {
+    fill: #e3f2fd;
+    stroke: #1976d2;
+    stroke-width: 2px;
+    transition: all 0.2s ease;
+}
+
+.bigraph-node:hover {
+    stroke-width: 3px;
+    filter: brightness(1.05);
+}
+
+.bigraph-node.selected {
+    stroke-width: 3px;
+    filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.3));
+}
+
+.bigraph-root {
+    fill: #fff9c4;
+    stroke: #f9a825;
+    stroke-width: 2px;
+}
+
+.bigraph-atomic-node {
+    fill: #e8f5e9;
+    stroke: #4caf50;
+    stroke-width: 2px;
+}
+
+.bigraph-container-node {
+    fill: #e3f2fd;
+    stroke: #2196f3;
+    stroke-width: 2px;
+}
+
+/* Site = place-graph placeholder (slot) */
+.bigraph-site {
+    fill: #fff8e1;
+    stroke: #ff9800;
+    stroke-width: 2px;
+    stroke-dasharray: 6, 4;
+}
+
+.bigraph-site > text,
+.bigraph-site-empty > text,
+.bigraph-site-filled > text {
+    fill: #ffffff !important;
+}
+
+/* Empty site: dashed orange — signals "open placeholder" */
+.bigraph-site-empty {
+    fill: #fff8e1;
+    stroke: #ff9800;
+    stroke-width: 2px;
+    stroke-dasharray: 6, 4;
+}
+
+/* Filled site: solid gray container — signals "this site has content" */
+.bigraph-site-filled {
+    fill: rgba(200, 200, 200, 0.12);
+    stroke: #888888;
+    stroke-width: 1.5px;
+    stroke-dasharray: none;
+}
+
+.bigraph-site.selected,
+.bigraph-site:hover,
+.bigraph-site-empty.selected,
+.bigraph-site-empty:hover {
+    stroke-width: 3px;
+}
+
+.bigraph-site-filled.selected,
+.bigraph-site-filled:hover {
+    stroke: #555555;
+    stroke-width: 2px;
+}
+
+/* Selected state (shared for atomic, container, site) */
+.bigraph-atomic-node.selected,
+.bigraph-container-node.selected,
+.bigraph-site.selected {
+    stroke-width: 3px;
+}
+
+/* Edge styles */
+.bigraph-edge {
+    stroke: #333333;
+    stroke-width: 2px;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.bigraph-hyperedge {
+    stroke: #4caf50;
+    stroke-width: 2px;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Edge hover/selected states */
+.bigraph-edge.selected,
+.bigraph-edge:hover {
+    stroke-width: 3px;
+    stroke: #000000;
+}
+
+.bigraph-hyperedge.selected,
+.bigraph-hyperedge:hover {
+    stroke-width: 3px;
+    stroke: #2e7d32;
+}
+
+/* Labels */
+.bigraph-label {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    fill: #333333;
+}
+
+/* Port styles */
+.bigraph-port {
+    fill: #666666;
+    stroke: #333333;
+    stroke-width: 1px;
+    r: 4;
+}
+
+
+/* Bigraph Diagram Styles */
+
+/* Graph container */
+.sprotty-graph {
+    font-family: Arial, sans-serif;
+}
+
+/* Basic bigraph elements */
+.bigraph-region {
+    fill: #f0f0f0;
+    stroke: #ccc;
+    stroke-width: 2px;
+    stroke-dasharray: 5,5;
+}
+
+/* Atomic and container nodes */
+.atomic-node {
+    fill: #87ceeb;
+    stroke: #4682b4;
+    stroke-width: 2px;
+}
+
+.container-node {
+    fill: #98fb98;
+    stroke: #32cd32;
+    stroke-width: 2px;
+}
+
+
+
+/* Dynamic color classes will be generated for each node color */
+/* Example: .node-color-4CAF50 for green nodes */
+
+/* Edges */
+.bigraph-edge {
+    stroke: #333;
+    stroke-width: 2px;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.bigraph-hyperedge {
+    stroke: #666;
+    stroke-width: 3px;
+    fill: none;
+    stroke-dasharray: 8,4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.bigraph-place-edge {
+    stroke: #2196F3;
+    stroke-width: 2px;
+    fill: none;
+    marker-start: url(#arrowhead);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.bigraph-hyper-connection {
+    stroke: #4CAF50;
+    stroke-width: 2px;
+    stroke-dasharray: 5,5;
+    fill: none;
+    marker-end: url(#arrowhead);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.bigraph-outer-connection {
+    stroke: #FF5722;
+    stroke-width: 2px;
+    stroke-dasharray: 3,3;
+    fill: none;
+    marker-end: url(#arrowhead);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Link Graph connections (nodes to edges/outer names/inner names) */
+.bigraph-link-connection {
+    stroke: #4CAF50;
+    stroke-width: 2px;
+    stroke-dasharray: 4,2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Edge markers */
+.bigraph-edge-arrow {
+    fill: #333;
+}
+
+.bigraph-hyperedge-arrow {
+    fill: #666;
+}
+
+/* Labels */
+.bigraph-label {
+    font-size: 12px;
+    fill: #333;
+    text-anchor: middle;
+    dominant-baseline: middle;
+    pointer-events: none;
+}
+
+/* Buttons and UI elements */
+.bigraph-button {
+    fill: #e0e0e0;
+    stroke: #999;
+    cursor: pointer;
+}
+
+.bigraph-button:hover {
+    fill: #d0d0d0;
+}
+
+.bigraph-button-text {
+    font-size: 10px;
+    fill: #333;
+    text-anchor: middle;
+    pointer-events: none;
+}
+
+/* Dynamic styling will be applied via JavaScript */
+/* See bigraph-diagram-module.ts for color application logic */
+
+/* Context Menu Styling */
+.sprotty-context-menu {
+    display: block !important;
+    position: absolute;
+    z-index: 1000000 !important;
+    background: #ffffff !important;
+    border: 1px solid #ccc !important;
+    box-shadow: 4px 4px 12px rgba(0,0,0,0.3) !important;
+    min-width: 150px;
+    padding: 5px 0;
+    border-radius: 4px;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.sprotty-context-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #333 !important;
+    display: block !important;
+    background: white !important;
+    text-decoration: none !important;
+}
+
+.sprotty-context-menu-item:hover,
+.glsp-context-menu-item:hover,
+div[class*="context-menu-item"]:hover {
+    background-color: #007acc !important;
+    color: #ffffff !important;
+}
+
+.sprotty-context-menu-item.disabled,
+.glsp-context-menu-item.disabled {
+    color: #999;
+    cursor: default;
+    background-color: transparent !important;
+} 

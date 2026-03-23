@@ -1,0 +1,10 @@
+Bigraph IDE
+
+Copyright (c) 2026 Manuel Krombholz
+
+Portions of this project are licensed under the Apache License, Version 2.0
+(see file headers in packages/vscode-extension and custom Java sources in
+packages/server/examples/org.eclipse.glsp.example.bigraph).
+
+Other portions are derived from Eclipse GLSP and are licensed under the
+Eclipse Public License 2.0 — see packages/server/LICENSE.

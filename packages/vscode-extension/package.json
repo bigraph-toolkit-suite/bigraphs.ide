@@ -1,0 +1,601 @@
+{
+  "name": "bigraphide",
+  "displayName": "Bigraphide",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.98.0",
+    "node": ">=18"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "bigraph",
+        "aliases": [
+          "Bigraph",
+          "bigraph"
+        ],
+        "extensions": [
+          ".xmi"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "bigraphide.helloWorld",
+        "title": "Hello World"
+      },
+      {
+        "command": "bigraph-extension.openDiagram",
+        "title": "Open Bigraph Diagram"
+      },
+      {
+        "command": "bigraph.create",
+        "title": "Create New Bigraph",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "bigraph.testRewriteRule",
+        "title": "Test Rewrite Rule",
+        "icon": "$(wand)"
+      },
+      {
+        "command": "bigraph.toggleReadOnlyMode",
+        "title": "Toggle Read-only Mode",
+        "icon": "$(lock)"
+      },
+      {
+        "command": "bigraph.addRewriteRuleSet",
+        "title": "Add Rewrite Rule Set",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "bigraph.addRewriteRule",
+        "title": "Add Rule to Set",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "bigraph.closeRewriteRuleEditor",
+        "title": "Close Rewrite Rule Editor",
+        "icon": "$(close)"
+      },
+      {
+        "command": "bigraph.deleteRewriteRuleSet",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "bigraph.deleteRewriteRule",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "bigraph.selectEvolutionFolder",
+        "title": "Open in Evolution Manager"
+      },
+      {
+        "command": "bigraph.playRewriteRuleOrSet",
+        "title": "Play",
+        "icon": "$(play)"
+      },
+      {
+        "command": "bigraph.addToVerification",
+        "title": "Add to Verification",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "bigraph.composeBigraph",
+        "title": "Compose with Canvas Bigraph",
+        "icon": "$(arrow-swap)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "bigraph-explorer-container",
+          "title": "Bigraph Explorer",
+          "icon": "media/bigraphide-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "bigraph-explorer-container": [
+        {
+          "id": "bigraphExplorer",
+          "name": "Bigraphs"
+        },
+        {
+          "id": "rewriteRules",
+          "name": "Rewrite Rules"
+        },
+        {
+          "id": "bigraphHtmlView",
+          "name": "Rewrite Rule Editor",
+          "type": "webview",
+          "visibility": "hidden",
+          "when": "bigraph.showRewriteRuleEditor"
+        },
+        {
+          "id": "evolutions",
+          "name": "Evolutions"
+        },
+        {
+          "id": "evolutionManagerView",
+          "name": "Evolution Manager",
+          "type": "webview"
+        }
+      ]
+    },
+    "customEditors": [
+      {
+        "viewType": "bigraph.glspDiagram",
+        "displayName": "Bigraph Diagram Editor",
+        "selector": [
+          {
+            "filenamePattern": "*.xmi"
+          }
+        ]
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "bigraph.create",
+          "when": "view == bigraphExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "bigraph.testRewriteRule",
+          "when": "view == bigraphExplorer || view == rewriteRules",
+          "group": "navigation"
+        },
+        {
+          "command": "bigraph.toggleReadOnlyMode",
+          "when": "view == bigraphExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "bigraph.addRewriteRuleSet",
+          "when": "view == rewriteRules",
+          "group": "navigation"
+        },
+        {
+          "command": "bigraph.closeRewriteRuleEditor",
+          "when": "view == bigraphHtmlView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "bigraph.playRewriteRuleOrSet",
+          "when": "view == rewriteRules && (viewItem == rewriteRuleSet || viewItem == rewriteRule)",
+          "group": "inline"
+        },
+        {
+          "command": "bigraph.addRewriteRule",
+          "when": "view == rewriteRules && (viewItem == rewriteRuleSet || viewItem == rewriteRuleSetEmpty)",
+          "group": "inline"
+        },
+        {
+          "command": "bigraph.deleteRewriteRuleSet",
+          "when": "view == rewriteRules && (viewItem == rewriteRuleSet || viewItem == rewriteRuleSetEmpty)",
+          "group": "navigation"
+        },
+        {
+          "command": "bigraph.deleteRewriteRule",
+          "when": "view == rewriteRules && viewItem == rewriteRule",
+          "group": "navigation"
+        },
+        {
+          "command": "bigraph.addToVerification",
+          "when": "view == bigraphExplorer && viewItem == bigraphFile",
+          "group": "inline"
+        },
+        {
+          "command": "bigraph.composeBigraph",
+          "when": "view == bigraphExplorer && viewItem == bigraphFile",
+          "group": "inline"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "bigraph-extension.openDiagram",
+          "when": "resourceExtname == '.xmi'",
+          "group": "navigation"
+        }
+      ]
+    },
+    "languageModelTools": [
+      {
+        "name": "bigraph-context",
+        "displayName": "Bigraph Context",
+        "description": "Shows which bigraph file is currently active and lists all open bigraph editor tabs. Call this first when unsure which file you are working on.",
+        "modelDescription": "Shows which bigraph file is currently active and lists all open bigraph editor tabs. Call this first when unsure which file you are working on.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        },
+        "toolReferenceName": "bigraph-context"
+      },
+      {
+        "name": "bigraph-summary",
+        "displayName": "Bigraph Summary",
+        "description": "Returns a quick statistical overview of a bigraph: total nodes, roots, sites, hyperedges, edges, list of control types, and maximum nesting depth.",
+        "modelDescription": "Returns a statistical overview of a bigraph: total nodes, roots, sites, hyperedges, edges, control types, and maximum nesting depth. Use this to understand the structure at a glance.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Optional. Absolute path to a specific bigraph file. If omitted, uses the currently active editor tab."
+            }
+          }
+        },
+        "toolReferenceName": "bigraph-summary"
+      },
+      {
+        "name": "bigraph-getRoots",
+        "displayName": "Bigraph Get Roots",
+        "description": "Returns all root regions of the bigraph (top-level containers in the place graph). Each root has an id, label, and child count.",
+        "modelDescription": "Returns all root regions of the bigraph place graph. Each root has an id, label, and child count.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Optional. Absolute path to a specific bigraph file."
+            }
+          }
+        },
+        "toolReferenceName": "bigraph-getRoots"
+      },
+      {
+        "name": "bigraph-getChildren",
+        "displayName": "Bigraph Get Children",
+        "description": "Returns the direct children of a node in the place graph. Each child includes id, type, label, controlType, and childCount.",
+        "modelDescription": "Returns the direct children of a node in the bigraph place graph. Each child includes id, type, label, controlType, and childCount.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "nodeId": {
+              "type": "string",
+              "description": "The GModel ID of the parent node."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          },
+          "required": [
+            "nodeId"
+          ]
+        },
+        "toolReferenceName": "bigraph-getChildren"
+      },
+      {
+        "name": "bigraph-getNodeInfo",
+        "displayName": "Bigraph Get Node Info",
+        "description": "Returns detailed information about a single node: type, label, controlType, parent, children, connected edges, args.",
+        "modelDescription": "Returns detailed information about a single bigraph node: type, label, controlType, parent, children, connected edges, and args.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "nodeId": {
+              "type": "string",
+              "description": "The GModel ID of the node."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          },
+          "required": [
+            "nodeId"
+          ]
+        },
+        "toolReferenceName": "bigraph-getNodeInfo"
+      },
+      {
+        "name": "bigraph-findByControl",
+        "displayName": "Bigraph Find By Control",
+        "description": "Finds all nodes with a given control type (e.g. Sensor, Room, Router). Returns id, label, child count.",
+        "modelDescription": "Finds all bigraph nodes with a given control type (e.g. Sensor, Room, Router). Returns id, label, and child count for each match.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "control": {
+              "type": "string",
+              "description": "The control type name to search for."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          },
+          "required": [
+            "control"
+          ]
+        },
+        "toolReferenceName": "bigraph-findByControl"
+      },
+      {
+        "name": "bigraph-getSignature",
+        "displayName": "Bigraph Get Signature",
+        "description": "Returns all available control types with their arity and kind (ACTIVE/PASSIVE/ATOMIC). Use this to know which controlName values are valid when creating new nodes.",
+        "modelDescription": "Returns all available control types in the bigraph signature with their arity and kind (ACTIVE/PASSIVE/ATOMIC). Use to discover valid controlName values before creating nodes.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Optional. Absolute path to a specific bigraph file."
+            }
+          }
+        },
+        "toolReferenceName": "bigraph-getSignature"
+      },
+      {
+        "name": "bigraph-getLinks",
+        "displayName": "Bigraph Get Links",
+        "description": "Returns all hyperedges (links) in the bigraph. Each link includes id, name, and connected node IDs.",
+        "modelDescription": "Returns all hyperedges (links) in the bigraph link graph. Each link includes id, name, and the IDs of connected nodes.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          }
+        },
+        "toolReferenceName": "bigraph-getLinks"
+      },
+      {
+        "name": "bigraph-getNeighbors",
+        "displayName": "Bigraph Get Neighbors",
+        "description": "Returns all nodes connected to a given node via shared hyperedges in the link graph.",
+        "modelDescription": "Returns all bigraph nodes connected to a given node via shared hyperedges in the link graph.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "nodeId": {
+              "type": "string",
+              "description": "The GModel ID of the node."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          },
+          "required": [
+            "nodeId"
+          ]
+        },
+        "toolReferenceName": "bigraph-getNeighbors"
+      },
+      {
+        "name": "bigraph-addNode",
+        "displayName": "Bigraph Add Node",
+        "description": "Creates a new bigraph node with a given control type as a child of an existing node, root, or site.",
+        "modelDescription": "Creates a new bigraph node with a given control type as a child of an existing node, root, or site. The controlName must exist in the signature.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "parentId": {
+              "type": "string",
+              "description": "The GModel ID of the parent (root, node, or site)."
+            },
+            "controlName": {
+              "type": "string",
+              "description": "The control type name for the new node (must exist in the signature)."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          },
+          "required": [
+            "parentId",
+            "controlName"
+          ]
+        },
+        "toolReferenceName": "bigraph-addNode"
+      },
+      {
+        "name": "bigraph-addSite",
+        "displayName": "Bigraph Add Site",
+        "description": "Creates a bigraph site (hole in the place graph). Parent is resolved from default position.",
+        "modelDescription": "Creates a bigraph site (place-graph hole). The site is placed under a root or node.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          }
+        },
+        "toolReferenceName": "bigraph-addSite"
+      },
+      {
+        "name": "bigraph-addInnerName",
+        "displayName": "Bigraph Add Inner Name",
+        "description": "Creates an inner name in the link graph. Use createEdge to connect it to nodes or outer names.",
+        "modelDescription": "Creates an inner name (link-graph internal interface). Connect it with createEdge.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          }
+        },
+        "toolReferenceName": "bigraph-addInnerName"
+      },
+      {
+        "name": "bigraph-addOuterName",
+        "displayName": "Bigraph Add Outer Name",
+        "description": "Creates an outer name in the link graph. Use createEdge to connect nodes or inner names to it.",
+        "modelDescription": "Creates an outer name (link-graph external interface). Connect it with createEdge.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          }
+        },
+        "toolReferenceName": "bigraph-addOuterName"
+      },
+      {
+        "name": "bigraph-addEdge",
+        "displayName": "Bigraph Add Edge",
+        "description": "Creates a new hyperedge (link) in the bigraph. Use createEdge to connect nodes or names to it.",
+        "modelDescription": "Creates a new hyperedge (link). Then use createEdge to connect points to this link.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          }
+        },
+        "toolReferenceName": "bigraph-addEdge"
+      },
+      {
+        "name": "bigraph-deleteElement",
+        "displayName": "Bigraph Delete Element",
+        "description": "Deletes a bigraph element (node, site, root, hyperedge, or edge). Supports undo.",
+        "modelDescription": "Deletes a bigraph element (node, site, root, hyperedge, or edge) by its GModel ID. The operation supports undo.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "elementId": {
+              "type": "string",
+              "description": "The GModel ID of the element to delete."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          },
+          "required": [
+            "elementId"
+          ]
+        },
+        "toolReferenceName": "bigraph-deleteElement"
+      },
+      {
+        "name": "bigraph-createEdge",
+        "displayName": "Bigraph Create Edge",
+        "description": "Creates a link connection between two elements (e.g. node port to hyperedge, or inner to outer name).",
+        "modelDescription": "Creates a link connection between two bigraph elements (e.g. node port to hyperedge, or inner name to outer name).",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sourceId": {
+              "type": "string",
+              "description": "GModel ID of the source element."
+            },
+            "targetId": {
+              "type": "string",
+              "description": "GModel ID of the target element."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          },
+          "required": [
+            "sourceId",
+            "targetId"
+          ]
+        },
+        "toolReferenceName": "bigraph-createEdge"
+      },
+      {
+        "name": "bigraph-autoLayout",
+        "displayName": "Bigraph Auto Layout",
+        "description": "Runs automatic layout (ELK) on the diagram. Optionally specify algorithm: layered, mrtree, force, stress.",
+        "modelDescription": "Runs automatic layout (ELK) on the bigraph diagram. Optionally specify an algorithm: layered, mrtree, force, or stress.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "type": "string",
+              "description": "Optional. One of: layered, mrtree, force, stress."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional."
+            }
+          }
+        },
+        "toolReferenceName": "bigraph-autoLayout"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "compile:all": "npm run compile:webview && npm run compile",
+    "compile:webview": "cd webview && npm run build",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^18.19.103",
+    "@types/vscode": "^1.98.0",
+    "@types/ws": "^8.18.1",
+    "@typescript-eslint/eslint-plugin": "^8.25.0",
+    "@typescript-eslint/parser": "^8.25.0",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1",
+    "esbuild": "^0.25.0",
+    "eslint": "^9.21.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@eclipse-glsp/vscode-integration": "^2.4.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "zod": "^3.25.76"
+  }
+}

@@ -1,0 +1,25 @@
+# --- OS junk ---
+.DS_Store
+.DS_Store?
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Editor / IDE (local only; keep shared .vscode when committed) ---
+.idea/
+*.iml
+*.sublime-*
+
+# --- Secrets & local env ---
+.env
+.env.local
+.env.*.local
+
+# --- Logs & temp ---
+*.log
+*.swp
+*~
+*.tmp
+
+# --- If tooling is ever added at repo root ---
+/node_modules/

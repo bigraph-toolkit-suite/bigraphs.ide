@@ -1,0 +1,22 @@
+out
+dist
+node_modules
+.vscode-test/
+*.vsix
+
+# Webview build artifacts
+webview/lib/
+webview/dist/
+webview/node_modules/
+
+# Additional build artifacts
+*.tsbuildinfo
+.DS_Store
+
+# Tests / coverage / caches
+coverage/
+.nyc_output/
+.eslintcache
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
