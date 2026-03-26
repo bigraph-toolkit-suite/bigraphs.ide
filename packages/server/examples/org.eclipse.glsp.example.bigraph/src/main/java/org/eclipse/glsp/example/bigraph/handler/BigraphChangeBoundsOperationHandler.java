@@ -103,6 +103,9 @@ public class BigraphChangeBoundsOperationHandler extends GModelChangeBoundsOpera
         } else if (entity instanceof BigraphEntity.SiteEntity) {
             String key = String.valueOf(((BigraphEntity.SiteEntity) entity).getIndex());
             meta.getSitePositions().put(key, newPosition);
+        } else if (entity instanceof BigraphEntity.RootEntity) {
+            String key = String.valueOf(((BigraphEntity.RootEntity) entity).getIndex());
+            meta.getRootPositions().put(key, newPosition);
         } else if (entity instanceof BigraphEntity.Edge) {
             meta.getEdgePositions().put(((BigraphEntity.Edge) entity).getName(), newPosition);
         } else if (entity instanceof BigraphEntity.OuterName) {

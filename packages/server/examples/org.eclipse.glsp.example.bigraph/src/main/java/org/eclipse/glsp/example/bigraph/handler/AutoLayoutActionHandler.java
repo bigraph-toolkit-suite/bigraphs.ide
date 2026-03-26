@@ -270,6 +270,9 @@ public class AutoLayoutActionHandler extends AbstractActionHandler<AutoLayoutAct
             } else if (entity instanceof BigraphEntity.SiteEntity) {
                 final String key = String.valueOf(((BigraphEntity.SiteEntity) entity).getIndex());
                 meta.getSitePositions().put(key, copy);
+            } else if (entity instanceof BigraphEntity.RootEntity) {
+                final String key = String.valueOf(((BigraphEntity.RootEntity) entity).getIndex());
+                meta.getRootPositions().put(key, copy);
             } else if (entity instanceof BigraphEntity.Edge) {
                 meta.getEdgePositions().put(((BigraphEntity.Edge) entity).getName(), copy);
             } else if (entity instanceof BigraphEntity.OuterName) {

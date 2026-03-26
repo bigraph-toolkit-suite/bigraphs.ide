@@ -33,6 +33,10 @@ public class BigraphMetaInformation {
     private Map<String, GPoint> outerNamePositions = new HashMap<>();
     private Map<String, GPoint> edgePositions = new HashMap<>();
     private Map<String, GPoint> sitePositions = new HashMap<>();
+    /**
+     * Root positions keyed by the root index (stringified int).
+     */
+    private Map<String, GPoint> rootPositions = new HashMap<>();
     private Map<String, ControlProperty> controlMeta = new HashMap<>();
 
     public Map<String, GPoint> getNodePositions() { return nodePositions; }
@@ -52,6 +56,9 @@ public class BigraphMetaInformation {
 
     public Map<String, GPoint> getSitePositions() { return sitePositions; }
     public void setSitePositions(Map<String, GPoint> sitePositions) { this.sitePositions = sitePositions; }
+
+    public Map<String, GPoint> getRootPositions() { return rootPositions; }
+    public void setRootPositions(Map<String, GPoint> rootPositions) { this.rootPositions = rootPositions; }
 
     public Map<String, ControlProperty> getControlMeta() { return controlMeta; }
     public void setControlMeta(Map<String, ControlProperty> controlMeta) { this.controlMeta = controlMeta; }

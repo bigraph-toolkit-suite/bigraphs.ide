@@ -243,10 +243,18 @@ public class GraphBigraphView extends BigraphView {
         gNode.setId(nodeId);
         gNode.setType(BigraphModelTypes.BIGRAPH_ROOT);
 
-        // Position roots at the top
+        // Position roots at the top (restore from meta if present)
         GPoint position = GraphFactory.eINSTANCE.createGPoint();
-        position.setX(START_X + rootCounter * SPACING_X);
-        position.setY(START_Y);
+        final BigraphMetaInformation meta = modelState.getMetaInformation();
+        final String rootKey = String.valueOf(root.getIndex());
+        if (meta != null && meta.getRootPositions().containsKey(rootKey)) {
+            final GPoint metaPos = meta.getRootPositions().get(rootKey);
+            position.setX(metaPos.getX());
+            position.setY(metaPos.getY());
+        } else {
+            position.setX(START_X + rootCounter * SPACING_X);
+            position.setY(START_Y);
+        }
         gNode.setPosition(position);
 
         // Size

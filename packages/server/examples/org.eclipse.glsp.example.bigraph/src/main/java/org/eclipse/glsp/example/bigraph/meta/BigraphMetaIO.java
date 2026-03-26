@@ -83,6 +83,7 @@ public class BigraphMetaIO {
         addReference(metaInfoClass, "outerNamePositions", pointEntryClass, false, -1);
         addReference(metaInfoClass, "edgePositions", pointEntryClass, false, -1);
         addReference(metaInfoClass, "sitePositions", pointEntryClass, false, -1);
+        addReference(metaInfoClass, "rootPositions", pointEntryClass, false, -1);
         addReference(metaInfoClass, "controlMeta", controlEntryClass, false, -1);
         metaPackage.getEClassifiers().add(metaInfoClass);
     }
@@ -123,6 +124,7 @@ public class BigraphMetaIO {
         fillPointMap(root, "outerNamePositions", info.getOuterNamePositions());
         fillPointMap(root, "edgePositions", info.getEdgePositions());
         fillPointMap(root, "sitePositions", info.getSitePositions());
+        fillPointMap(root, "rootPositions", info.getRootPositions());
         
         fillControlMap(root, info.getControlMeta());
         
@@ -177,6 +179,7 @@ public class BigraphMetaIO {
         readPointMap(root, "outerNamePositions", info.getOuterNamePositions());
         readPointMap(root, "edgePositions", info.getEdgePositions());
         readPointMap(root, "sitePositions", info.getSitePositions());
+        readPointMap(root, "rootPositions", info.getRootPositions());
         
         readControlMap(root, info.getControlMeta());
         
