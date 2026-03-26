@@ -3,6 +3,8 @@ import { type EvolutionActionPayload } from './runEvolution.js';
 import { type EvolutionFormState } from './evolutionManagerState.js';
 import { setEvolutionFolder, refreshTreeFromJson, handleVerifyResult } from './evolutionManagerJsonIO.js';
 import { handleEvolutionAction, handleTreeNodeClicked, loadEvolutionManagerHtml } from './evolutionManagerActions.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export { type EvolutionFormState } from './evolutionManagerState.js';
 
@@ -175,6 +177,13 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 						this
 					).catch((err) => console.error('[Evolution Manager] treeNodeClicked failed:', err));
 					break;
+				case 'deleteVerificationBigraph': {
+					const req = msg as unknown as { verificationId: string };
+					this._deleteVerificationBigraph(req.verificationId).catch((err) =>
+						console.error('[Evolution Manager] deleteVerificationBigraph failed:', err)
+					);
+					break;
+				}
 				}
 			}
 		);
@@ -201,5 +210,83 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 			verificationPath: req.verificationPath,
 			checkpointPath: req.checkpointPath ?? null
 		});
+	}
+
+	/**
+	 * Removes a verification rule from the evolution project: drops it from `evolution.json`
+	 * (top-level list and any `operations[].verification` references), deletes the on-disk
+	 * bigraph triplet next to that entry, then refreshes the webview from patched `_formState`
+	 * without calling a full folder reload (keeps the panel stable).
+	 */
+	private async _deleteVerificationBigraph(verificationId: string): Promise<void> {
+		try {
+			const folderPath = this._evolutionConfigPath;
+			if (!folderPath) { return; }
+			if (!verificationId) { return; }
+
+			const evoJsonPath = path.join(folderPath, 'evolution.json');
+			let json: Record<string, unknown>;
+			try {
+				json = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8')) as Record<string, unknown>;
+			} catch {
+				vscode.window.showWarningMessage('Could not read evolution.json.');
+				return;
+			}
+
+			// Top-level `verification` array: remove the definition and keep the spliced row for file paths
+			const verificationArr = Array.isArray(json['verification'])
+				? (json['verification'] as Record<string, unknown>[])
+				: [];
+			const idx = verificationArr.findIndex((v) => String(v['id'] ?? '') === verificationId);
+			if (idx < 0) { return; }
+
+			const deleted = verificationArr.splice(idx, 1)[0] ?? {};
+			json['verification'] = verificationArr;
+
+			// History: each operation may list verification checks; strip this id so cursors stay consistent
+			const ops = Array.isArray(json['operations'])
+				? (json['operations'] as Record<string, unknown>[])
+				: [];
+			for (const op of ops) {
+				const verList = Array.isArray(op['verification'])
+					? (op['verification'] as Record<string, unknown>[])
+					: [];
+				const filtered = verList.filter((v) => String(v['id'] ?? '') !== verificationId);
+				if (filtered.length !== verList.length) {
+					op['verification'] = filtered;
+				}
+			}
+			json['operations'] = ops;
+
+			// On-disk cleanup: same basename as the `.xmi` stored in `deleted.path` (instance + signature pair)
+			const relPath = typeof deleted['path'] === 'string' ? deleted['path'] : '';
+			if (relPath) {
+				const absXmi = path.isAbsolute(relPath) ? relPath : path.join(folderPath, relPath);
+				const base = absXmi.replace(/\.xmi$/i, '');
+				for (const ext of ['.xmi', '.signature.ecore', '.signature.xmi']) {
+					const p = base + ext;
+					try { if (fs.existsSync(p)) { fs.unlinkSync(p); } } catch { /* ignore */ }
+				}
+			}
+
+			try {
+				fs.writeFileSync(evoJsonPath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+			} catch {
+				vscode.window.showWarningMessage('Could not write evolution.json.');
+				return;
+			}
+
+			// Sync UI: push updated list into the webview directly (avoid `setEvolutionFolder` re-init)
+			if (this._formState) {
+				const newVbs = this._formState.verificationBigraphs.filter((v) => v.id !== verificationId);
+				this._formState = { ...this._formState, verificationBigraphs: newVbs };
+				this.postMessage({ type: 'restoreFormState', state: this._formState });
+			} else {
+				this.postMessage({ type: 'fillEvolutionForm', verificationBigraphs: [] });
+			}
+		} catch {
+			// Broad catch: file/JSON edge cases must not take down the extension host
+			vscode.window.showWarningMessage('Could not delete verification rule.');
+		}
 	}
 }

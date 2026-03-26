@@ -3,7 +3,7 @@ import type { EvolutionOperation, VerificationBigraph, VsCodeApi } from './types
 
 const CHECK_SVG = `<svg viewBox="0 0 16 16"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>`;
 const CROSS_SVG = `<svg viewBox="0 0 16 16"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/></svg>`;
-const PEN_SVG   = `<svg viewBox="0 0 16 16"><path d="M12.854.146a.5.5 0 0 0-.707 0L2 10.293V14h3.707l10.147-10.146a.5.5 0 0 0 0-.708l-2-2zM3 13v-1.586l8-8L12.586 5l-8 8H3z"/></svg>`;
+const TRASH_SVG = `<svg viewBox="0 0 16 16"><path d="M6 2h4l1 1h3v1H2V3h3l1-1zm-2 4h1v8H4V6zm3 0h1v8H7V6zm3 0h1v8h-1V6z"/></svg>`;
 const DROP_HINT = `<div class="verification-drop-hint">Drop bigraphs from the explorer here\u2026</div>`;
 
 export class EvoVerification {
@@ -56,7 +56,7 @@ export class EvoVerification {
 		return `<div class="item" data-vb-idx="${i}">`
 			+ `<span class="verification-item-name">`
 			+   `<span class="verification-label" data-vb-idx="${i}">${EvoState.escapeHtml(label)}</span>`
-			+   `<button class="verification-pen-btn" title="Rename" data-vb-idx="${i}">${PEN_SVG}</button>`
+			+   `<button class="verification-del-btn" title="Delete" data-vb-idx="${i}">${TRASH_SVG}</button>`
 			+ `</span>`
 			+ checkOrIcon
 			+ `<span class="${tagClass}" data-vb-idx="${i}">stop</span>`
@@ -94,45 +94,20 @@ export class EvoVerification {
 			});
 		});
 
-		this.listEl.querySelectorAll<HTMLButtonElement>('.verification-pen-btn').forEach((btn) => {
+		this.listEl.querySelectorAll<HTMLButtonElement>('.verification-del-btn').forEach((btn) => {
 			btn.addEventListener('click', (e) => {
 				e.stopPropagation();
 				const idx = this.parseIdx(btn);
 				if (idx < 0) { return; }
-				this.startRename(idx, btn);
-			});
-		});
-	}
-
-	private startRename(idx: number, btn: HTMLButtonElement): void {
-		const labelSpan = this.listEl.querySelector<HTMLElement>(`.verification-label[data-vb-idx="${idx}"]`);
-		if (!labelSpan) { return; }
-		const currentLabel = this.state.lastVerificationBigraphs[idx].label;
-		const input        = document.createElement('input');
-		input.type         = 'text';
-		input.className    = 'verification-rename-input';
-		input.value        = currentLabel;
-		labelSpan.replaceWith(input);
-		btn.style.display = 'none';
-		input.focus();
-		input.select();
-
-		const commit = (): void => {
-			const newLabel = input.value.trim() || currentLabel;
-			this.state.lastVerificationBigraphs[idx] = {
-				...this.state.lastVerificationBigraphs[idx],
-				label: newLabel,
-			};
-			this.render(this.state.lastVerificationBigraphs);
-			this.reportVerificationBigraphs();
-		};
-		input.addEventListener('blur', commit);
-		input.addEventListener('keydown', (ke) => {
-			if (ke.key === 'Enter')  { input.blur(); }
-			if (ke.key === 'Escape') {
-				input.removeEventListener('blur', commit);
+				const vb = this.state.lastVerificationBigraphs[idx];
+				if (!vb?.id) { return; }
+				// Optimistic UI update: remove immediately so the UI stays responsive even if
+				// the host-side cleanup fails or reload messages arrive later.
+				this.state.lastVerificationBigraphs.splice(idx, 1);
 				this.render(this.state.lastVerificationBigraphs);
-			}
+				this.reportVerificationBigraphs();
+				this.vscode.postMessage({ type: 'deleteVerificationBigraph', verificationId: vb.id });
+			});
 		});
 	}
 
