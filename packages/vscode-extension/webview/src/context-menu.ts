@@ -23,21 +23,15 @@ export class BigraphContextMenuProvider implements IContextMenuItemProvider {
         if (element) {
             // Nodes and Names: Enable Rename
             // Check for both 'node' and 'bigraph:node' since the diagram module configures both
-            if (element.type === 'bigraph:node' || element.type === 'node' || 
-                element.type === 'bigraph:inner-name' || element.type === 'bigraph:outer-name') {
+            if (element.type === 'bigraph:node' || element.type === 'node' ||
+                element.type === 'bigraph:inner-name' || element.type === 'bigraph:outer-name' ||
+                element.type === 'bigraph:hyperedge') {
                 actions.push({
                     label: 'Rename',
                     actions: [{
                         kind: 'localRename',
                         elementId: element.id
                     } as Action]
-                });
-            }
-            // HyperEdges: Show "Not available" (disabled)
-            else if (element.type === 'bigraph:hyperedge') {
-                actions.push({
-                    label: 'Not available',
-                    actions: [] // No actions
                 });
             }
         }

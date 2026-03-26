@@ -267,6 +267,7 @@ public class GraphBigraphView extends BigraphView {
         // Register mapping (bidirectional)
         entityToGModelId.put(root, nodeId);
         gModelIdToEntity.put(nodeId, root);
+        gModelIdToGNode.put(nodeId, gNode);
 
         rootCounter++;
     }
@@ -281,6 +282,7 @@ public class GraphBigraphView extends BigraphView {
             entityToGModelId.remove(entity);
             LOGGER.info("  ✅ Removed root entity from registry");
         }
+        gModelIdToGNode.remove(rootId);
         
         // 2. Remove the GNode from the GModel
         modelState.getRoot().getChildren().removeIf(child -> {
@@ -632,6 +634,20 @@ public class GraphBigraphView extends BigraphView {
                 meta.getNodeRelativePositions().put(newPositionKey, oldRelative);
             }
         }
+
+        // Non-node entities (inner/outer names + hyperedges) store positions keyed directly by their name.
+        if (meta != null && oldName != null && !oldName.equals(newName)) {
+            if (BigraphModelTypes.INNER_NAME.equals(gNode.getType())) {
+                final GPoint oldPos = meta.getInnerNamePositions().remove(oldName);
+                if (oldPos != null) { meta.getInnerNamePositions().put(newName, oldPos); }
+            } else if (BigraphModelTypes.OUTER_NAME.equals(gNode.getType())) {
+                final GPoint oldPos = meta.getOuterNamePositions().remove(oldName);
+                if (oldPos != null) { meta.getOuterNamePositions().put(newName, oldPos); }
+            } else if (BigraphModelTypes.HYPEREDGE.equals(gNode.getType())) {
+                final GPoint oldPos = meta.getEdgePositions().remove(oldName);
+                if (oldPos != null) { meta.getEdgePositions().put(newName, oldPos); }
+            }
+        }
         
         LOGGER.info("✅ Updated GNode label to: {}", gNode.getArgs().get("label"));
     }
@@ -689,6 +705,7 @@ public class GraphBigraphView extends BigraphView {
         // Register mapping (bidirectional)
         entityToGModelId.put(edge, nodeId);
         gModelIdToEntity.put(nodeId, edge);
+        gModelIdToGNode.put(nodeId, gNode);
 
         // Create connections to all connected points
         if (connectedPoints != null && !connectedPoints.isEmpty()) {
@@ -711,6 +728,7 @@ public class GraphBigraphView extends BigraphView {
             entityToGModelId.remove(entity);
             LOGGER.info("  ✅ Removed edge entity from registry");
         }
+        gModelIdToGNode.remove(edgeId);
         
         // 2. Remove the GNode (hyperedge visual) from the GModel
         modelState.getRoot().getChildren().removeIf(child -> {
@@ -784,6 +802,7 @@ public class GraphBigraphView extends BigraphView {
         // Register mapping (bidirectional)
         entityToGModelId.put(outerName, nodeId);
         gModelIdToEntity.put(nodeId, outerName);
+        gModelIdToGNode.put(nodeId, gNode);
 
         // Create connections to all connected points
         if (connectedPoints != null && !connectedPoints.isEmpty()) {
@@ -806,6 +825,7 @@ public class GraphBigraphView extends BigraphView {
             entityToGModelId.remove(entity);
             LOGGER.info("  ✅ Removed outer name entity from registry");
         }
+        gModelIdToGNode.remove(outerNameId);
         
         // 2. Remove the GNode from the GModel
         modelState.getRoot().getChildren().removeIf(child -> {
@@ -879,6 +899,7 @@ public class GraphBigraphView extends BigraphView {
         // Register mapping (bidirectional)
         entityToGModelId.put(innerName, nodeId);
         gModelIdToEntity.put(nodeId, innerName);
+        gModelIdToGNode.put(nodeId, gNode);
 
         // Note: connections to this inner name are created by onAddEdge/onAddOuterName
 
@@ -898,6 +919,7 @@ public class GraphBigraphView extends BigraphView {
             entityToGModelId.remove(entity);
             LOGGER.info("  ✅ Removed inner name entity from registry");
         }
+        gModelIdToGNode.remove(innerNameId);
         
         // 2. Remove the GNode from the GModel
         modelState.getRoot().getChildren().removeIf(child -> {

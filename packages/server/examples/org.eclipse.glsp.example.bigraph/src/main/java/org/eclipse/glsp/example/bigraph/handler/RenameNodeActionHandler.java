@@ -25,13 +25,18 @@ import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
 import org.eclipse.glsp.server.actions.AbstractActionHandler;
 import org.eclipse.glsp.server.actions.Action;
 import org.eclipse.glsp.server.actions.ActionDispatcher;
+import org.bigraphs.framework.core.BigraphMetaModelConstants;
 import org.eclipse.glsp.server.actions.SetDirtyStateAction;
 import org.eclipse.glsp.server.features.core.model.UpdateModelAction;
 import org.eclipse.glsp.server.model.GModelState;
 
 import com.google.inject.Inject;
-import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.BigraphEntity.NodeEntity;
+import org.bigraphs.framework.core.impl.signature.DynamicControl;
+import org.bigraphs.framework.core.impl.BigraphEntity.Edge;
+import org.bigraphs.framework.core.impl.BigraphEntity.InnerName;
+import org.bigraphs.framework.core.impl.BigraphEntity.OuterName;
+import org.bigraphs.framework.core.utils.emf.EMFUtils;
 import org.eclipse.glsp.example.bigraph.views.BigraphView;
 
 public class RenameNodeActionHandler extends AbstractActionHandler<RenameNodeAction> {
@@ -46,7 +51,7 @@ public class RenameNodeActionHandler extends AbstractActionHandler<RenameNodeAct
 
     @Override
     public List<Action> executeAction(RenameNodeAction action) {
-        LOGGER.info("🚀 Renaming node {} to {}", action.getElementId(), action.getNewName());
+        LOGGER.info("✏️ Renaming element {} to {}", action.getElementId(), action.getNewName());
         
         if (!(modelState instanceof BigraphModelState)) {
             LOGGER.error("❌ Model state is not valid");
@@ -60,28 +65,30 @@ public class RenameNodeActionHandler extends AbstractActionHandler<RenameNodeAct
         BigraphEntity<?> entity = view.getBigraphEntityForGModelId(action.getElementId())
                 .orElse(null);
 
-        if (!(entity instanceof NodeEntity)) {
-            LOGGER.error("❌ Could not find node with ID {}", action.getElementId());
-            return List.of();
-        }
-        
-        @SuppressWarnings("unchecked")
-        NodeEntity<DynamicControl> node = (NodeEntity<DynamicControl>) entity;
-
         try {
+            if (entity == null) {
+                LOGGER.error("❌ Could not resolve element for ID {}", action.getElementId());
+                return List.of();
+            }
+
             // Update the bigraph model first
-            node.setName(action.getNewName());
-            if (node.getAttributes() != null) {
-                node.getAttributes().put("name", action.getNewName());
-                node.getAttributes().put("label", action.getNewName());
+            if (entity instanceof NodeEntity) {
+                @SuppressWarnings("unchecked")
+                final NodeEntity<DynamicControl> node = (NodeEntity<DynamicControl>) entity;
+                node.setName(action.getNewName());
+            } else if (entity instanceof InnerName || entity instanceof OuterName || entity instanceof Edge) {
+                renameLinkEntity(entity, action.getNewName());
+            } else {
+                LOGGER.error("❌ Rename not supported for entity type: {}", entity.getClass().getSimpleName());
+                return List.of();
             }
 
             // Update the graphical model only after bigraph mutation succeeded
             view.onRename(action.getElementId(), action.getNewName());
         } catch (Exception e) {
-            LOGGER.error("❌ Failed to rename node: {} → {}", action.getElementId(), action.getNewName(), e);
+            LOGGER.error("❌ Failed to rename element: {} → {}", action.getElementId(), action.getNewName(), e);
             BigraphNotifications.notifyError(actionDispatcher,
-                    "Could not rename node to '" + action.getNewName() + "': " + e.getMessage());
+                    "Could not rename element to '" + action.getNewName() + "': " + e.getMessage());
             return List.of();
         }
 
@@ -97,5 +104,21 @@ public class RenameNodeActionHandler extends AbstractActionHandler<RenameNodeAct
         actionDispatcher.dispatch(new SetDirtyStateAction(true, "operation"));
 
         return List.of(new UpdateModelAction(root, false));
+    }
+
+    /**
+     * Renames link-type entities by mutating their EMF "name" attribute.
+     * (Unlike {@link NodeEntity} they don't expose a setName API.)
+     */
+    private void renameLinkEntity(final BigraphEntity<?> entity, final String newName) {
+        final var nameAttr = EMFUtils.findAttribute(entity.getInstance().eClass(), BigraphMetaModelConstants.ATTRIBUTE_NAME);
+        if (nameAttr == null) {
+            throw new IllegalStateException(
+                    "Missing EMF attribute '" + BigraphMetaModelConstants.ATTRIBUTE_NAME + "' on " + entity.getInstance().eClass().getName());
+        }
+        entity.getInstance().eSet(nameAttr, newName);
+
+        // Note: we intentionally do not mutate getAttributes() maps here because those maps are derived
+        // from EMF lists and may not be backed by the original instance model.
     }
 }
