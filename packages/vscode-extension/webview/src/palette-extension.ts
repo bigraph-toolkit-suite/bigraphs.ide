@@ -13,6 +13,12 @@ function dispatchAutoLayout(algorithm: string, bigraphStandard = false): void {
     }));
 }
 
+function dispatchExportSvg(): void {
+    window.dispatchEvent(new CustomEvent('bigraph-action', {
+        detail: { kind: 'requestExportSvg' }
+    }));
+}
+
 export class BigraphPaletteExtension {
     private static readonly PANEL_ID = 'bigraph-custom-panel';
 
@@ -57,13 +63,41 @@ export class BigraphPaletteExtension {
         // Row 1: the + (Add Control) button
         const row1 = this.createRow(this.getControlButtons());
 
+        const arrangeLabel = this.createSectionLabel('Arrange');
+
         // Row 2: all layout buttons
         const row2 = this.createRow(this.getLayoutButtons());
 
+        const exportLabel = this.createSectionLabel('Export');
+
+        // Row 3: export button(s)
+        const row3 = this.createRow(this.getExportButtons());
+
         panel.appendChild(row1);
+        panel.appendChild(arrangeLabel);
         panel.appendChild(row2);
+        panel.appendChild(exportLabel);
+        panel.appendChild(row3);
         palette.appendChild(panel);
         console.log("Bigraph: Custom palette panel injected.");
+    }
+
+    private createSectionLabel(text: string): HTMLDivElement {
+        const el = document.createElement('div');
+        el.textContent = text;
+        Object.assign(el.style, {
+            color: 'var(--vscode-descriptionForeground)',
+            fontSize: '11px',
+            lineHeight: '1.2',
+            fontFamily: 'var(--vscode-font-family)',
+            letterSpacing: '0.06em',
+            textTransform: 'uppercase',
+            opacity: '0.9',
+            marginTop: '2px',
+            userSelect: 'none',
+            width: '100%'
+        });
+        return el;
     }
 
     private createRow(buttons: PaletteButtonConfig[]): HTMLDivElement {
@@ -125,6 +159,17 @@ export class BigraphPaletteExtension {
         ];
     }
 
+    private getExportButtons(): PaletteButtonConfig[] {
+        return [
+            {
+                id: 'bigraph-export-svg-btn',
+                iconClass: '',
+                tooltip: 'Export diagram as SVG',
+                onClick: () => dispatchExportSvg()
+            }
+        ];
+    }
+
     private createButton(config: PaletteButtonConfig): HTMLButtonElement {
         const button = document.createElement('button');
         button.id = config.id;
@@ -141,7 +186,19 @@ export class BigraphPaletteExtension {
             borderRadius: '3px',
             padding: '0'
         });
-        button.innerHTML = `<span class="codicon ${config.iconClass}" style="color: white; font-size: 16px;"></span>`;
+        if (config.iconClass) {
+            button.innerHTML = `<span class="codicon ${config.iconClass}" style="color: white; font-size: 16px;"></span>`;
+        } else {
+            button.textContent = 'SVG';
+            Object.assign(button.style, {
+                width: 'auto',
+                minWidth: '44px',
+                padding: '0 8px',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: 'var(--vscode-foreground)'
+            });
+        }
         button.onmouseover = () => button.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
         button.onmouseout = () => button.style.backgroundColor = 'var(--vscode-editor-background)';
         button.onclick = config.onClick;
