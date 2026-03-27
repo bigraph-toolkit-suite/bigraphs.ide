@@ -34,6 +34,26 @@ export class BigraphContextMenuProvider implements IContextMenuItemProvider {
                     } as Action]
                 });
             }
+
+            if (element.type === 'bigraph:inner-name') {
+                actions.push({
+                    label: 'Make Outer',
+                    actions: [{
+                        kind: 'bigraphConvertNameRole',
+                        elementId: element.id,
+                        targetRole: 'outer'
+                    } as Action]
+                });
+            } else if (element.type === 'bigraph:outer-name') {
+                actions.push({
+                    label: 'Make Inner',
+                    actions: [{
+                        kind: 'bigraphConvertNameRole',
+                        elementId: element.id,
+                        targetRole: 'inner'
+                    } as Action]
+                });
+            }
         }
 
         return Promise.resolve(actions);

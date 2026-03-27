@@ -733,6 +733,7 @@ public class GraphBigraphView extends BigraphView {
         // 1. Find and remove the bigraph entity from registry
         BigraphEntity<?> entity = gModelIdToEntity.remove(edgeId);
         if (entity != null) {
+            removeMetaPositionForEntity(entity);
             entityToGModelId.remove(entity);
             LOGGER.info("  ✅ Removed edge entity from registry");
         }
@@ -830,6 +831,7 @@ public class GraphBigraphView extends BigraphView {
         // 1. Find and remove the bigraph entity from registry
         BigraphEntity<?> entity = gModelIdToEntity.remove(outerNameId);
         if (entity != null) {
+            removeMetaPositionForEntity(entity);
             entityToGModelId.remove(entity);
             LOGGER.info("  ✅ Removed outer name entity from registry");
         }
@@ -924,6 +926,7 @@ public class GraphBigraphView extends BigraphView {
         // 1. Find and remove the bigraph entity from registry
         BigraphEntity<?> entity = gModelIdToEntity.remove(innerNameId);
         if (entity != null) {
+            removeMetaPositionForEntity(entity);
             entityToGModelId.remove(entity);
             LOGGER.info("  ✅ Removed inner name entity from registry");
         }
@@ -965,6 +968,27 @@ public class GraphBigraphView extends BigraphView {
     @Override
     public void onConnectPort(String nodeId, int portIndex, String linkId) {
         // TODO: Create connection edge
+    }
+
+    /**
+     * Removes persisted meta positions for link-graph entities.
+     * Centralized here so delete callbacks can reuse one policy.
+     */
+    private void removeMetaPositionForEntity(final BigraphEntity<?> entity) {
+        if (entity == null) {
+            return;
+        }
+        final BigraphMetaInformation meta = modelState.getMetaInformation();
+        if (meta == null) {
+            return;
+        }
+        if (entity instanceof InnerName) {
+            meta.getInnerNamePositions().remove(((InnerName) entity).getName());
+        } else if (entity instanceof OuterName) {
+            meta.getOuterNamePositions().remove(((OuterName) entity).getName());
+        } else if (entity instanceof Edge) {
+            meta.getEdgePositions().remove(((Edge) entity).getName());
+        }
     }
 
     @Override

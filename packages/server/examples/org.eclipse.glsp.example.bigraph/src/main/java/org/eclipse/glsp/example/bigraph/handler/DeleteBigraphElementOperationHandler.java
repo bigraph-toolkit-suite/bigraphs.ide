@@ -41,6 +41,8 @@ import org.eclipse.glsp.graph.GEdge;
 import org.eclipse.glsp.graph.GModelElement;
 import org.eclipse.glsp.graph.GNode;
 import org.eclipse.glsp.server.actions.ActionDispatcher;
+import org.eclipse.glsp.server.actions.SetDirtyStateAction;
+import org.eclipse.glsp.server.features.core.model.UpdateModelAction;
 import org.eclipse.glsp.server.gmodel.GModelDeleteOperationHandler;
 
 import com.google.inject.Inject;
@@ -158,9 +160,9 @@ public class DeleteBigraphElementOperationHandler extends GModelDeleteOperationH
             if (BigraphModelTypes.BIGRAPH_NODE.equals(type)) {
                 deleteNode(elementId, bigraph, view);
             } else if (BigraphModelTypes.INNER_NAME.equals(type)) {
-                deleteInnerName(elementId, bigraph, view);
+                closeName(elementId, bigraph, view);
             } else if (BigraphModelTypes.OUTER_NAME.equals(type)) {
-                deleteOuterName(elementId, bigraph, view);
+                closeName(elementId, bigraph, view);
             } else if (BigraphModelTypes.HYPEREDGE.equals(type)) {
                 deleteEdge(elementId, bigraph, view);
             } else if (BigraphModelTypes.SITE.equals(type)) {
@@ -317,68 +319,31 @@ public class DeleteBigraphElementOperationHandler extends GModelDeleteOperationH
         return bigraph.getNodes().stream().anyMatch(existingNode -> existingNode == node);
     }
 
-    // ============================================
-    // INNER NAME DELETION
-    // ============================================
-
-    private void deleteInnerName(String elementId, PureBigraphMutable bigraph, BigraphView view) {
-        BigraphEntity<?> entity = view.getBigraphEntityForGModelId(elementId)
-                .orElse(null);
+    private void closeName(final String elementId, final PureBigraphMutable bigraph, final BigraphView view) {
+        final BigraphEntity<?> entity = view.getBigraphEntityForGModelId(elementId).orElse(null);
         if (entity == null) {
-            LOGGER.warn("⚠️ No bigraph entity found for inner name: {}", elementId);
             return;
         }
-
-        if (!(entity instanceof InnerName)) {
-            LOGGER.warn("⚠️ Entity is not an InnerName: {}", elementId);
-            return;
-        }
-
-        InnerName innerName = (InnerName) entity;
-
         try {
-            bigraph.removeInnerName(innerName);
-            LOGGER.info("✅ Deleted bigraph inner name: {}", innerName.getName());
-
-            view.onDeleteInnerName(elementId);
-            LOGGER.info("✅ Deleted inner name from view: {}", elementId);
-        } catch (Exception e) {
-            LOGGER.error("❌ Failed to delete inner name: {}", innerName.getName(), e);
-            BigraphNotifications.notifyError(actionDispatcher,
-                    "Could not delete inner name '" + innerName.getName() + "': " + e.getMessage());
-        }
-    }
-
-    // ============================================
-    // OUTER NAME DELETION
-    // ============================================
-
-    private void deleteOuterName(String elementId, PureBigraphMutable bigraph, BigraphView view) {
-        BigraphEntity<?> entity = view.getBigraphEntityForGModelId(elementId)
-                .orElse(null);
-        if (entity == null) {
-            LOGGER.warn("⚠️ No bigraph entity found for outer name: {}", elementId);
+            if (entity instanceof InnerName) {
+                bigraph.closeName((InnerName) entity);
+                view.onDeleteInnerName(elementId);
+            } else if (entity instanceof OuterName) {
+                bigraph.closeName((OuterName) entity);
+                view.onDeleteOuterName(elementId);
+            } else {
+                return;
+            }
+        } catch (final Exception e) {
+            LOGGER.error("❌ Failed to close name: {}", elementId, e);
+            BigraphNotifications.notifyError(actionDispatcher, "Could not close name: " + e.getMessage());
             return;
         }
 
-        if (!(entity instanceof OuterName)) {
-            LOGGER.warn("⚠️ Entity is not an OuterName: {}", elementId);
-            return;
-        }
-
-        OuterName outerName = (OuterName) entity;
-
-        try {
-            bigraph.removeOuterName(outerName);
-            LOGGER.info("✅ Deleted bigraph outer name: {}", outerName.getName());
-
-            view.onDeleteOuterName(elementId);
-            LOGGER.info("✅ Deleted outer name from view: {}", elementId);
-        } catch (Exception e) {
-            LOGGER.error("❌ Failed to delete outer name: {}", outerName.getName(), e);
-            BigraphNotifications.notifyError(actionDispatcher,
-                    "Could not delete outer name '" + outerName.getName() + "': " + e.getMessage());
-        }
+        final var root = modelState.getRoot();
+        root.setRevision(root.getRevision() + 1);
+        actionDispatcher.dispatch(new SetDirtyStateAction(true, "operation"));
+        actionDispatcher.dispatch(new UpdateModelAction(root, false));
     }
 
     // ============================================
