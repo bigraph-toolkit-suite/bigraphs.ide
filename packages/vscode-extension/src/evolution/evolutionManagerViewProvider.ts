@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { type EvolutionActionPayload } from './runEvolution.js';
 import { type EvolutionFormState } from './evolutionManagerState.js';
 import { setEvolutionFolder, refreshTreeFromJson, handleVerifyResult } from './evolutionManagerJsonIO.js';
-import { handleEvolutionAction, handleTreeNodeClicked, loadEvolutionManagerHtml } from './evolutionManagerActions.js';
+import { handleEvolutionAction, handleTreeNodeClicked, loadEvolutionManagerHtml, syncWorkspaceBigraphToCursor } from './evolutionManagerActions.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -184,6 +184,13 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 					);
 					break;
 				}
+				case 'deleteCheckpoint': {
+					const req = msg as unknown as { operationId: string };
+					this._deleteCheckpoint(req.operationId).catch((err) =>
+						console.error('[Evolution Manager] deleteCheckpoint failed:', err)
+					);
+					break;
+				}
 				}
 			}
 		);
@@ -210,6 +217,118 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 			verificationPath: req.verificationPath,
 			checkpointPath: req.checkpointPath ?? null
 		});
+	}
+
+	private async _deleteCheckpoint(operationId: string): Promise<void> {
+		try {
+			const folderPath = this._evolutionConfigPath;
+			if (!folderPath) { return; }
+			if (!operationId) { return; }
+
+			const evoJsonPath = path.join(folderPath, 'evolution.json');
+			let json: Record<string, unknown>;
+			try {
+				json = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8')) as Record<string, unknown>;
+			} catch {
+				vscode.window.showWarningMessage('Could not read evolution.json.');
+				return;
+			}
+
+			const ops = Array.isArray(json['operations'])
+				? (json['operations'] as Record<string, unknown>[])
+				: [];
+			const byId = new Map<string, Record<string, unknown>>();
+			for (const op of ops) {
+				const id = String(op['id'] ?? '');
+				if (id) { byId.set(id, op); }
+			}
+			const target = byId.get(operationId);
+			if (!target) { return; }
+
+			// Compute subtree (successors) rooted at operationId.
+			const children = new Map<string, string[]>();
+			for (const op of ops) {
+				const id = String(op['id'] ?? '');
+				const pred = String(op['predecessor'] ?? '');
+				if (!id || !pred) { continue; }
+				if (!children.has(pred)) { children.set(pred, []); }
+				children.get(pred)!.push(id);
+			}
+
+			const toDelete = new Set<string>();
+			const q: string[] = [operationId];
+			while (q.length) {
+				const cur = q.shift()!;
+				if (toDelete.has(cur)) { continue; }
+				toDelete.add(cur);
+				for (const c of children.get(cur) ?? []) { q.push(c); }
+			}
+
+			if (toDelete.size > 1) {
+				const choice = await vscode.window.showWarningMessage(
+					`Delete this checkpoint and ${toDelete.size - 1} successor operation(s)?`,
+					{ modal: true },
+					'Delete'
+				);
+				if (choice !== 'Delete') { return; }
+			}
+
+			// Delete checkpoint triplet files for every removed operation that has a `result`.
+			for (const id of toDelete) {
+				const op = byId.get(id);
+				if (!op) { continue; }
+				const rel = typeof op['result'] === 'string' ? op['result'] : '';
+				if (!rel) { continue; }
+				const absXmi = path.isAbsolute(rel) ? rel : path.join(folderPath, rel);
+				const base = absXmi.replace(/\.xmi$/i, '');
+				for (const ext of ['.xmi', '.signature.ecore', '.signature.xmi']) {
+					const p = base + ext;
+					try { if (fs.existsSync(p)) { fs.unlinkSync(p); } } catch { /* ignore */ }
+				}
+			}
+
+			const filteredOps = ops.filter((o) => !toDelete.has(String(o['id'] ?? '')));
+			const remainingIds = new Set(filteredOps.map((o) => String(o['id'] ?? '')).filter(Boolean));
+
+			const predMap = new Map<string, string | null>();
+			for (const op of ops) {
+				const id = String(op['id'] ?? '');
+				if (!id) { continue; }
+				const raw = op['predecessor'];
+				let p: string | null = null;
+				if (raw !== null && raw !== undefined) {
+					const s = String(raw);
+					if (s !== '' && s !== 'null') { p = s; }
+				}
+				predMap.set(id, p);
+			}
+
+			let newCursor: string | null = typeof json['checkpoint-cursor'] === 'string' ? json['checkpoint-cursor'] : null;
+			if (newCursor && toDelete.has(newCursor)) {
+				let walk: string | null = newCursor;
+				while (walk !== null && toDelete.has(walk)) {
+					walk = predMap.get(walk) ?? null;
+				}
+				newCursor = walk !== null && remainingIds.has(walk) ? walk : null;
+			} else if (newCursor && !remainingIds.has(newCursor)) {
+				newCursor = null;
+			}
+
+			json['operations'] = filteredOps;
+			json['checkpoint-cursor'] = newCursor;
+
+			try {
+				fs.writeFileSync(evoJsonPath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+			} catch {
+				vscode.window.showWarningMessage('Could not write evolution.json.');
+				return;
+			}
+
+			refreshTreeFromJson(this);
+			await syncWorkspaceBigraphToCursor(this, { force: true });
+		} catch {
+			vscode.window.showWarningMessage('Could not delete checkpoint.');
+		}
 	}
 
 	/**

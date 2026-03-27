@@ -169,3 +169,78 @@ export async function handleTreeNodeClicked(
 	}
 	await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(workspaceBigraph), 'bigraph.glspDiagram');
 }
+
+/**
+ * Copies the checkpoint triplet for the current `checkpointCursor` into `workspace-bigraph`
+ * and reopens the diagram so the editor matches evolution.json after the cursor moves.
+ * When the cursor is null, uses `checkpoints/original.xmi` when present.
+ * With `force`, skips overwrite prompts (e.g. after checkpoint deletion).
+ */
+export async function syncWorkspaceBigraphToCursor(
+	provider: EvolutionManagerViewProvider,
+	options?: { force?: boolean }
+): Promise<void> {
+	const evolutionFolder = provider.evolutionConfigPath;
+	const workspaceBigraph = provider.formState?.workspaceBigraph;
+	if (!evolutionFolder || !workspaceBigraph) {
+		return;
+	}
+
+	const cursorId = provider.formState?.checkpointCursor ?? null;
+	let checkpointAbs: string | null = null;
+
+	if (cursorId) {
+		const op = provider.formState?.operations?.find((o) => o.id === cursorId);
+		if (!op?.result) {
+			return;
+		}
+		if (!fs.existsSync(op.result)) {
+			vscode.window.showWarningMessage(`Checkpoint file not found: ${op.result}`);
+			return;
+		}
+		checkpointAbs = op.result;
+	} else {
+		const original = path.join(evolutionFolder, 'checkpoints', 'original.xmi');
+		if (!fs.existsSync(original)) {
+			return;
+		}
+		checkpointAbs = original;
+	}
+
+	const wsBase = workspaceBigraph.replace(/\.xmi$/, '');
+	const newCpBase = checkpointAbs.replace(/\.xmi$/, '');
+
+	if (!options?.force) {
+		const currentCursorId = provider.formState?.checkpointCursor;
+		const currentCursorOp = provider.formState?.operations?.find((op) => op.id === currentCursorId);
+		const currentCursorResultAbs = currentCursorOp?.result ?? null;
+
+		if (currentCursorResultAbs && fs.existsSync(currentCursorResultAbs)) {
+			const curCpBase = currentCursorResultAbs.replace(/\.xmi$/, '');
+			if (bigraphTripletsDiffer(curCpBase, wsBase)) {
+				const answer = await vscode.window.showWarningMessage(
+					'The workspace bigraph differs from the checkpoint the cursor is pointing to. Overwrite workspace-bigraph with the checkpoint?',
+					{ modal: true },
+					'Overwrite'
+				);
+				if (answer !== 'Overwrite') {
+					return;
+				}
+			}
+		}
+	}
+
+	const copied = copyBigraphTripletIfDifferent(newCpBase, wsBase);
+
+	if (copied) {
+		for (const group of vscode.window.tabGroups.all) {
+			for (const tab of group.tabs) {
+				if (tab.input instanceof vscode.TabInputCustom && tab.input.uri.fsPath === workspaceBigraph) {
+					await vscode.window.tabGroups.close(tab);
+				}
+			}
+		}
+		await new Promise((resolve) => setTimeout(resolve, 100));
+	}
+	await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(workspaceBigraph), 'bigraph.glspDiagram');
+}

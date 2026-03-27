@@ -31,6 +31,7 @@ export class EvoTree {
 	private readonly svgEl: SVGSVGElement;
 	private readonly wrapEl: HTMLElement;
 	private readonly tooltipEl: HTMLElement;
+	private readonly ctxMenuEl: HTMLDivElement;
 	private readonly vscode: VsCodeApi;
 
 	private ops: EvolutionOperation[]   = [];
@@ -50,6 +51,7 @@ export class EvoTree {
 		this.svgEl      = document.getElementById('tree-svg') as unknown as SVGSVGElement;
 		this.wrapEl     = document.getElementById('tree-canvas-wrap')!;
 		this.tooltipEl  = document.getElementById('tree-tooltip')!;
+		this.ctxMenuEl  = this.createContextMenu();
 		this.initControls();
 	}
 
@@ -163,6 +165,7 @@ export class EvoTree {
 	private render(): void {
 		(this.svgEl as unknown as Element).innerHTML = '';
 		(this.tooltipEl as HTMLElement).style.display = 'none';
+		this.hideContextMenu();
 		if (!this.ops.length) { return; }
 
 		const lyt   = this.layout(this.ops);
@@ -225,6 +228,14 @@ export class EvoTree {
 				hit.addEventListener('click', (evt) => {
 					evt.stopPropagation();
 					this.vscode.postMessage({ type: 'treeNodeClicked', operationId: n.id, resultPath: n.result! });
+				});
+				hit.addEventListener('contextmenu', (evt: MouseEvent) => {
+					evt.preventDefault();
+					evt.stopPropagation();
+					const wrapOff = this.wrapEl.getBoundingClientRect();
+					const mx = evt.clientX - wrapOff.left;
+					const my = evt.clientY - wrapOff.top;
+					this.showContextMenu(mx, my, n.id);
 				});
 			}
 			hit.addEventListener('mouseenter', (evt) => {
@@ -293,6 +304,67 @@ export class EvoTree {
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────
+
+	private createContextMenu(): HTMLDivElement {
+		const el = document.createElement('div');
+		el.style.position = 'absolute';
+		el.style.display = 'none';
+		el.style.zIndex = '20';
+		el.style.minWidth = '160px';
+		el.style.padding = '6px';
+		el.style.borderRadius = '6px';
+		el.style.border = '1px solid var(--vscode-menu-border, var(--vscode-widget-border))';
+		el.style.background = 'var(--vscode-menu-background, var(--vscode-editorHoverWidget-background, #252526))';
+		el.style.color = 'var(--vscode-menu-foreground, var(--vscode-editorHoverWidget-foreground, #ccc))';
+		el.style.boxShadow = '0 10px 28px rgba(0,0,0,0.35)';
+		// Parent `#tree-canvas-wrap` uses mousedown for panning and also hides this menu on
+		// mousedown. Without stopping propagation, that runs before the Delete button's click
+		// and clears `dataset.operationId`, so delete appeared to do nothing.
+		el.addEventListener('mousedown', (e) => e.stopPropagation());
+
+		const btn = document.createElement('button');
+		btn.type = 'button';
+		btn.textContent = 'Delete';
+		btn.style.width = '100%';
+		btn.style.textAlign = 'left';
+		btn.style.padding = '6px 8px';
+		btn.style.border = 'none';
+		btn.style.borderRadius = '4px';
+		btn.style.background = 'transparent';
+		btn.style.color = 'inherit';
+		btn.style.cursor = 'pointer';
+		btn.addEventListener('mouseenter', () => { btn.style.background = 'var(--vscode-toolbar-hoverBackground, rgba(255,255,255,0.08))'; });
+		btn.addEventListener('mouseleave', () => { btn.style.background = 'transparent'; });
+		btn.addEventListener('click', (e) => {
+			e.stopPropagation();
+			const operationId = el.dataset['operationId'];
+			this.hideContextMenu();
+			if (!operationId) { return; }
+			this.vscode.postMessage({ type: 'deleteCheckpoint', operationId });
+		});
+		el.appendChild(btn);
+
+		// Hide on any click outside the menu.
+		window.addEventListener('click', () => this.hideContextMenu());
+		window.addEventListener('blur',  () => this.hideContextMenu());
+		this.wrapEl.addEventListener('scroll', () => this.hideContextMenu(), { passive: true });
+		this.wrapEl.addEventListener('mousedown', () => this.hideContextMenu());
+
+		this.wrapEl.appendChild(el);
+		return el;
+	}
+
+	private showContextMenu(x: number, y: number, operationId: string): void {
+		this.ctxMenuEl.dataset['operationId'] = operationId;
+		this.ctxMenuEl.style.left = `${Math.max(0, x)}px`;
+		this.ctxMenuEl.style.top  = `${Math.max(0, y)}px`;
+		this.ctxMenuEl.style.display = 'block';
+	}
+
+	private hideContextMenu(): void {
+		this.ctxMenuEl.style.display = 'none';
+		delete this.ctxMenuEl.dataset['operationId'];
+	}
 
 	private svgMake(tag: string, attrs: Record<string, string>): SVGElement {
 		const el = document.createElementNS('http://www.w3.org/2000/svg', tag) as SVGElement;
