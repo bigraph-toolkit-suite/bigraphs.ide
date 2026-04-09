@@ -6,6 +6,7 @@ import {
     ActionDispatcher,
     RequestModelAction,
     SetModelAction,
+    UpdateModelAction,
     configureDefaultModelElements,
     configureModelElement,
     ShapeView,
@@ -503,8 +504,24 @@ class EvolutionActionSink implements IActionHandler {
     handle(_action: Action): void { /* intentionally empty */ }
 }
 
+/**
+ * Fires a `bigraph-palette-refresh` window event when the model changes so the
+ * custom palette can re-fetch creation tools from the server (e.g. after a new
+ * control was added to the signature).
+ */
+let modelUpdateRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+@injectable()
+class ModelUpdatePaletteRefreshHandler implements IActionHandler {
+    handle(_action: Action): void {
+        clearTimeout(modelUpdateRefreshTimer);
+        modelUpdateRefreshTimer = setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('bigraph-palette-refresh'));
+        }, 600);
+    }
+}
+
 const TOOLBAR_SHAKE_CLASS = 'bigraph-palette-shake';
-const TOOLBAR_PALETTE_SELECTORS = ['.tool-palette', '.sprotty-palette', '.glsp-palette'];
+const TOOLBAR_PALETTE_SELECTORS = ['.bigraph-palette', '.tool-palette', '.sprotty-palette', '.glsp-palette'];
 const TOOLBAR_INTERACTION_TIMEOUT_MS = 3000;
 
 function findToolPalette(): Element | null {
@@ -654,6 +671,10 @@ const bigraphDiagramModule = new ContainerModule((bind, unbind, isBound, rebind)
     // The connector injects a bigraph.paletteShake action for every WARNING/ERROR;
     // the handler only shakes if the user had recently clicked the palette.
     configureActionHandler(context, 'bigraph.paletteShake', PaletteShakeHandler);
+
+    // Re-fetch palette creation tools when the server pushes a model update.
+    configureActionHandler(context, SetModelAction.KIND, ModelUpdatePaletteRefreshHandler);
+    configureActionHandler(context, UpdateModelAction.KIND, ModelUpdatePaletteRefreshHandler);
 
     // Configure context menu provider
     if (isBound(TYPES.IContextMenuItemProvider)) {

@@ -5,11 +5,10 @@ import '@eclipse-glsp/vscode-integration-webview/css/glsp-vscode.css';
 import '@vscode/codicons/dist/codicon.css';
 import './bigraph-styles.css';
 import { Container } from 'inversify';
-import { BigraphPaletteExtension } from './palette-extension';
+import { BigraphCustomPalette } from './palette/bigraph-custom-palette';
 import {
     initializeDragAndDrop,
     setPendingDropFiles,
-    setPendingRewriteRule,
     setActionDispatcher,
     setContainerElement
 } from './drag-drop-handler';
@@ -37,7 +36,7 @@ class BigraphGLSPStarter extends GLSPStarter {
 
 export function launch(): void {
     const starter = new BigraphGLSPStarter();
-    new BigraphPaletteExtension();
+    const customPalette = new BigraphCustomPalette();
 
     // ── Drag & Drop ──────────────────────────────────────────────────
     // 1. Attach DOM event listeners immediately (no DI container needed)
@@ -49,10 +48,6 @@ export function launch(): void {
         if (msg && msg.type === 'bigraphDragStarted' && Array.isArray(msg.files)) {
             setPendingDropFiles(msg.files);
         }
-        // Disabled: rewrite rule drag onto canvas (fill Evolution Manager)
-        // if (msg && msg.type === 'rewriteRuleDragStarted' && typeof msg.evolutionLabel === 'string' && Array.isArray(msg.rewriteRules)) {
-        //     setPendingRewriteRule({ evolutionLabel: msg.evolutionLabel, rewriteRules: msg.rewriteRules });
-        // }
     });
 
     // 3. Once the GLSP DI container is ready, wire up the dispatcher
@@ -62,6 +57,7 @@ export function launch(): void {
             try {
                 const dispatcher = starter.container.get<IActionDispatcher>(TYPES.IActionDispatcher);
                 setActionDispatcher(dispatcher);
+                customPalette.setDispatcher(dispatcher);
 
                 const containers = document.querySelectorAll<HTMLElement>('[id$="_container"]');
                 if (containers.length > 0) {

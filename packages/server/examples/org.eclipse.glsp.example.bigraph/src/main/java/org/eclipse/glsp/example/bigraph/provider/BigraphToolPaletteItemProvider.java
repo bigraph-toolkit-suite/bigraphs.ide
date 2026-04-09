@@ -105,6 +105,7 @@ public class BigraphToolPaletteItemProvider implements ToolPaletteItemProvider {
                     // Add metadata for the control
                     action.getArgs().put("controlName", controlName);
                     action.getArgs().put("arity", String.valueOf(arity));
+                    action.getArgs().put("status", control.getControlKind().name());
                     
                     PaletteItem item = new PaletteItem(itemId, label, action);
                     nodeItems.add(item);

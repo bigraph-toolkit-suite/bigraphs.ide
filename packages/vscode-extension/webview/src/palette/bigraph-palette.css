@@ -1,0 +1,568 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Bigraph Custom Palette — Redesign
+   All colors via var(--vscode-*) tokens for full theme compatibility.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── Shell ─────────────────────────────────────────────────────────── */
+
+.bigraph-palette {
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    z-index: 100;
+    width: 230px;
+    max-height: 85vh;
+    background: var(--vscode-sideBar-background);
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 6px;
+    font-family: var(--vscode-font-family, 'Segoe UI', system-ui, sans-serif);
+    font-size: 12px;
+    color: var(--vscode-foreground);
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.28);
+    overflow: hidden;
+}
+
+/* ── Collapsed icon-strip mode ─────────────────────────────────────── */
+
+.bigraph-palette.bp-collapsed {
+    width: 38px;
+    max-height: none;
+}
+.bigraph-palette.bp-collapsed .bp-header,
+.bigraph-palette.bp-collapsed .bp-body {
+    display: none;
+}
+.bp-collapse-strip {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 0;
+}
+.bigraph-palette.bp-collapsed .bp-collapse-strip {
+    display: flex;
+}
+.bp-strip-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--vscode-foreground);
+    transition: background 0.12s;
+}
+.bp-strip-btn:hover {
+    background: var(--vscode-list-hoverBackground);
+}
+
+/* ── Collapse toggle (sits inside the top zone) ────────────────────── */
+
+.bp-collapse-toggle {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.5;
+    z-index: 2;
+    transition: opacity 0.15s, background 0.12s;
+}
+.bp-collapse-toggle:hover {
+    opacity: 1;
+    background: var(--vscode-list-hoverBackground);
+}
+
+/* ── Header (hero + mode bar) ──────────────────────────────────────── */
+
+.bp-header {
+    flex-shrink: 0;
+    padding: 8px 10px 6px;
+    border-bottom: 1px solid var(--vscode-widget-border);
+}
+
+.bp-toolbar-hero {
+    /* Logo column share of hero row; SVG uses ~10% inset inside the square — match that for wordmark margins */
+    --bp-logo-col: 28%;
+    --bp-logo-inset: calc(0.1 * var(--bp-logo-col));
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 0 0 8px;
+    background: transparent;
+}
+
+.bp-toolbar-hero-svg {
+    flex: 0 0 var(--bp-logo-col);
+    max-width: var(--bp-logo-col);
+    aspect-ratio: 1 / 1;
+}
+
+.bp-toolbar-hero-svg svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.bp-toolbar-hero-wordmark {
+    flex: 0 0 auto;
+    /* Same horizontal inset as inside the SVG (10% of logo square side ≈ 10% of logo column width of hero) */
+    margin-inline: var(--bp-logo-inset);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--vscode-foreground);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Mode bar — 2 × 2 grid of pill buttons */
+.bp-mode-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+.bp-mode-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--vscode-foreground);
+    background: transparent;
+    border: 1px solid transparent;
+    transition: all 0.12s;
+}
+.bp-mode-btn:hover {
+    background: var(--vscode-list-hoverBackground);
+    border-color: var(--vscode-widget-border);
+}
+.bp-mode-btn.bp-active {
+    background: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+    border-color: var(--vscode-focusBorder);
+}
+.bp-mode-btn.bp-danger.bp-active {
+    background: var(--vscode-inputValidation-errorBackground, var(--vscode-list-activeSelectionBackground));
+    border-color: var(--vscode-errorForeground);
+}
+.bp-mode-btn .codicon {
+    font-size: 14px;
+}
+.bp-mode-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Search — always visible */
+.bp-search-wrap {
+    position: relative;
+}
+.bp-search-under-place {
+    margin: 0 10px 6px;
+}
+.bp-search-icon {
+    position: absolute;
+    left: 7px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: var(--vscode-descriptionForeground);
+    pointer-events: none;
+}
+.bp-search-field {
+    width: 100%;
+    padding: 5px 26px 5px 26px;
+    border: 1px solid var(--vscode-input-border);
+    background: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border-radius: 4px;
+    font-size: 11px;
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s;
+}
+.bp-search-field::placeholder {
+    color: var(--vscode-input-placeholderForeground, var(--vscode-descriptionForeground));
+}
+.bp-search-field:focus {
+    border-color: var(--vscode-focusBorder);
+}
+.bp-search-clear {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+.bp-search-clear:hover {
+    color: var(--vscode-foreground);
+    background: var(--vscode-list-hoverBackground);
+}
+.bp-search-wrap.has-query .bp-search-clear {
+    display: flex;
+}
+
+/* ── Body (scrollable — all sections) ──────────────────────────────── */
+
+.bp-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding:0;
+}
+.bp-body > [data-section] + [data-section] {
+    margin-top: 6px;
+}
+.bp-body::-webkit-scrollbar { width: 5px; }
+.bp-body::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background);
+    border-radius: 3px;
+}
+.bp-body::-webkit-scrollbar-thumb:hover {
+    background: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+/* Section header (Place Graph, Link Graph) */
+.bp-section-hdr {
+    display: flex;
+    align-items: center;
+    padding: 5px 10px;
+    gap: 5px;
+}
+.bp-section-title {
+    flex: 1;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--vscode-descriptionForeground);
+}
+.bp-section-actions {
+    display: flex;
+    gap: 2px;
+}
+.bp-section-action-btn {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--vscode-descriptionForeground);
+    transition: all 0.12s;
+}
+.bp-section-action-btn:hover {
+    color: var(--vscode-foreground);
+    background: var(--vscode-list-hoverBackground);
+}
+.bp-section-action-btn.bp-active {
+    background: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+    border: 1px solid var(--vscode-focusBorder);
+}
+
+/* Section content wrapper — animated expand/collapse */
+.bp-section-content {
+    overflow: hidden;
+    transition: max-height 0.2s ease, opacity 0.15s ease;
+    opacity: 1;
+}
+.bp-section-content.collapsed {
+    max-height: 0 !important;
+    opacity: 0;
+}
+
+/* ── Place Graph: 2-column card grid ───────────────────────────────── */
+
+.bp-card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+    padding: 4px 10px 8px;
+}
+
+.bp-card {
+    position: relative;
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 5px;
+    padding: 7px 8px 6px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 38px;
+    transition: all 0.12s;
+}
+.bp-card:hover {
+    background: var(--vscode-list-hoverBackground);
+    border-color: var(--vscode-focusBorder);
+}
+.bp-card.bp-active {
+    background: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+    border-color: var(--vscode-focusBorder);
+    box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+}
+.bp-card-name {
+    font-size: 11px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+.bp-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.bp-card-arity {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--vscode-descriptionForeground);
+}
+.bp-card-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--vscode-focusBorder);
+    flex-shrink: 0;
+}
+.bp-card.bp-active .bp-card-arity {
+    color: var(--vscode-list-activeSelectionForeground);
+    opacity: 0.7;
+}
+.bp-card.bp-active .bp-card-dot {
+    background: var(--vscode-list-activeSelectionForeground);
+}
+.bp-card-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    min-width: 18px;
+    height: 14px;
+    padding: 0 4px;
+    border-radius: 3px;
+    line-height: 1;
+    border: 1px solid var(--vscode-widget-border);
+    background: transparent;
+    color: var(--vscode-descriptionForeground);
+}
+.bp-card-status[data-status="AT"] {
+    border-color: var(--vscode-charts-purple, var(--vscode-widget-border));
+    color: var(--vscode-charts-purple, var(--vscode-descriptionForeground));
+}
+.bp-card-status[data-status="AC"] {
+    border-color: var(--vscode-charts-green, var(--vscode-widget-border));
+    color: var(--vscode-charts-green, var(--vscode-descriptionForeground));
+}
+.bp-card-status[data-status="PA"] {
+    border-color: var(--vscode-charts-yellow, var(--vscode-widget-border));
+    color: var(--vscode-charts-yellow, var(--vscode-descriptionForeground));
+}
+.bp-card.bp-active .bp-card-status {
+    border-color: var(--vscode-list-activeSelectionForeground);
+    color: var(--vscode-list-activeSelectionForeground);
+    opacity: 0.8;
+}
+
+/* Site card — full width, dashed border */
+.bp-card.bp-card-site {
+    grid-column: 1 / -1;
+    border-style: dashed;
+    min-height: 28px;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+}
+.bp-card.bp-card-site .bp-card-meta {
+    display: none;
+}
+
+/* Filtered-out items: fade instead of hide */
+.bp-card.bp-filtered-out,
+.bp-link-item.bp-filtered-out {
+    opacity: 0.15;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+/* ── Link Graph: vertical list layout ──────────────────────────────── */
+
+.bp-link-list {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 10px 8px;
+    gap: 3px;
+}
+.bp-link-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.12s;
+}
+.bp-link-item:hover {
+    background: var(--vscode-list-hoverBackground);
+    border-color: var(--vscode-widget-border);
+}
+.bp-link-item.bp-active {
+    background: var(--vscode-list-activeSelectionBackground);
+    color: var(--vscode-list-activeSelectionForeground);
+    border-color: var(--vscode-focusBorder);
+}
+.bp-link-icon {
+    flex: 0 0 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    background: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-widget-border);
+    font-size: 13px;
+    color: var(--vscode-descriptionForeground);
+}
+.bp-link-item.bp-active .bp-link-icon {
+    background: transparent;
+    border-color: transparent;
+    color: var(--vscode-list-activeSelectionForeground);
+}
+.bp-link-text {
+    flex: 1;
+    min-width: 0;
+}
+.bp-link-name {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+.bp-link-desc {
+    font-size: 9px;
+    color: var(--vscode-descriptionForeground);
+    line-height: 1.3;
+}
+.bp-link-item.bp-active .bp-link-desc {
+    color: var(--vscode-list-activeSelectionForeground);
+    opacity: 0.75;
+}
+
+/* ── Empty state ───────────────────────────────────────────────────── */
+
+.bp-empty {
+    padding: 12px 10px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
+    font-size: 11px;
+}
+
+/* ── Section inner padding (for layout / export content) ─────────── */
+
+.bp-section-inner {
+    padding: 4px 10px 8px;
+}
+
+/* Segmented control for layout algorithms */
+.bp-segmented {
+    display: flex;
+    border: 1px solid var(--vscode-widget-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.bp-seg {
+    flex: 1;
+    padding: 4px 2px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    border-right: 1px solid var(--vscode-widget-border);
+    background: var(--vscode-editor-background);
+    color: var(--vscode-foreground);
+    transition: all 0.12s;
+    white-space: nowrap;
+}
+.bp-seg:last-child {
+    border-right: none;
+}
+.bp-seg:hover {
+    background: var(--vscode-list-hoverBackground);
+}
+.bp-seg.bp-seg-active {
+    background: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    font-weight: 600;
+}
+
+/* Action buttons row */
+.bp-action-row {
+    display: flex;
+    gap: 4px;
+}
+.bp-action-btn {
+    flex: 0 0 48px;
+    width: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 5px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--vscode-widget-border);
+    background: var(--vscode-editor-background);
+    color: var(--vscode-foreground);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    transition: all 0.12s;
+}
+.bp-action-btn:hover {
+    background: var(--vscode-list-hoverBackground);
+    border-color: var(--vscode-focusBorder);
+}
+.bp-action-btn .codicon {
+    font-size: 13px;
+}
+.bp-action-btn-sm {
+    flex: 0 0 auto;
+    width: 30px;
+    padding: 5px;
+}

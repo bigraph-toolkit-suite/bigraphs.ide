@@ -1,0 +1,127 @@
+<!-- Bigraph Custom Palette — static skeleton.
+     Dynamic content (cards, chips) is injected by bigraph-custom-palette.ts -->
+
+<!-- Collapse strip (icon-only view when palette is collapsed) -->
+<div class="bp-collapse-strip">
+    <div class="bp-strip-btn" data-action="expand" title="Expand palette">
+        <span class="codicon codicon-chevron-right"></span>
+    </div>
+    <div class="bp-strip-btn" data-action="select" title="Select">
+        <span class="codicon codicon-inspect"></span>
+    </div>
+    <div class="bp-strip-btn" data-action="delete" title="Delete">
+        <span class="codicon codicon-trash"></span>
+    </div>
+    <div class="bp-strip-btn" data-action="reset-view" title="Reset view">
+        <span class="codicon codicon-screen-normal"></span>
+    </div>
+</div>
+
+<!-- Collapse toggle (visible in expanded state) -->
+<div class="bp-collapse-toggle" title="Collapse">
+    <span class="codicon codicon-chevron-left" style="font-size:12px"></span>
+</div>
+
+<!-- Header: hero + mode bar -->
+<div class="bp-header">
+    <div class="bp-toolbar-hero" aria-label="Bigraph palette hero">
+        <div class="bp-toolbar-hero-svg" aria-hidden="true"></div>
+        <div class="bp-toolbar-hero-wordmark">Bigraphide</div>
+    </div>
+    <div class="bp-mode-bar">
+        <div class="bp-mode-btn bp-active" data-action="select" title="Selection tool">
+            <span class="codicon codicon-inspect"></span>
+            <span class="bp-mode-label">Select</span>
+        </div>
+        <div class="bp-mode-btn bp-danger" data-action="delete" title="Delete tool">
+            <span class="codicon codicon-trash"></span>
+            <span class="bp-mode-label">Delete</span>
+        </div>
+        <div class="bp-mode-btn" data-action="reset" data-momentary="true" title="Reset viewport">
+            <span class="codicon codicon-screen-normal"></span>
+            <span class="bp-mode-label">Reset</span>
+        </div>
+        <div class="bp-mode-btn" data-action="fit" data-momentary="true" title="Fit to screen">
+            <span class="codicon codicon-screen-full"></span>
+            <span class="bp-mode-label">Fit</span>
+        </div>
+    </div>
+</div>
+
+<!-- Body: all sections in a single scrollable area -->
+<div class="bp-body">
+
+    <!-- Place Graph section -->
+    <div data-section="place-graph">
+        <div class="bp-section-hdr">
+            <span class="bp-section-title">Place Graph</span>
+            <div class="bp-section-actions">
+                <div class="bp-section-action-btn" data-action="add-control" title="Add Control">
+                    <span class="codicon codicon-plus"></span>
+                </div>
+            </div>
+        </div>
+        <div class="bp-search-wrap bp-search-under-place">
+            <span class="codicon codicon-search bp-search-icon"></span>
+            <input type="text" class="bp-search-field" placeholder="Filter nodes…" />
+            <div class="bp-search-clear">
+                <span class="codicon codicon-close"></span>
+            </div>
+        </div>
+        <div class="bp-section-content" data-content="place-graph">
+            <div class="bp-card-grid">
+                <!-- cards injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Link Graph section -->
+    <div data-section="link-graph">
+        <div class="bp-section-hdr">
+            <span class="bp-section-title">Link Graph</span>
+            <div class="bp-section-actions">
+                <div class="bp-section-action-btn" data-action="connect" title="Connect">
+                    <span class="codicon codicon-plug"></span>
+                </div>
+            </div>
+        </div>
+        <div class="bp-section-content" data-content="link-graph">
+            <div class="bp-link-list">
+                <!-- link items injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Layout section -->
+    <div data-section="layout">
+        <div class="bp-section-hdr">
+            <span class="bp-section-title">Layout</span>
+        </div>
+        <div class="bp-section-content" data-content="layout">
+            <div class="bp-section-inner">
+                <div class="bp-segmented">
+                    <div class="bp-seg" data-algorithm="layered" data-standard="true" title="Bigraph Standard Layout">Std</div>
+                    <div class="bp-seg" data-algorithm="layered" title="Auto Layout: Layer">Layer</div>
+                    <div class="bp-seg" data-algorithm="mrtree" title="Auto Layout: Tree">Tree</div>
+                    <div class="bp-seg" data-algorithm="force" title="Auto Layout: Force">Force</div>
+                    <div class="bp-seg" data-algorithm="stress" title="Auto Layout: Stress">Stress</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export section -->
+    <div data-section="export">
+        <div class="bp-section-hdr">
+            <span class="bp-section-title">Export</span>
+        </div>
+        <div class="bp-section-content" data-content="export">
+            <div class="bp-section-inner">
+                <div class="bp-action-row">
+                    <button class="bp-action-btn" data-action="export-svg" title="Export diagram as SVG">SVG</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

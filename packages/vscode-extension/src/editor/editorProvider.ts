@@ -232,7 +232,8 @@ export default class EditorProvider extends GlspEditorProvider {
                             user-select: none;
                             text-align: center;
                         }
-                        body.readonly-active .tool-palette {
+                        body.readonly-active .tool-palette,
+                        body.readonly-active .bigraph-palette {
                             display: none !important;
                         }
                     </style>

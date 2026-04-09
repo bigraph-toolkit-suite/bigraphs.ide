@@ -112,5 +112,10 @@ export class BigraphControlCreatorTool {
         });
         window.dispatchEvent(event);
         console.log("Bigraph: Dispatched createControl action", { name, arity, status });
+
+        // Trigger palette refresh after the server has had time to process the new control.
+        // Two attempts: fast (1s) for when the server is responsive, slow (3s) as fallback.
+        setTimeout(() => window.dispatchEvent(new CustomEvent('bigraph-palette-refresh')), 1000);
+        setTimeout(() => window.dispatchEvent(new CustomEvent('bigraph-palette-refresh')), 3000);
     }
 }

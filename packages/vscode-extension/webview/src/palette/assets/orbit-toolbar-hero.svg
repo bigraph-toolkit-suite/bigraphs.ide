@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="245.3 -11.5 581 581" preserveAspectRatio="xMidYMid meet" fill="none">
+  <defs>
+    <linearGradient id="orbitA" x1="515" y1="278" x2="662" y2="177" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#278CFF"/>
+      <stop offset="1" stop-color="#62FFF3"/>
+    </linearGradient>
+    <linearGradient id="orbitB" x1="514" y1="277" x2="660" y2="176" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2E8BFF"/>
+      <stop offset="1" stop-color="#4EF3E8"/>
+    </linearGradient>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5.2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <mask id="outerRingGaps">
+      <rect x="0" y="0" width="1024" height="558" fill="white"/>
+      <circle cx="512" cy="130" r="8.4" fill="black"/>
+      <circle cx="512" cy="428" r="8.4" fill="black"/>
+    </mask>
+  </defs>
+
+  <g transform="translate(512 279) scale(1.4) translate(-512 -279)">
+    <!-- orbital rings -->
+    <circle cx="512" cy="279" r="84" stroke="#A5A9CC" stroke-opacity="0.72" stroke-width="4"/>
+    <circle cx="512" cy="279" r="149" stroke="#8F93B8" stroke-opacity="0.60" stroke-width="4" mask="url(#outerRingGaps)"/>
+
+    <!-- tiny markers on large ring -->
+    <circle cx="512" cy="130" r="4.1" fill="#B3B7D5" fill-opacity="0.85"/>
+    <circle cx="512" cy="428" r="4.1" fill="#B3B7D5" fill-opacity="0.85"/>
+
+    <!-- small top-right outlined circle -->
+    <circle cx="661" cy="176" r="34" stroke="#868BAC" stroke-opacity="0.58" stroke-width="4"/>
+
+    <!-- glow emitted directly from the orbit lines -->
+    <path d="M 512 279 C 565 154, 663 145, 661 176" stroke="url(#orbitA)" stroke-width="16" stroke-linecap="round" fill="none" opacity="0.28" filter="url(#glow)"/>
+    <path d="M 512 279 C 612 286, 663 236, 661 176" stroke="url(#orbitB)" stroke-width="16" stroke-linecap="round" fill="none" opacity="0.28" filter="url(#glow)"/>
+    <path d="M 512 279 C 565 154, 663 145, 661 176" stroke="url(#orbitA)" stroke-width="5" stroke-linecap="round" fill="none"/>
+    <path d="M 512 279 C 612 286, 663 236, 661 176" stroke="url(#orbitB)" stroke-width="5" stroke-linecap="round" fill="none"/>
+
+    <!-- core point and endpoint -->
+    <circle cx="512" cy="279" r="5" fill="#6EB7FF"/>
+    <circle cx="661" cy="176" r="4.5" fill="#6CFFF2"/>
+  </g>
+
+</svg>
