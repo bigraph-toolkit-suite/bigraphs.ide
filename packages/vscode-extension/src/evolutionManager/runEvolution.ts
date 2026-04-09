@@ -507,7 +507,7 @@ async function dispatchToGlsp(params: {
 	clientId: string | undefined;
 }): Promise<void> {
 	const { getGlspConnector } = await import('../editor/init.js');
-	const { setPendingRunFolder } = await import('../glsp/connector.js');
+	const { setPendingRunFolder } = await import('../editor/glsp/connector.js');
 	setPendingRunFolder(params.evolutionFolder);
 	const glspConnector = getGlspConnector();
 	if (!glspConnector) {

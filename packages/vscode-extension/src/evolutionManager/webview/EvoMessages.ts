@@ -70,29 +70,9 @@ export class EvoMessages {
 				break;
 			}
 
-		case 'bigraphDragStarted': {
-			const files = Array.isArray(msg.files) ? (msg.files as Array<{ fsPath?: string; label?: string; relativePath?: string }>) : [];
-			if (files.length > 0 && files[0].fsPath) {
-				st.latestDragged      = files[0] as { fsPath: string; label?: string; relativePath?: string };
-				st.awaitingDropTarget = true;
-				this.verif.notifyDragStarted();
-			}
-			break;
-		}
-
-		case 'pendingDragFiles': {
-			// Reply from extension host to a 'queryPendingDrag' request
-			const pendingFiles = Array.isArray(msg.files) ? (msg.files as Array<{ fsPath?: string; label?: string }>) : [];
-			const valid = pendingFiles.filter((f): f is { fsPath: string; label?: string } => typeof f.fsPath === 'string');
-			if (valid.length > 0) {
-				this.verif.onPendingDragFiles(valid);
-			}
-			break;
-		}
-
-			case 'addVerificationBigraph': {
-				const fsPath1 = msg.fsPath as string | undefined;
-				if (!fsPath1) { break; }
+		case 'addVerificationBigraph': {
+			const fsPath1 = msg.fsPath as string | undefined;
+			if (!fsPath1) { break; }
 				const bn1  = fsPath1.replace(/\\/g, '/').split('/').pop() ?? '';
 				const lbl1 = (msg.label as string | undefined) || bn1.replace(/\.xmi$/i, '');
 				const id1  = `vb-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -196,11 +176,11 @@ export class EvoMessages {
 					st.currentWorkspaceBigraph = msg.workspaceBigraph;
 				}
 				if (Array.isArray(msg.rewriteRules)) {
-					st.lastRewriteRules = (msg.rewriteRules as RewriteRule[]).map((r) => ({ active: true, ...r }));
+					st.lastRewriteRules = (msg.rewriteRules as RewriteRule[]).map((r) => ({ ...r, active: r.active !== false }));
 					this.rules.render(st.lastRewriteRules);
 				}
 				if (Array.isArray(msg.verificationBigraphs)) {
-					st.lastVerificationBigraphs = (msg.verificationBigraphs as VerificationBigraph[]).map((v) => ({ stop: true, ...v }));
+					st.lastVerificationBigraphs = (msg.verificationBigraphs as VerificationBigraph[]).map((v) => ({ ...v, stop: v.stop !== false }));
 				}
 				if (Array.isArray(msg.operations)) {
 					const ops2   = msg.operations as EvolutionOperation[];

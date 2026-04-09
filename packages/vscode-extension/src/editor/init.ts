@@ -8,14 +8,14 @@ import {
     getGlspServer,
     setConnectorReadOnlyMode,
     sendActionToServer
-} from '../glsp/connector';
-import { GlspReconnector } from '../glsp/reconnector';
-import { SessionRegistry } from '../bigraph/session-registry';
-import { BigraphFacade } from '../bigraph/bigraph-facade';
-import { registerBigraphTools } from '../bigraph/tools';
-import { McpApiServer } from '../bigraph/mcp-api-server';
-import { ensureCursorMCPConfig } from '../bigraph/cursor-config';
-import { withUtilityServerSession } from '../glsp/utility-server-session';
+} from './glsp/connector';
+import { GlspReconnector } from './glsp/reconnector';
+import { SessionRegistry } from '../assistantIntegration/session-registry';
+import { BigraphFacade } from '../assistantIntegration/bigraph-facade';
+import { registerBigraphTools } from '../assistantIntegration/tools';
+import { McpApiServer } from '../assistantIntegration/mcp-api-server';
+import { ensureCursorMCPConfig } from '../assistantIntegration/cursor-config';
+import { withUtilityServerSession } from './glsp/utility-server-session';
 
 let globalGlspConnector: any = null;
 let readOnlyModeEnabled = false;
@@ -37,10 +37,6 @@ export function setReadOnlyMode(enabled: boolean): boolean {
 
 export function toggleReadOnlyMode(): boolean {
     return setReadOnlyMode(!readOnlyModeEnabled);
-}
-
-export function sendMessageToWebview(message: any): void {
-    EditorProvider.postMessageToAllPanels(message);
 }
 
 /**

@@ -17,8 +17,9 @@
 	},
 	"exclude": [
 		"webview/**/*",
-		"src/evolution/webview/**/*",
-		"src/bigraph/mcp-stdio-entry.ts",
+		"src/evolutionManager/webview/**/*",
+		"src/rewriteRuleEditor/webview/**/*",
+		"src/assistantIntegration/mcp-stdio-entry.ts",
 		"node_modules/**/*"
 	]
 }

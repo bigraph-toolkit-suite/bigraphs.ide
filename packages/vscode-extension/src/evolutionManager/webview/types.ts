@@ -1,5 +1,5 @@
 // Shared type definitions for the Evolution Manager webview.
-// These mirror src/evolution/evolutionManagerState.ts but are kept separate
+// These mirror src/evolutionManager/evolutionManagerState.ts but are kept separate
 // so this file has zero Node.js imports at runtime.
 
 export interface VerificationCheckEntry {

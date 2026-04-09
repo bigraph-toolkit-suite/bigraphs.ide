@@ -21,8 +21,10 @@
 		.max-ops-row label { margin: 0; color: var(--vscode-foreground); white-space: nowrap; font-size: 0.85em; color: var(--vscode-descriptionForeground); }
 		.max-ops-row input[type="number"] { flex: 1; min-width: 0; }
 		.rewrite-rules-list { border: 1px solid var(--vscode-input-border); background: var(--vscode-input-background); min-height: 4rem; padding: 0.25rem; font-size: 0.9em; overflow-y: auto; max-height: 9rem; }
+		.rewrite-rules-list.drag-over { outline: 2px dashed var(--vscode-focusBorder); outline-offset: -2px; }
 		.rewrite-rules-list .item { display: flex; align-items: center; justify-content: space-between; padding: 0.15rem 0.25rem; border-bottom: 1px solid var(--vscode-widget-border); }
 		.rewrite-rules-list .item:last-child { border-bottom: none; }
+		.rewrite-rule-drop-hint { color: var(--vscode-descriptionForeground); font-style: italic; font-size: 0.85em; padding: 0.35rem 0.25rem; user-select: none; }
 		.rule-name { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
 		.rule-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.rule-subtitle { font-size: 0.78em; color: var(--vscode-descriptionForeground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

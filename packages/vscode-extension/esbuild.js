@@ -44,7 +44,7 @@ async function main() {
 
 	// Second entry: Evolution Manager webview (runs in browser, not Node)
 	const ctxWebview = await esbuild.context({
-		entryPoints: ['src/evolution/webview/index.ts'],
+		entryPoints: ['src/evolutionManager/webview/index.ts'],
 		bundle: true,
 		format: 'iife',
 		minify: production,
@@ -56,9 +56,23 @@ async function main() {
 		plugins: [esbuildProblemMatcherPlugin],
 	});
 
-	// Third entry: MCP stdio server (standalone Node process for Cursor, no vscode)
+	// Third entry: Rewrite Rule Editor webview bundle (runs in browser)
+	const ctxRewriteRuleEditorWebview = await esbuild.context({
+		entryPoints: ['src/rewriteRuleEditor/webview/index.ts'],
+		bundle: true,
+		format: 'iife',
+		minify: production,
+		sourcemap: !production,
+		sourcesContent: false,
+		platform: 'browser',
+		outfile: 'dist/rewrite-rule-editor.js',
+		logLevel: 'silent',
+		plugins: [esbuildProblemMatcherPlugin],
+	});
+
+	// Fourth entry: MCP stdio server (standalone Node process for Cursor, no vscode)
 	const ctxMcp = await esbuild.context({
-		entryPoints: ['src/bigraph/mcp-stdio-entry.ts'],
+		entryPoints: ['src/assistantIntegration/mcp-stdio-entry.ts'],
 		bundle: true,
 		format: 'cjs',
 		minify: false,
@@ -73,12 +87,15 @@ async function main() {
 	if (watch) {
 		await ctx.watch();
 		await ctxWebview.watch();
+		await ctxRewriteRuleEditorWebview.watch();
 		await ctxMcp.watch();
 	} else {
 		await ctx.rebuild();
 		await ctx.dispose();
 		await ctxWebview.rebuild();
 		await ctxWebview.dispose();
+		await ctxRewriteRuleEditorWebview.rebuild();
+		await ctxRewriteRuleEditorWebview.dispose();
 		try {
 			await ctxMcp.rebuild();
 		} catch (e) {

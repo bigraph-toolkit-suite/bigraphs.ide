@@ -1,5 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { getDragService } from '../dragging';
+
+function logDnd(_scope: string, _event: string, _details?: unknown): void {
+    // DnD debug channel removed intentionally.
+}
 
 // Mime type for Bigraph Explorer drag and drop
 const BIGRAPH_EXPLORER_MIME_TYPE = 'application/vnd.code.tree.bigraphexplorer';
@@ -92,37 +97,18 @@ export class BigraphExplorerProvider implements vscode.TreeDataProvider<BigraphE
     }
 }
 
-/**
- * Drag and drop controller for Bigraph Explorer.
- * Sets both custom and standard MIME types, and notifies the GLSP webview
- * via a callback so it can receive the dragged file info through postMessage
- * (HTML5 DataTransfer data is not reliably forwarded across the webview boundary).
- */
-/** Pending drop stash — set by handleDrag, consumed by whoever claims it within the timeout. */
-let _pendingDropFiles: { label: string; uri: string; fsPath: string; relativePath: string }[] = [];
-let _pendingDropTimer: ReturnType<typeof setTimeout> | null = null;
-
-export function consumePendingDropFiles(): { label: string; uri: string; fsPath: string; relativePath: string }[] {
-    const files = _pendingDropFiles;
-    _pendingDropFiles = [];
-    if (_pendingDropTimer) { clearTimeout(_pendingDropTimer); _pendingDropTimer = null; }
-    return files;
-}
-
 export class BigraphExplorerDragAndDropController implements vscode.TreeDragAndDropController<BigraphExplorerItem> {
     dragMimeTypes = [BIGRAPH_EXPLORER_MIME_TYPE];
     dropMimeTypes: string[] = [];
 
-    private onDragStartCallback?: (items: { label: string; uri: string; fsPath: string; relativePath: string }[]) => void;
-
-    setOnDragStart(callback: (items: { label: string; uri: string; fsPath: string; relativePath: string }[]) => void): void {
-        this.onDragStartCallback = callback;
-    }
-
-    handleDrag(source: BigraphExplorerItem[], dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): void | Thenable<void> {
+    handleDrag(source: BigraphExplorerItem[], dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken): void | Thenable<void> {
+        const dragService = getDragService();
         // Only file items are draggable; ignore folder items
         const fileItems = source.filter((s): s is BigraphFileItem => s instanceof BigraphFileItem);
-        if (fileItems.length === 0) { return; }
+        if (fileItems.length === 0) {
+            logDnd('explorer.bigraph', 'handleDrag-ignored-no-files');
+            return;
+        }
 
         const items = fileItems.map(item => ({
             label: String(item.label),
@@ -135,14 +121,12 @@ export class BigraphExplorerDragAndDropController implements vscode.TreeDragAndD
         // built-in editor drop handler would open the file in a new tab.
         dataTransfer.set(BIGRAPH_EXPLORER_MIME_TYPE, new vscode.DataTransferItem(JSON.stringify(items)));
 
-        // Stash files so a webview drop handler can claim them via consumePendingDropFiles()
-        _pendingDropFiles = items;
-        if (_pendingDropTimer) { clearTimeout(_pendingDropTimer); }
-        _pendingDropTimer = setTimeout(() => { _pendingDropFiles = []; _pendingDropTimer = null; }, 10000);
-
-        if (this.onDragStartCallback) {
-            this.onDragStartCallback(items);
-        }
+        logDnd('explorer.bigraph', 'handleDrag-payload', { count: items.length, labels: items.map(i => i.label) });
+        dragService.startSession('bigraphFiles', items);
+        token.onCancellationRequested(() => {
+            logDnd('explorer.bigraph', 'drag-session-cancelled');
+            dragService.markSourceEnded();
+        });
     }
 
     handleDrop(_target: BigraphExplorerItem | undefined, _dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): void | Thenable<void> {

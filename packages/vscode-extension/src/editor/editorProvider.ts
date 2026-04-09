@@ -1,9 +1,9 @@
 import { GlspEditorProvider, GlspVscodeConnector } from '@eclipse-glsp/vscode-integration';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { getEvolutionManagerViewProvider } from '../evolution/evolutionManagerViewProvider';
-import type { SessionRegistry } from '../bigraph/session-registry';
-import type { BigraphFacade } from '../bigraph/bigraph-facade';
+import { getEvolutionManagerViewProvider } from '../evolutionManager/evolutionManagerViewProvider';
+import type { SessionRegistry } from '../assistantIntegration/session-registry';
+import type { BigraphFacade } from '../assistantIntegration/bigraph-facade';
 
 /** Returns true when the given file lives inside a *.evolution folder and is not the
  *  active workspace-bigraph (which the user and the engine are allowed to modify). */
@@ -153,28 +153,6 @@ export default class EditorProvider extends GlspEditorProvider {
         });
 
         const webview = webviewPanel.webview;
-
-        webview.onDidReceiveMessage((msg: { type?: string; evolutionLabel?: string; rewriteRules?: { setLabel: string; label: string }[] }) => {
-            if (msg.type !== 'fillEvolutionFormFromCanvasDrop' || typeof msg.evolutionLabel !== 'string' || !Array.isArray(msg.rewriteRules)) {
-                return;
-            }
-            const workspaceRoot = vscode.workspace.workspaceFolders?.[0];
-            const bigraphPath = workspaceRoot
-                ? vscode.workspace.asRelativePath(document.uri)
-                : document.uri.fsPath;
-            const evolutionManager = getEvolutionManagerViewProvider();
-            if (evolutionManager) {
-                evolutionManager.postMessage({
-                    type: 'fillEvolutionForm',
-                    evolutionLabel: msg.evolutionLabel,
-                    bigraphPath,
-                    rewriteRules: msg.rewriteRules
-                });
-                void vscode.commands.executeCommand('workbench.view.extension.bigraph-explorer-container');
-                void vscode.commands.executeCommand('evolutionManagerView.focus');
-            }
-        });
-
         webviewPanel.webview.options = {
             enableScripts: true,
             localResourceRoots: [this.extensionContext.extensionUri]

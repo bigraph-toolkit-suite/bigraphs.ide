@@ -6,12 +6,6 @@ import '@vscode/codicons/dist/codicon.css';
 import './bigraph-styles.css';
 import { Container } from 'inversify';
 import { BigraphCustomPalette } from './palette/bigraph-custom-palette';
-import {
-    initializeDragAndDrop,
-    setPendingDropFiles,
-    setActionDispatcher,
-    setContainerElement
-} from './drag-drop-handler';
 import { BigraphBridge, VsCodeApi } from './bigraph-bridge';
 
 declare function acquireVsCodeApi(): VsCodeApi;
@@ -37,32 +31,12 @@ class BigraphGLSPStarter extends GLSPStarter {
 export function launch(): void {
     const starter = new BigraphGLSPStarter();
     const customPalette = new BigraphCustomPalette();
-
-    // ── Drag & Drop ──────────────────────────────────────────────────
-    // 1. Attach DOM event listeners immediately (no DI container needed)
-    initializeDragAndDrop();
-
-    // 2. Listen for postMessage from the extension host
-    window.addEventListener('message', (event) => {
-        const msg = event.data;
-        if (msg && msg.type === 'bigraphDragStarted' && Array.isArray(msg.files)) {
-            setPendingDropFiles(msg.files);
-        }
-    });
-
-    // 3. Once the GLSP DI container is ready, wire up the dispatcher
-    //    and the container element for coordinate calculation.
+    // Wire GLSP once DI container is ready.
     const wireUpGlsp = (): void => {
         if (starter.container) {
             try {
                 const dispatcher = starter.container.get<IActionDispatcher>(TYPES.IActionDispatcher);
-                setActionDispatcher(dispatcher);
                 customPalette.setDispatcher(dispatcher);
-
-                const containers = document.querySelectorAll<HTMLElement>('[id$="_container"]');
-                if (containers.length > 0) {
-                    setContainerElement(containers[0]);
-                }
 
                 console.log('[BigraphBridge] Initializing BigraphBridge...');
                 new BigraphBridge(starter.container, vscodeApi);

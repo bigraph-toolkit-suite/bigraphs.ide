@@ -11,16 +11,15 @@ import {
     openBigraphFromWorkspaceRelativePath,
     openRewriteRuleInSplit,
     saveRewriteRuleFromEditor
-} from './rewriteRuleExplorerProvider';
-import { getHtmlViewProvider } from './htmlViewProvider';
-import { getEvolutionManagerViewProvider } from '../evolution/evolutionManagerViewProvider';
+} from '../rewriteRuleExplorer/rewriteRuleExplorerProvider';
+import { getHtmlViewProvider } from '../rewriteRuleEditor/htmlViewProvider';
+import { getEvolutionManagerViewProvider } from '../evolutionManager/evolutionManagerViewProvider';
 import { dispatchActionToActiveEditor } from '../editor/init';
 
 let bigraphExplorerProvider: BigraphExplorerProvider;
 let dragAndDropController: BigraphExplorerDragAndDropController;
 let rewriteRuleExplorerProvider: RewriteRuleExplorerProvider;
 let rewriteRuleDragController: RewriteRuleDragAndDropController;
-const dragStartListeners: Array<(msg: { type: string; files?: unknown; evolutionLabel?: string; rewriteRules?: { setLabel: string; label: string }[] }) => void> = [];
 const RULE_EDITOR_VISIBLE_CONTEXT_KEY = 'bigraph.showRewriteRuleEditor';
 
 /** Returns the URI of the first open tab that displays an XMI file (.xmi), or undefined. */
@@ -425,32 +424,6 @@ export function initExplorerSidebar(): vscode.Disposable[] {
         addToVerificationCommand,
         composeBigraphCommand
     ];
-}
-
-/** Call after editor is ready so drag-from-sidebar notifies the webview. */
-export function setExplorerDragStartNotifier(sendMessage: (msg: { type: string; files?: unknown; evolutionLabel?: string; rewriteRules?: { setLabel: string; label: string }[] }) => void): void {
-    dragStartListeners.push(sendMessage);
-    if (dragAndDropController) {
-        dragAndDropController.setOnDragStart((items) => {
-            console.log('[BigraphExplorer] Notifying webview of drag start:', items.length, 'file(s)');
-            for (const listener of dragStartListeners) {
-                listener({ type: 'bigraphDragStarted', files: items });
-            }
-        });
-    }
-    // Disabled: rewrite rule drag onto canvas (fill Evolution Manager)
-    // if (rewriteRuleDragController) {
-    //     rewriteRuleDragController.setOnDragStart((payload) => {
-    //         console.log('[RewriteRules] Notifying webview of rule/set drag start:', payload.evolutionLabel);
-    //         for (const listener of dragStartListeners) {
-    //             listener({
-    //                 type: 'rewriteRuleDragStarted',
-    //                 evolutionLabel: payload.evolutionLabel,
-    //                 rewriteRules: payload.rewriteRules
-    //             });
-    //         }
-    //     });
-    // }
 }
 
 export function getBigraphExplorerProvider(): BigraphExplorerProvider {

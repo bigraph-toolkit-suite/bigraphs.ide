@@ -32,12 +32,6 @@ export class EvoState {
 	/** The operationId the cursor is currently pointing at in the evolution tree. */
 	currentCursorOperationId: string | null = null;
 
-	/** Most recent file dragged from the Bigraph Explorer (cleared after drop). */
-	latestDragged: { fsPath: string; label?: string; relativePath?: string } | null = null;
-
-	/** True while a drag from the Explorer is in-flight and no target has consumed it yet. */
-	awaitingDropTarget = false;
-
 	// ── Helpers ──────────────────────────────────────────────────────────────
 
 	static escapeHtml(str: string): string {

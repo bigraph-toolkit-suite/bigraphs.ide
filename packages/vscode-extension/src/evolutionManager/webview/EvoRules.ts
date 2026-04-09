@@ -1,6 +1,8 @@
 import type { EvoState } from './EvoState.js';
 import type { RewriteRule } from './types.js';
 
+const DROP_HINT = `<div class="rewrite-rule-drop-hint">Drop rewrite rules from the explorer here…</div>`;
+
 export class EvoRules {
 	private readonly listEl: HTMLElement;
 	private readonly state: EvoState;
@@ -17,6 +19,10 @@ export class EvoRules {
 	}
 
 	render(rules: RewriteRule[]): void {
+		if (rules.length === 0) {
+			this.listEl.innerHTML = DROP_HINT;
+			return;
+		}
 		this.listEl.innerHTML = rules.map((r, i) => {
 			const ruleName    = r.label ?? '';
 			const redexFile   = r.redexPath  ? r.redexPath.split(/[\\/]/).pop()  ?? '' : '';
@@ -45,5 +51,39 @@ export class EvoRules {
 				this.onChanged?.();
 			});
 		});
+	}
+
+	addRewriteRulesFromDragPayload(payload: unknown): void {
+		const rewriteRules = (payload && typeof payload === 'object' && Array.isArray((payload as any).rewriteRules))
+			? (payload as any).rewriteRules as Array<{ setLabel: string; label: string; redexPath: string; reactumPath: string }>
+			: [];
+		if (rewriteRules.length === 0) {
+			return;
+		}
+		for (const r of rewriteRules) {
+			if (
+				typeof r.label !== 'string' ||
+				typeof r.redexPath !== 'string' ||
+				typeof r.reactumPath !== 'string'
+			) {
+				continue;
+			}
+			const exists = this.state.lastRewriteRules.some((existing) =>
+				existing.label === r.label &&
+				existing.redexPath === r.redexPath &&
+				existing.reactumPath === r.reactumPath
+			);
+			if (!exists) {
+				this.state.lastRewriteRules.push({
+					id: `rr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+					label: r.label,
+					redexPath: r.redexPath,
+					reactumPath: r.reactumPath,
+					active: true
+				});
+			}
+		}
+		this.render(this.state.lastRewriteRules);
+		this.onChanged?.();
 	}
 }

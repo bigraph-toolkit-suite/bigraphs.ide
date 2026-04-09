@@ -17,7 +17,7 @@ export async function loadEvolutionManagerHtml(
 	extensionUri: vscode.Uri
 ): Promise<string> {
 	// HTML lives next to this file; compiled JS lives in dist/
-	const htmlUri = vscode.Uri.joinPath(extensionUri, 'src', 'evolution', 'evolutionManager.html');
+	const htmlUri = vscode.Uri.joinPath(extensionUri, 'src', 'evolutionManager', 'evolutionManager.html');
 	const jsUri   = vscode.Uri.joinPath(extensionUri, 'dist', 'evolution-manager.js');
 
 	const [htmlData, jsData] = await Promise.all([

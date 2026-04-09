@@ -1,5 +1,10 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { getDragService } from '../dragging';
+
+function logDnd(_scope: string, _event: string, _details?: unknown): void {
+    // DnD debug channel removed intentionally.
+}
 
 const WORKSPACE_CONFIG_FILE = 'bigraph-workspace.json';
 
@@ -354,7 +359,7 @@ const REWRITE_RULE_DRAG_MIME = 'application/vnd.bigraphide.rewrite-rule';
 
 export interface DraggedRewriteRulePayload {
     evolutionLabel: string;
-    rewriteRules: { setLabel: string; label: string }[];
+    rewriteRules: { setLabel: string; label: string; redexPath: string; reactumPath: string }[];
 }
 
 /**
@@ -365,31 +370,46 @@ export class RewriteRuleDragAndDropController implements vscode.TreeDragAndDropC
     dragMimeTypes = [REWRITE_RULE_DRAG_MIME];
     dropMimeTypes: string[] = [];
 
-    private onDragStartCallback?: (payload: DraggedRewriteRulePayload) => void;
-
-    setOnDragStart(callback: (payload: DraggedRewriteRulePayload) => void): void {
-        this.onDragStartCallback = callback;
-    }
-
-    handleDrag(source: RewriteRuleTreeNode[], dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): void {
+    handleDrag(source: RewriteRuleTreeNode[], dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken): void {
+        const dragService = getDragService();
         const item = source[0];
         if (!item || item instanceof InitRulesItem) {
+            logDnd('explorer.rewriteRules', 'handleDrag-ignored-empty-or-init');
             return;
         }
         let payload: DraggedRewriteRulePayload;
         if (item instanceof RewriteRuleSetItem) {
             payload = {
                 evolutionLabel: item.label,
-                rewriteRules: item.rules.map((r) => ({ setLabel: item.label, label: r.label }))
+                rewriteRules: item.rules.map((r) => ({
+                    setLabel: item.label,
+                    label: r.label,
+                    redexPath: r.leftPath,
+                    reactumPath: r.rightPath
+                }))
             };
         } else {
             payload = {
                 evolutionLabel: item.label,
-                rewriteRules: [{ setLabel: item.setLabel, label: item.label }]
+                rewriteRules: [{
+                    setLabel: item.setLabel,
+                    label: item.label,
+                    redexPath: item.leftPath,
+                    reactumPath: item.rightPath
+                }]
             };
         }
         dataTransfer.set(REWRITE_RULE_DRAG_MIME, new vscode.DataTransferItem(JSON.stringify(payload)));
-        this.onDragStartCallback?.(payload);
+        logDnd('explorer.rewriteRules', 'handleDrag-payload', {
+            evolutionLabel: payload.evolutionLabel,
+            count: payload.rewriteRules.length
+        });
+        dragService.startSession('rewriteRulePayload', payload);
+
+        token.onCancellationRequested(() => {
+            logDnd('explorer.rewriteRules', 'drag-session-cancelled');
+            dragService.markSourceEnded();
+        });
     }
 
     handleDrop(_target: RewriteRuleTreeNode | undefined, _dataTransfer: vscode.DataTransfer, _token: vscode.CancellationToken): void {}

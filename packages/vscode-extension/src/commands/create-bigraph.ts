@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { getBigraphExplorerProvider } from '../explorer/init';
+import { getBigraphExplorerProvider } from '../bigraphsExplorer/init';
 
 function delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));

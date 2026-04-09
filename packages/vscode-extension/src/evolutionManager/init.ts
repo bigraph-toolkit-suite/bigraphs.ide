@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { EvolutionsProvider } from '../evolutionsList/evolutionsProvider';
+import { EvolutionsProvider } from '../evolutionsExplorer/evolutionsProvider';
 import { EvolutionManagerViewProvider } from './evolutionManagerViewProvider';
 
 /** Returns the fsPath of the currently active XMI tab, or undefined. */

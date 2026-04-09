@@ -5,6 +5,12 @@ import { setEvolutionFolder, refreshTreeFromJson, handleVerifyResult } from './e
 import { handleEvolutionAction, handleTreeNodeClicked, loadEvolutionManagerHtml, syncWorkspaceBigraphToCursor } from './evolutionManagerActions.js';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getDragService } from '../dragging';
+import type { DndZoneDescriptor } from '../dragging';
+
+function logDnd(_scope: string, _event: string, _details?: unknown): void {
+	// DnD debug channel removed intentionally.
+}
 
 export { type EvolutionFormState } from './evolutionManagerState.js';
 
@@ -111,6 +117,16 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 	): void {
 		this._view = webviewView;
 		webviewView.onDidDispose(() => { this._view = undefined; });
+		const dragService = getDragService();
+		const webviewId = 'evolutionManager';
+		const unsubscribeDnd = dragService.subscribe((event) => {
+			if (event.type === 'sessionStarted') {
+				this.postMessage({ type: 'dndSessionStarted', sessionId: event.sessionId, payloadType: event.payloadType });
+			} else {
+				this.postMessage({ type: 'dndSessionEnded', sessionId: event.sessionId, reason: event.reason });
+			}
+		});
+		webviewView.onDidDispose(() => unsubscribeDnd());
 
 		webviewView.webview.options = {
 			enableScripts: true,
@@ -120,6 +136,43 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 		webviewView.webview.onDidReceiveMessage(
 			(msg: { type?: string } & EvolutionActionPayload & { state?: EvolutionFormState }) => {
 				switch (msg.type) {
+				case 'dndRegisterZone': {
+					const zone = msg as unknown as DndZoneDescriptor;
+					if (typeof zone.zoneId === 'string' && Array.isArray(zone.accepts)) {
+						dragService.registerZone(webviewId, {
+							zoneId: zone.zoneId,
+							accepts: zone.accepts,
+							priority: typeof zone.priority === 'number' ? zone.priority : 0
+						});
+					}
+					break;
+				}
+				case 'dndUnregisterZone': {
+					const zoneId = (msg as unknown as { zoneId?: string }).zoneId;
+					if (typeof zoneId === 'string') {
+						dragService.unregisterZone(webviewId, zoneId);
+					}
+					break;
+				}
+				case 'dndHoverZone': {
+					const zoneId = (msg as unknown as { zoneId?: string | null }).zoneId ?? null;
+					dragService.setHover(webviewId, zoneId);
+					break;
+				}
+				case 'dndFinalize': {
+					const reason = (msg as unknown as { reason?: string }).reason ?? 'webview';
+					const result = dragService.finalize(webviewId, reason);
+					if (result) {
+						this.postMessage({
+							type: 'dndDropDelivered',
+							sessionId: result.sessionId,
+							zoneId: result.zoneId,
+							payloadType: result.payloadType,
+							payload: result.payload
+						});
+					}
+					break;
+				}
 					case 'webviewReady': {
 						const { notifyEvolutionManagerActiveXmiTab } = require('./init') as typeof import('./init');
 						notifyEvolutionManagerActiveXmiTab();
@@ -165,10 +218,13 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 						);
 						break;
 					}
-				case 'queryPendingDrag': {
-					const { consumePendingDropFiles } = require('../explorer/bigraphFileExplorerProvider') as typeof import('../explorer/bigraphFileExplorerProvider');
-					const pending = consumePendingDropFiles();
-					this.postMessage({ type: 'pendingDragFiles', files: pending });
+				case 'dndDebugLog': {
+					const dbg = msg as unknown as { source?: string; event?: string; details?: unknown };
+					logDnd(
+						`webview.${dbg.source ?? 'unknown'}`,
+						dbg.event ?? 'event',
+						dbg.details
+					);
 					break;
 				}
 				case 'treeNodeClicked':

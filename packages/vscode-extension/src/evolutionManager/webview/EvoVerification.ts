@@ -15,7 +15,6 @@ export class EvoVerification {
 		this.state  = state;
 		this.vscode = vscode;
 		this.listEl = document.getElementById('verificationList')!;
-		this.initDragDrop();
 	}
 
 	// ── Public API ──────────────────────────────────────────────────────────
@@ -101,8 +100,6 @@ export class EvoVerification {
 				if (idx < 0) { return; }
 				const vb = this.state.lastVerificationBigraphs[idx];
 				if (!vb?.id) { return; }
-				// Optimistic UI update: remove immediately so the UI stays responsive even if
-				// the host-side cleanup fails or reload messages arrive later.
 				this.state.lastVerificationBigraphs.splice(idx, 1);
 				this.render(this.state.lastVerificationBigraphs);
 				this.reportVerificationBigraphs();
@@ -111,70 +108,29 @@ export class EvoVerification {
 		});
 	}
 
-	// ── Drag-and-drop ────────────────────────────────────────────────────────
-
-	private initDragDrop(): void {
-		this.listEl.addEventListener('dragover', (e) => {
-			e.preventDefault();
-			if (e.dataTransfer) { e.dataTransfer.dropEffect = 'copy'; }
-			this.listEl.classList.add('drag-over');
-		});
-		this.listEl.addEventListener('dragleave', () => {
-			this.listEl.classList.remove('drag-over');
-		});
-		// Native drop (works with Shift held in VS Code webviews)
-		this.listEl.addEventListener('drop', (e) => {
-			e.preventDefault();
-			this.tryConsume();
-		});
-		// When the pointer enters or releases over the zone, ask the extension host
-		// if there's a pending drag stash. The host replies with 'pendingDragFiles'.
-		// This pull-model is delay-free because the stash is set synchronously in
-		// handleDrag() — no IPC round-trip needed for the write side.
-		this.listEl.addEventListener('mouseenter', () => {
-			if (this.state.awaitingDropTarget) {
-				this.tryConsume();
-			} else {
-				this.vscode.postMessage({ type: 'queryPendingDrag' });
-			}
-		});
-		this.listEl.addEventListener('mouseup', () => {
-			if (this.state.awaitingDropTarget) {
-				this.tryConsume();
-			} else {
-				this.vscode.postMessage({ type: 'queryPendingDrag' });
-			}
-		});
-	}
-
-	/** Called by EvoMessages when the host replies with 'pendingDragFiles'. */
-	onPendingDragFiles(files: { fsPath: string; label?: string }[]): void {
-		if (files.length === 0) { return; }
-		const file = files[0];
-		this.state.latestDragged      = { fsPath: file.fsPath, label: file.label };
-		this.state.awaitingDropTarget = false;
-		this.tryConsume();
-	}
-
-	/** Called by EvoMessages right after it stores latestDragged (push path, still kept for safety). */
-	notifyDragStarted(): void {
-		// If awaitingDropTarget was already set and mouse is over the zone, tryConsume.
-		// In the pull-model this is a no-op most of the time, but acts as a safety net.
-		if (this.state.awaitingDropTarget) {
-			this.tryConsume();
+	addBigraphFilesFromDragPayload(payload: unknown): void {
+		const files = Array.isArray(payload)
+			? payload.filter((f): f is { fsPath: string; label?: string } => !!f && typeof (f as any).fsPath === 'string')
+			: [];
+		if (files.length === 0) {
+			return;
 		}
-	}
-
-	private tryConsume(): void {
-		this.listEl.classList.remove('drag-over');
-		const file = this.state.latestDragged;
-		this.state.latestDragged      = null;
-		this.state.awaitingDropTarget = false;
-		if (!file?.fsPath) { return; }
-		const bn    = file.fsPath.replace(/\\/g, '/').split('/').pop() ?? '';
-		const label = file.label || bn.replace(/\.xmi$/i, '');
-		const id    = `vb-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-		this.state.lastVerificationBigraphs.push({ id, label, path: file.fsPath, stop: true });
+		const existingPaths = new Set(this.state.lastVerificationBigraphs.map((v) => v.path));
+		let changed = false;
+		for (const file of files) {
+			if (!file.fsPath || existingPaths.has(file.fsPath)) {
+				continue;
+			}
+			existingPaths.add(file.fsPath);
+			const bn = file.fsPath.replace(/\\/g, '/').split('/').pop() ?? '';
+			const label = file.label || bn.replace(/\.xmi$/i, '');
+			const id = `vb-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+			this.state.lastVerificationBigraphs.push({ id, label, path: file.fsPath, stop: true });
+			changed = true;
+		}
+		if (!changed) {
+			return;
+		}
 		this.render(this.state.lastVerificationBigraphs);
 		this.reportVerificationBigraphs();
 	}

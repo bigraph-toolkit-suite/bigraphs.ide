@@ -2,8 +2,8 @@ import { GlspVscodeConnector } from "@eclipse-glsp/vscode-integration";
 import { ReconnectingSocketGlspVscodeServer } from './reconnector';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import EditorProvider from '../editor/editorProvider';
-import { getEvolutionManagerViewProvider } from '../evolution/evolutionManagerViewProvider';
+import EditorProvider from '../editorProvider';
+import { getEvolutionManagerViewProvider } from '../../evolutionManager/evolutionManagerViewProvider';
 
 /** Holds the runFolder for the most recently dispatched evolution action, used to enrich operationStarted. */
 let pendingRunFolder: string | null = null;
