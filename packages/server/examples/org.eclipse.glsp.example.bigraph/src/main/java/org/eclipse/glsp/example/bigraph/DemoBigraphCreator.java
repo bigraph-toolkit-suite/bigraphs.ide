@@ -83,9 +83,9 @@ public class DemoBigraphCreator {
             
             // Full EMF-based demo (enable in Eclipse IDE):
             
-                DynamicSignature signature4 = createSignature1();
-                PureBigraph demoBigraph4 = createBigraph4(signature4);
-                exportSignatureAndBigraph(signature4, demoBigraph4);     
+                DynamicSignature signature1 = createSignature1();
+                PureBigraph demoBigraph1 = createBigraph1(signature1);
+                exportSignatureAndBigraph(signature1, demoBigraph1,"original");     
 
                 DynamicSignature signature2 = createSignature2();
                 PureBigraph demoBigraph2 = createBigraph2(signature2);
@@ -93,7 +93,8 @@ public class DemoBigraphCreator {
 
                 DynamicSignature signature3 = createSignature3();
                 PureBigraph demoBigraph3 = createBigraph3(signature3);
-                exportSignatureAndBigraph(signature3, demoBigraph3, "right");           
+                exportSignatureAndBigraph(signature3, demoBigraph3, "right");   
+            
         } catch (Exception e) {
             LOGGER.error("❌ Error in clean demo: " + e.getMessage(), e);
         }

@@ -118,9 +118,12 @@ export class EvoMessages {
 
 			case 'evolutionFolderSelected': {
 				if (msg.folderPath) {
+					st.hasEvolutionJson = true;
 					this.form.showEvolutionForm(true);
 					this.form.setConfigPathBar((msg.configRelPath as string | null) ?? null);
 				} else {
+					st.hasEvolutionJson = false;
+					st.referencedRewriteRuleIds = new Set<string>();
 					this.form.showEvolutionForm(false);
 					this.form.setConfigPathBar(null);
 					this.tree.update([], null);
@@ -130,6 +133,7 @@ export class EvoMessages {
 
 			case 'setConfigPath': {
 				this.form.setConfigPathBar((msg.configRelPath as string | null) ?? null);
+				st.hasEvolutionJson = !!msg.configRelPath;
 				if (msg.workspaceBigraph) {
 					st.currentWorkspaceBigraph = msg.workspaceBigraph as string;
 					this.form.reportFormState();
@@ -145,6 +149,7 @@ export class EvoMessages {
 
 			case 'updateTree': {
 				const ops1     = Array.isArray(msg.operations) ? (msg.operations as EvolutionOperation[]) : [];
+				st.setReferencedRewriteRuleIds(ops1);
 				const cursor1  = (msg.checkpointCursor as string | null) ?? null;
 				this.history.render(ops1);
 				this.tree.update(ops1, cursor1);
@@ -156,6 +161,7 @@ export class EvoMessages {
 
 			case 'fillEvolutionForm': {
 				const bigraphPathEl = document.getElementById('bigraphPath') as HTMLInputElement | null;
+				st.hasEvolutionJson = !!msg.evolutionConfigRelPath;
 
 				if (typeof msg.evolutionLabel === 'string') {
 					this.form.setEvolutionLabel(msg.evolutionLabel);
@@ -184,12 +190,15 @@ export class EvoMessages {
 				}
 				if (Array.isArray(msg.operations)) {
 					const ops2   = msg.operations as EvolutionOperation[];
+					st.setReferencedRewriteRuleIds(ops2);
 					const cursor2 = (msg.checkpointCursor as string | null) ?? null;
 					this.history.render(ops2);
 					this.tree.update(ops2, cursor2);
 					st.currentCursorOperationId = cursor2;
 					const curOp2 = ops2.find((o) => o.id === cursor2) ?? null;
 					this.verif.applyStatesFromOp(curOp2);
+				} else {
+					st.referencedRewriteRuleIds = new Set<string>();
 				}
 				this.verif.render(st.lastVerificationBigraphs);
 				this.form.showEvolutionForm(true);
@@ -198,9 +207,34 @@ export class EvoMessages {
 				break;
 			}
 
+			case 'appendRewriteRulesToForm': {
+				const raw = Array.isArray(msg.rewriteRules) ? msg.rewriteRules : [];
+				const rules: { label: string; redexPath: string; reactumPath: string }[] = [];
+				for (const item of raw) {
+					if (!item || typeof item !== 'object') {
+						continue;
+					}
+					const r = item as Record<string, unknown>;
+					if (
+						typeof r.label === 'string' &&
+						typeof r.redexPath === 'string' &&
+						typeof r.reactumPath === 'string'
+					) {
+						rules.push({ label: r.label, redexPath: r.redexPath, reactumPath: r.reactumPath });
+					}
+				}
+				if (rules.length === 0) {
+					break;
+				}
+				this.form.showEvolutionForm(true);
+				this.rules.appendRewriteRules(rules);
+				break;
+			}
+
 			case 'restoreFormState': {
 				const s = msg.state as Record<string, unknown> | undefined;
 				if (!s) { break; }
+				st.hasEvolutionJson = !!s.evolutionConfigRelPath;
 
 				this.form.showEvolutionForm(true);
 
@@ -210,6 +244,12 @@ export class EvoMessages {
 					st.bigraphLockedFromConfig = !!s.bigraphLockedFromConfig;
 					const bpEl = document.getElementById('bigraphPath') as HTMLInputElement | null;
 					if (bpEl) { bpEl.value = (s.bigraphRelativePath as string | undefined) ?? s.bigraphFsPath; }
+				} else if (s.bigraphFsPath === '') {
+					st.bigraphLockedFromConfig = false;
+					st.activeFsPath = null;
+					st.currentWorkspaceBigraph = '';
+					const bpEl = document.getElementById('bigraphPath') as HTMLInputElement | null;
+					if (bpEl) { bpEl.value = ''; }
 				}
 				if (typeof s.maxOperationsEnabled === 'boolean') { this.form.setMaxOpsEnabled(s.maxOperationsEnabled); }
 				if (typeof s.maxOperations === 'number')          { this.form.setMaxOps(s.maxOperations); }
@@ -224,18 +264,22 @@ export class EvoMessages {
 				}
 				if (Array.isArray(s.operations)) {
 					const rOps    = s.operations as EvolutionOperation[];
+					st.setReferencedRewriteRuleIds(rOps);
 					const rCursor = (s.checkpointCursor as string | null) ?? null;
 					this.history.render(rOps);
 					this.tree.update(rOps, rCursor);
 					st.currentCursorOperationId = rCursor;
 					const rCurOp = rOps.find((o) => o.id === rCursor) ?? null;
 					this.verif.applyStatesFromOp(rCurOp);
+				} else {
+					st.referencedRewriteRuleIds = new Set<string>();
 				}
 				this.verif.render(st.lastVerificationBigraphs);
 				if (typeof s.workspaceBigraph === 'string') {
 					st.currentWorkspaceBigraph = s.workspaceBigraph;
 				}
 				this.form.setConfigPathBar((s.evolutionConfigRelPath as string | null) ?? null);
+				this.form.reportFormState();
 				break;
 			}
 

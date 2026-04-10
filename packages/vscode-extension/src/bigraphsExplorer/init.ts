@@ -381,25 +381,39 @@ export function initExplorerSidebar(): vscode.Disposable[] {
                   : [];
 
             const xmiUri = getFirstOpenXmiTabUri();
-            const workspaceRoot = vscode.workspace.workspaceFolders?.[0];
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             const bigraphPath =
-                xmiUri && workspaceRoot
+                xmiUri && workspaceFolder
                     ? vscode.workspace.asRelativePath(xmiUri)
                     : xmiUri?.fsPath ?? '';
 
             const evolutionManager = getEvolutionManagerViewProvider();
-            if (evolutionManager) {
-                // Mark as new evolution before filling the form
-                evolutionManager.setNewEvolution();
+            if (!evolutionManager) {
+                return;
+            }
+
+            if (evolutionManager.hasActiveEvolutionSession() && rewriteRules.length > 0) {
                 evolutionManager.postMessage({
-                    type: 'fillEvolutionForm',
-                    evolutionLabel,
-                    bigraphPath,
+                    type: 'appendRewriteRulesToForm',
                     rewriteRules
                 });
                 await vscode.commands.executeCommand('workbench.view.extension.bigraph-explorer-container');
                 await vscode.commands.executeCommand('evolutionManagerView.focus');
+                if (!xmiUri) {
+                    vscode.window.showWarningMessage('No open tab with an XMI file. Open a .xmi diagram first to use it as the bigraph.');
+                }
+                return;
             }
+
+            evolutionManager.setNewEvolution();
+            evolutionManager.postMessage({
+                type: 'fillEvolutionForm',
+                evolutionLabel,
+                bigraphPath,
+                rewriteRules
+            });
+            await vscode.commands.executeCommand('workbench.view.extension.bigraph-explorer-container');
+            await vscode.commands.executeCommand('evolutionManagerView.focus');
 
             if (!xmiUri) {
                 vscode.window.showWarningMessage('No open tab with an XMI file. Open a .xmi diagram first to use it as the bigraph.');

@@ -210,9 +210,15 @@ export default class EditorProvider extends GlspEditorProvider {
                             user-select: none;
                             text-align: center;
                         }
-                        body.readonly-active .tool-palette,
-                        body.readonly-active .bigraph-palette {
-                            display: none !important;
+                        body.readonly-active .bigraph-palette [data-section="place-graph"] .bp-card,
+                        body.readonly-active .bigraph-palette [data-section="place-graph"] [data-action="add-control"],
+                        body.readonly-active .bigraph-palette [data-section="link-graph"] [data-action="connect"],
+                        body.readonly-active .bigraph-palette [data-section="link-graph"] .bp-link-item,
+                        body.readonly-active .bigraph-palette [data-action="delete"] {
+                            opacity: 0.45 !important;
+                            filter: grayscale(1);
+                            pointer-events: none !important;
+                            cursor: not-allowed !important;
                         }
                     </style>
                 </head>

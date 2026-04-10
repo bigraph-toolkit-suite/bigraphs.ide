@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { EvolutionsProvider } from '../evolutionsExplorer/evolutionsProvider';
-import { EvolutionManagerViewProvider } from './evolutionManagerViewProvider';
+import { EvolutionManagerViewProvider, getEvolutionManagerViewProvider } from './evolutionManagerViewProvider';
 
 /** Returns the fsPath of the currently active XMI tab, or undefined. */
 function getActiveXmiFsPath(): string | undefined {
@@ -56,6 +56,20 @@ export function initEvolutionSidebar(context: vscode.ExtensionContext): vscode.D
             evolutionManagerProvider.setEvolutionFolder(folderPath);
             await vscode.commands.executeCommand('workbench.view.extension.bigraph-explorer-container');
             await vscode.commands.executeCommand('evolutionManagerView.focus');
+        })
+    );
+
+    disposables.push(
+        vscode.commands.registerCommand('bigraph.newEvolutionProject', async () => {
+            const provider = getEvolutionManagerViewProvider();
+            if (!provider) {
+                vscode.window.showWarningMessage('Evolution Manager is not ready yet.');
+                return;
+            }
+            provider.setNewEvolution();
+            await vscode.commands.executeCommand('workbench.view.extension.bigraph-explorer-container');
+            await vscode.commands.executeCommand('evolutionManagerView.focus');
+            notifyEvolutionManagerActiveXmiTab();
         })
     );
 

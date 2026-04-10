@@ -114,6 +114,9 @@ export async function connect(context: vscode.ExtensionContext): Promise<GlspCon
                     action.matched === true,
                     action.message ?? ''
                 );
+                // This action is extension-side only and has no GLSP client handler.
+                // Consume it here to avoid "Missing handler for action" errors.
+                return;
             }
             callback(message);
         },

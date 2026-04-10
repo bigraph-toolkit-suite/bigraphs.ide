@@ -42,12 +42,56 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 	get evolutionConfigPath(): string | null   { return this._evolutionConfigPath; }
 	get isNewEvolution(): boolean              { return this._evolutionConfigPath === null; }
 
+	/**
+	 * True when the user already has an evolution session: a folder-bound project on disk,
+	 * or an in-progress form (label/bigraph/rules/…) before any run created `evolution.json`.
+	 * Used to merge rewrite rules into the form instead of resetting it.
+	 */
+	hasActiveEvolutionSession(): boolean {
+		if (this._evolutionConfigPath) {
+			return true;
+		}
+		const s = this._formState;
+		if (!s) {
+			return false;
+		}
+		if (s.rewriteRules.length > 0) {
+			return true;
+		}
+		if (s.bigraphFsPath?.trim()) {
+			return true;
+		}
+		if (s.evolutionLabel?.trim()) {
+			return true;
+		}
+		if (s.workspaceBigraph?.trim()) {
+			return true;
+		}
+		if (s.operations.length > 0) {
+			return true;
+		}
+		if (s.verificationBigraphs.length > 0) {
+			return true;
+		}
+		return false;
+	}
+
 	// ── State setters ──────────────────────────────────────────────────────────
 
 	setFormState(state: EvolutionFormState): void {
-		this._evolutionConfigPath = state.evolutionConfigRelPath
-			? /* the folder path is set by callers separately */ this._evolutionConfigPath
-			: null;
+		if (state.evolutionConfigRelPath) {
+			if (!this._evolutionConfigPath) {
+				const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+				if (ws) {
+					const dir = path.dirname(path.join(ws, state.evolutionConfigRelPath));
+					if (fs.existsSync(path.join(dir, 'evolution.json'))) {
+						this._evolutionConfigPath = dir;
+					}
+				}
+			}
+		} else {
+			this._evolutionConfigPath = null;
+		}
 		this._formState = state;
 	}
 
@@ -86,8 +130,7 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 			evolutionConfigRelPath: null,
 			checkpointCursor: null
 		};
-		this.postMessage({ type: 'setConfigPath', configRelPath: null });
-		this.postMessage({ type: 'updateTree', operations: [], checkpointCursor: null });
+		this.postMessage({ type: 'restoreFormState', state: this._formState });
 	}
 
 	/**
@@ -203,6 +246,11 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 						if (this._formState && Array.isArray(vbs)) {
 							this._formState = { ...this._formState, verificationBigraphs: vbs };
 						}
+						if (Array.isArray(vbs)) {
+							this._persistVerificationBigraphs(vbs).catch((err) =>
+								console.error('[Evolution Manager] persist verificationBigraphs failed:', err)
+							);
+						}
 						break;
 					}
 					case 'verifyBigraph': {
@@ -244,6 +292,13 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 					const req = msg as unknown as { operationId: string };
 					this._deleteCheckpoint(req.operationId).catch((err) =>
 						console.error('[Evolution Manager] deleteCheckpoint failed:', err)
+					);
+					break;
+				}
+				case 'deleteRewriteRule': {
+					const req = msg as unknown as { ruleId: string };
+					this._deleteRewriteRule(req.ruleId).catch((err) =>
+						console.error('[Evolution Manager] deleteRewriteRule failed:', err)
 					);
 					break;
 				}
@@ -387,6 +442,79 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 		}
 	}
 
+	private async _deleteRewriteRule(ruleId: string): Promise<void> {
+		try {
+			if (!ruleId) { return; }
+			const folderPath = this._evolutionConfigPath;
+			if (!folderPath) { return; }
+
+			const evoJsonPath = path.join(folderPath, 'evolution.json');
+			let json: Record<string, unknown>;
+			try {
+				json = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8')) as Record<string, unknown>;
+			} catch {
+				vscode.window.showWarningMessage('Could not read evolution.json.');
+				return;
+			}
+
+			const ops = Array.isArray(json['operations'])
+				? (json['operations'] as Record<string, unknown>[])
+				: [];
+			const isReferenced = ops.some((op) => String(op['rule'] ?? '') === ruleId);
+			if (isReferenced) {
+				vscode.window.showWarningMessage('Cannot delete rewrite rule because it is referenced by an operation.');
+				return;
+			}
+
+			const rules = Array.isArray(json['rules'])
+				? (json['rules'] as Record<string, unknown>[])
+				: [];
+			const idx = rules.findIndex((r) => String(r['id'] ?? '') === ruleId);
+			if (idx < 0) { return; }
+
+			const removed = rules.splice(idx, 1)[0] ?? {};
+			json['rules'] = rules;
+
+			const cleanupRelPath = (rel: unknown): void => {
+				const relPath = typeof rel === 'string' ? rel : '';
+				if (!relPath) { return; }
+				const absXmi = path.isAbsolute(relPath) ? relPath : path.join(folderPath, relPath);
+				const base = absXmi.replace(/\.xmi$/i, '');
+				for (const ext of ['.xmi', '.signature.ecore', '.signature.xmi']) {
+					const p = base + ext;
+					try { if (fs.existsSync(p)) { fs.unlinkSync(p); } } catch { /* ignore */ }
+				}
+			};
+
+			cleanupRelPath(removed['redex']);
+			cleanupRelPath(removed['reactum']);
+
+			try {
+				fs.writeFileSync(evoJsonPath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+			} catch {
+				vscode.window.showWarningMessage('Could not write evolution.json.');
+				return;
+			}
+
+			if (this._formState) {
+				const newRules = this._formState.rewriteRules.filter((r) => r.id !== ruleId);
+				this._formState = { ...this._formState, rewriteRules: newRules };
+				const bigraphRelativePath = this._formState.bigraphFsPath
+					? vscode.workspace.asRelativePath(this._formState.bigraphFsPath)
+					: '';
+				this.postMessage({
+					type: 'restoreFormState',
+					state: {
+						...this._formState,
+						bigraphRelativePath
+					}
+				});
+			}
+		} catch {
+			vscode.window.showWarningMessage('Could not delete rewrite rule.');
+		}
+	}
+
 	/**
 	 * Removes a verification rule from the evolution project: drops it from `evolution.json`
 	 * (top-level list and any `operations[].verification` references), deletes the on-disk
@@ -418,7 +546,13 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 			const deleted = verificationArr.splice(idx, 1)[0] ?? {};
 			json['verification'] = verificationArr;
 
-			// History: each operation may list verification checks; strip this id so cursors stay consistent
+			// History: each operation may list verification checks; keep only checks that still
+			// reference existing top-level verification entries.
+			const remainingVerificationIds = new Set(
+				verificationArr
+					.map((v) => String(v['id'] ?? ''))
+					.filter((id) => id.length > 0)
+			);
 			const ops = Array.isArray(json['operations'])
 				? (json['operations'] as Record<string, unknown>[])
 				: [];
@@ -426,7 +560,9 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 				const verList = Array.isArray(op['verification'])
 					? (op['verification'] as Record<string, unknown>[])
 					: [];
-				const filtered = verList.filter((v) => String(v['id'] ?? '') !== verificationId);
+				const filtered = verList.filter((entry) =>
+					remainingVerificationIds.has(String(entry['id'] ?? ''))
+				);
 				if (filtered.length !== verList.length) {
 					op['verification'] = filtered;
 				}
@@ -455,13 +591,203 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 			if (this._formState) {
 				const newVbs = this._formState.verificationBigraphs.filter((v) => v.id !== verificationId);
 				this._formState = { ...this._formState, verificationBigraphs: newVbs };
-				this.postMessage({ type: 'restoreFormState', state: this._formState });
+				const bigraphRelativePath = this._formState.bigraphFsPath
+					? vscode.workspace.asRelativePath(this._formState.bigraphFsPath)
+					: '';
+				this.postMessage({
+					type: 'restoreFormState',
+					state: {
+						...this._formState,
+						bigraphRelativePath
+					}
+				});
 			} else {
 				this.postMessage({ type: 'fillEvolutionForm', verificationBigraphs: [] });
 			}
 		} catch {
 			// Broad catch: file/JSON edge cases must not take down the extension host
 			vscode.window.showWarningMessage('Could not delete verification rule.');
+		}
+	}
+
+	private _normalizeRel(relPath: string): string {
+		return relPath.replace(/\\/g, '/');
+	}
+
+	private _copyBigraphTripletIntoDir(sourceXmiPath: string, destDir: string): string {
+		const ext = path.extname(sourceXmiPath);
+		const base = path.basename(sourceXmiPath, ext);
+		const srcDir = path.dirname(sourceXmiPath);
+
+		let destBase = base;
+		let counter = 1;
+		while (
+			fs.existsSync(path.join(destDir, `${destBase}${ext}`)) ||
+			fs.existsSync(path.join(destDir, `${destBase}.signature.ecore`)) ||
+			fs.existsSync(path.join(destDir, `${destBase}.signature.xmi`))
+		) {
+			destBase = `${base}${counter}`;
+			counter++;
+		}
+
+		fs.copyFileSync(sourceXmiPath, path.join(destDir, `${destBase}${ext}`));
+		const ecoreSrc = path.join(srcDir, `${base}.signature.ecore`);
+		const xmiSigSrc = path.join(srcDir, `${base}.signature.xmi`);
+		if (fs.existsSync(ecoreSrc)) {
+			fs.copyFileSync(ecoreSrc, path.join(destDir, `${destBase}.signature.ecore`));
+		}
+		if (fs.existsSync(xmiSigSrc)) {
+			fs.copyFileSync(xmiSigSrc, path.join(destDir, `${destBase}.signature.xmi`));
+		}
+		return destBase;
+	}
+
+	private _tripletFilesEqual(baseA: string, baseB: string): boolean {
+		for (const ext of ['.xmi', '.signature.ecore', '.signature.xmi']) {
+			const a = `${baseA}${ext}`;
+			const b = `${baseB}${ext}`;
+			const aExists = fs.existsSync(a);
+			const bExists = fs.existsSync(b);
+			if (aExists !== bExists) {
+				return false;
+			}
+			if (!aExists) {
+				continue;
+			}
+			const aBuf = fs.readFileSync(a);
+			const bBuf = fs.readFileSync(b);
+			if (!aBuf.equals(bBuf)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private async _persistVerificationBigraphs(
+		verificationBigraphs: EvolutionFormState['verificationBigraphs']
+	): Promise<void> {
+		const folderPath = this._evolutionConfigPath;
+		if (!folderPath) {
+			return;
+		}
+
+		const evoJsonPath = path.join(folderPath, 'evolution.json');
+		let json: Record<string, unknown>;
+		try {
+			json = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8')) as Record<string, unknown>;
+		} catch {
+			vscode.window.showWarningMessage('Could not read evolution.json.');
+			return;
+		}
+
+		const verificationDir = path.join(folderPath, 'verification');
+		try {
+			fs.mkdirSync(verificationDir, { recursive: true });
+		} catch {
+			vscode.window.showWarningMessage('Could not prepare verification folder.');
+			return;
+		}
+
+		const existingVerification = Array.isArray(json['verification'])
+			? (json['verification'] as Record<string, unknown>[])
+			: [];
+		const existingById = new Map<string, Record<string, unknown>>();
+		for (const entry of existingVerification) {
+			const id = String(entry['id'] ?? '');
+			if (id) {
+				existingById.set(id, entry);
+			}
+		}
+
+		const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+		const nextVerification: Array<{ id: string; label: string; path: string; stop: boolean }> = [];
+		const nextWebviewVbs: EvolutionFormState['verificationBigraphs'] = [];
+		for (const vb of verificationBigraphs) {
+			const id = String(vb.id ?? '');
+			if (!id) {
+				continue;
+			}
+			const label = String(vb.label ?? '');
+			const stop = vb.stop !== false;
+			const sourcePath = String(vb.path ?? '');
+			if (!sourcePath) {
+				continue;
+			}
+
+			let sourceAbs = sourcePath;
+			if (!path.isAbsolute(sourceAbs)) {
+				sourceAbs = wsRoot ? path.join(wsRoot, sourceAbs) : sourceAbs;
+			}
+			if (!fs.existsSync(sourceAbs)) {
+				continue;
+			}
+
+			const sourceBase = sourceAbs.replace(/\.xmi$/i, '');
+			let isDuplicate = false;
+			for (const kept of nextVerification) {
+				const keptAbsXmi = path.join(folderPath, kept.path);
+				const keptBase = keptAbsXmi.replace(/\.xmi$/i, '');
+				if (this._tripletFilesEqual(sourceBase, keptBase)) {
+					isDuplicate = true;
+					break;
+				}
+			}
+			if (isDuplicate) {
+				continue;
+			}
+
+			let relPath = '';
+			const existing = existingById.get(id);
+			const existingRelPath = existing && typeof existing['path'] === 'string'
+				? this._normalizeRel(existing['path'])
+				: '';
+			const insideEvolution = path.relative(folderPath, sourceAbs);
+			if (insideEvolution && !insideEvolution.startsWith('..') && !path.isAbsolute(insideEvolution)) {
+				relPath = this._normalizeRel(insideEvolution);
+			} else if (existingRelPath && path.join(folderPath, existingRelPath) === sourceAbs) {
+				relPath = existingRelPath;
+			} else {
+				const destBase = this._copyBigraphTripletIntoDir(sourceAbs, verificationDir);
+				relPath = `verification/${destBase}.xmi`;
+			}
+
+			nextVerification.push({
+				id,
+				label,
+				path: relPath,
+				stop
+			});
+			nextWebviewVbs.push({
+				id,
+				label,
+				path: path.join(folderPath, relPath),
+				stop
+			});
+		}
+
+		json['verification'] = nextVerification;
+		try {
+			fs.writeFileSync(evoJsonPath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+		} catch {
+			vscode.window.showWarningMessage('Could not write evolution.json.');
+			return;
+		}
+
+		if (this._formState) {
+			const hadFilteredOut = nextWebviewVbs.length !== verificationBigraphs.length;
+			if (hadFilteredOut) {
+				this._formState = { ...this._formState, verificationBigraphs: nextWebviewVbs };
+				const bigraphRelativePath = this._formState.bigraphFsPath
+					? vscode.workspace.asRelativePath(this._formState.bigraphFsPath)
+					: '';
+				this.postMessage({
+					type: 'restoreFormState',
+					state: {
+						...this._formState,
+						bigraphRelativePath
+					}
+				});
+			}
 		}
 	}
 }

@@ -17,6 +17,12 @@ export class EvoState {
 	/** Last rewrite rules pushed by the provider. */
 	lastRewriteRules: RewriteRule[] = [];
 
+	/** Rule ids currently referenced by operations in evolution.json. */
+	referencedRewriteRuleIds = new Set<string>();
+
+	/** True when the current form is backed by an on-disk evolution.json. */
+	hasEvolutionJson = false;
+
 	/** Last verification bigraphs pushed by the provider. */
 	lastVerificationBigraphs: VerificationBigraph[] = [];
 
@@ -63,5 +69,15 @@ export class EvoState {
 				}
 			}
 		}
+	}
+
+	setReferencedRewriteRuleIds(ops: EvolutionOperation[]): void {
+		const ids = new Set<string>();
+		for (const op of ops) {
+			if (typeof op.rule === 'string' && op.rule) {
+				ids.add(op.rule);
+			}
+		}
+		this.referencedRewriteRuleIds = ids;
 	}
 }

@@ -14,7 +14,7 @@ declare function acquireVsCodeApi(): VsCodeApi;
 	const vscode   = (typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null) as VsCodeApi;
 	const state    = new EvoState();
 	const history  = new EvoHistory();
-	const rules    = new EvoRules(state);
+	const rules    = new EvoRules(state, vscode);
 	const verif    = new EvoVerification(state, vscode);
 	const tree     = new EvoTree(vscode);
 	const form     = new EvoForm(state, history, vscode);

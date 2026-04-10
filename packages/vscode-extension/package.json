@@ -82,6 +82,11 @@
         "title": "Open in Evolution Manager"
       },
       {
+        "command": "bigraph.newEvolutionProject",
+        "title": "New Evolution Project",
+        "icon": "$(plus)"
+      },
+      {
         "command": "bigraph.playRewriteRuleOrSet",
         "title": "Play",
         "icon": "$(play)"
@@ -153,18 +158,13 @@
           "group": "navigation"
         },
         {
-          "command": "bigraph.testRewriteRule",
-          "when": "view == bigraphExplorer || view == rewriteRules",
-          "group": "navigation"
-        },
-        {
-          "command": "bigraph.toggleReadOnlyMode",
-          "when": "view == bigraphExplorer",
-          "group": "navigation"
-        },
-        {
           "command": "bigraph.addRewriteRuleSet",
           "when": "view == rewriteRules",
+          "group": "navigation"
+        },
+        {
+          "command": "bigraph.newEvolutionProject",
+          "when": "view == evolutions",
           "group": "navigation"
         },
         {
