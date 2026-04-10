@@ -55,6 +55,7 @@ export class BigraphExplorerProvider implements vscode.TreeDataProvider<BigraphE
 
     private nodeToItems(node: TreeNode): BigraphExplorerItem[] {
         const folders: BigraphFolderItem[] = [...node.folders.entries()]
+            .filter(([, child]) => this.nodeHasBigraphs(child))
             .map(([name, child]) => new BigraphFolderItem(name, child))
             .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -64,6 +65,13 @@ export class BigraphExplorerProvider implements vscode.TreeDataProvider<BigraphE
 
         // Folders first, then files — same as VS Code's file explorer
         return [...folders, ...files];
+    }
+
+    private nodeHasBigraphs(node: TreeNode): boolean {
+        if (node.files.length > 0) {
+            return true;
+        }
+        return [...node.folders.values()].some((child) => this.nodeHasBigraphs(child));
     }
 
     private async getTree(): Promise<TreeNode> {
