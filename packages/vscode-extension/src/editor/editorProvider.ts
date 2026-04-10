@@ -133,11 +133,13 @@ export default class EditorProvider extends GlspEditorProvider {
             this.sessionRegistry?.setActive(clientId);
         }
 
-        webviewPanel.onDidDispose(() => {
+        webviewPanel.onDidDispose(async () => {
             EditorProvider.panels.delete(webviewPanel);
             EditorProvider.clientIdToPath.delete(clientId);
             EditorProvider.clientIdToPanel.delete(clientId);
             this.sessionRegistry?.unregister(clientId);
+            const { markSessionDisposed } = await import('./glsp/connector.js');
+            markSessionDisposed(clientId);
             if (EditorProvider.activeClientId === clientId) {
                 EditorProvider.activeClientId = undefined;
                 EditorProvider.notifyEvolutionManagerActiveTab();

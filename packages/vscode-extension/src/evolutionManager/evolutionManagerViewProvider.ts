@@ -316,18 +316,16 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 		verificationPath: string;
 		checkpointPath?: string;
 	}): Promise<void> {
-		const { getGlspConnector } = await import('../editor/init.js');
-		const glspConnector = getGlspConnector();
-		if (!glspConnector) {
-			vscode.window.showErrorMessage('GLSP connector not available.');
-			return;
-		}
-		glspConnector.dispatchAction({
+		const { sendActionToServer } = await import('../editor/glsp/connector.js');
+		const sent = sendActionToServer({
 			kind: 'bigraph.verifyBigraph',
 			verificationId: req.verificationId,
 			verificationPath: req.verificationPath,
 			checkpointPath: req.checkpointPath ?? null
 		});
+		if (!sent) {
+			vscode.window.showErrorMessage('GLSP server not available.');
+		}
 	}
 
 	private async _deleteCheckpoint(operationId: string): Promise<void> {

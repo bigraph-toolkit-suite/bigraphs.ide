@@ -20,6 +20,55 @@ export interface GlspConnection {
 let connectorReadOnlyMode = false;
 let globalServer: ReconnectingSocketGlspVscodeServer | null = null;
 
+/** Tracks which clientIds have received their initial `setModel` from the server. */
+const readySessions = new Set<string>();
+const readyListeners = new Map<string, Array<() => void>>();
+
+function markSessionReady(clientId: string): void {
+    readySessions.add(clientId);
+    const listeners = readyListeners.get(clientId);
+    if (listeners) {
+        readyListeners.delete(clientId);
+        for (const cb of listeners) { cb(); }
+    }
+}
+
+export function markSessionDisposed(clientId: string): void {
+    readySessions.delete(clientId);
+    readyListeners.delete(clientId);
+}
+
+/**
+ * Mark a clientId as ready without waiting for `setModel`.
+ * Used for sessions that were already fully initialised before the tracker was active.
+ */
+export function assumeSessionReady(clientId: string): void {
+    readySessions.add(clientId);
+}
+
+/**
+ * Resolves once the GLSP server session for `clientId` has sent its initial `setModel`.
+ * Times out after `timeoutMs` (default 8 s) and resolves `false`.
+ */
+export function waitForClientSession(clientId: string, timeoutMs = 8000): Promise<boolean> {
+    if (readySessions.has(clientId)) { return Promise.resolve(true); }
+    return new Promise<boolean>((resolve) => {
+        const timer = setTimeout(() => {
+            const arr = readyListeners.get(clientId);
+            if (arr) {
+                const idx = arr.indexOf(done);
+                if (idx >= 0) { arr.splice(idx, 1); }
+                if (arr.length === 0) { readyListeners.delete(clientId); }
+            }
+            resolve(false);
+        }, timeoutMs);
+        const done = (): void => { clearTimeout(timer); resolve(true); };
+        let arr = readyListeners.get(clientId);
+        if (!arr) { arr = []; readyListeners.set(clientId, arr); }
+        arr.push(done);
+    });
+}
+
 export function setConnectorReadOnlyMode(enabled: boolean): void {
     connectorReadOnlyMode = enabled;
 }
@@ -33,12 +82,13 @@ export function getGlspServer(): ReconnectingSocketGlspVscodeServer | null {
  * This bypasses the client-action-list filter in {@code dispatchAction} and is the
  * correct way to fire server-only actions (e.g. bigraph.compose) from the extension host.
  *
- * @param action  Plain action object with at least a {@code kind} string property.
+ * @param action   Plain action object with at least a {@code kind} string property.
+ * @param clientId Optional explicit clientId. When omitted the active editor's id is used.
  * @returns true if the message was fired, false if no active client was found.
  */
-export function sendActionToServer(action: Record<string, unknown>): boolean {
-    const clientInfo = EditorProvider.getActiveClientInfo();
-    if (!clientInfo) {
+export function sendActionToServer(action: Record<string, unknown>, clientId?: string): boolean {
+    const resolvedClientId = clientId ?? EditorProvider.getActiveClientInfo()?.clientId;
+    if (!resolvedClientId) {
         console.warn('[BigraphIDE] sendActionToServer: no active client found');
         return false;
     }
@@ -46,7 +96,7 @@ export function sendActionToServer(action: Record<string, unknown>): boolean {
         console.warn('[BigraphIDE] sendActionToServer: server not yet initialised');
         return false;
     }
-    const message = { clientId: clientInfo.clientId, action };
+    const message = { clientId: resolvedClientId, action };
     (globalServer as unknown as { onSendToServerEmitter: { fire(msg: unknown): void } })
         .onSendToServerEmitter.fire(message);
     return true;
@@ -74,6 +124,10 @@ export async function connect(context: vscode.ExtensionContext): Promise<GlspCon
         logging: true,
         onBeforeReceiveMessageFromServer: (message, callback) => {
             const msg = message as { clientId?: string; action?: { kind?: string; severity?: string; operationId?: string; actionType?: string; reason?: string } };
+
+            if (msg?.action?.kind === 'setModel' && msg.clientId) {
+                markSessionReady(msg.clientId);
+            }
 
             // When a WARNING or ERROR MessageAction arrives the connector handles it as a VS Code
             // toast and strips it from the pipeline (never forwarded to the webview). We therefore

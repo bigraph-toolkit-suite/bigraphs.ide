@@ -127,10 +127,12 @@ function randomId(length: number): string {
  * Returns the clientId, or undefined if the file could not be registered.
  */
 async function focusBigraphAndResolveClientId(fsPath: string, forceReload = false): Promise<string | undefined> {
+	const existingClientId = EditorProvider.getClientIdForFsPath(fsPath);
+
 	if (forceReload) {
-		// Close the existing tab for this file so the GLSP server re-reads it from disk
-		// when we reopen it (needed after workspace-bigraph content has been replaced).
-		const uri = vscode.Uri.file(fsPath);
+		const { markSessionDisposed } = await import('../editor/glsp/connector.js');
+		if (existingClientId) { markSessionDisposed(existingClientId); }
+
 		for (const group of vscode.window.tabGroups.all) {
 			for (const tab of group.tabs) {
 				if (tab.input instanceof vscode.TabInputCustom && tab.input.uri.fsPath === fsPath) {
@@ -139,11 +141,23 @@ async function focusBigraphAndResolveClientId(fsPath: string, forceReload = fals
 			}
 		}
 		await new Promise((resolve) => setTimeout(resolve, 100));
+	} else if (existingClientId) {
+		const { assumeSessionReady } = await import('../editor/glsp/connector.js');
+		assumeSessionReady(existingClientId);
 	}
+
 	await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(fsPath), 'bigraph.glspDiagram');
-	// Give VS Code a moment to register the panel and fire onDidChangeViewState
 	await new Promise((resolve) => setTimeout(resolve, 300));
-	return EditorProvider.getClientIdForFsPath(fsPath);
+
+	const clientId = EditorProvider.getClientIdForFsPath(fsPath);
+	if (!clientId) { return undefined; }
+
+	const { waitForClientSession } = await import('../editor/glsp/connector.js');
+	const ready = await waitForClientSession(clientId);
+	if (!ready) {
+		console.warn(`[BigraphIDE] GLSP session for ${clientId} did not become ready within timeout`);
+	}
+	return clientId;
 }
 
 // ---------------------------------------------------------------------------
@@ -506,14 +520,8 @@ async function dispatchToGlsp(params: {
 	visualizeIntermediateSteps: boolean;
 	clientId: string | undefined;
 }): Promise<void> {
-	const { getGlspConnector } = await import('../editor/init.js');
-	const { setPendingRunFolder } = await import('../editor/glsp/connector.js');
+	const { setPendingRunFolder, sendActionToServer } = await import('../editor/glsp/connector.js');
 	setPendingRunFolder(params.evolutionFolder);
-	const glspConnector = getGlspConnector();
-	if (!glspConnector) {
-		vscode.window.showErrorMessage('GLSP connector not available. Please open a bigraph diagram first.');
-		return;
-	}
 
 	// Only pass stop-tagged verification bigraphs with absolute paths to the backend
 	const stopVerifications = params.verificationBigraphs
@@ -523,7 +531,7 @@ async function dispatchToGlsp(params: {
 			path: path.isAbsolute(v.path) ? v.path : path.join(params.evolutionFolder, v.path)
 		}));
 
-	glspConnector.dispatchAction({
+	const sent = sendActionToServer({
 		kind: 'bigraph.evolutionRun',
 		actionType: params.actionType,
 		rules: params.rules.map((r) => ({
@@ -539,6 +547,10 @@ async function dispatchToGlsp(params: {
 		checkpointFileGeneration: params.checkpointFileGeneration,
 		visualizeIntermediateSteps: params.visualizeIntermediateSteps
 	}, params.clientId);
+
+	if (!sent) {
+		vscode.window.showErrorMessage('GLSP server not available. Please open a bigraph diagram first.');
+	}
 }
 
 /**
