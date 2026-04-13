@@ -105,6 +105,11 @@
         "command": "bigraph.duplicateBigraph",
         "title": "Duplicate Bigraph",
         "icon": "$(copy)"
+      },
+      {
+        "command": "bigraph.renameBigraph",
+        "title": "Rename Bigraph",
+        "icon": "$(edit)"
       }
     ],
     "viewsContainers": {
@@ -211,6 +216,11 @@
         },
         {
           "command": "bigraph.duplicateBigraph",
+          "when": "view == bigraphExplorer && viewItem == bigraphFile",
+          "group": "inline"
+        },
+        {
+          "command": "bigraph.renameBigraph",
           "when": "view == bigraphExplorer && viewItem == bigraphFile",
           "group": "inline"
         }

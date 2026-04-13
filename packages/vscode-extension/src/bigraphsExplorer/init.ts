@@ -15,7 +15,7 @@ import {
 import { getHtmlViewProvider } from '../rewriteRuleEditor/htmlViewProvider';
 import { getEvolutionManagerViewProvider } from '../evolutionManager/evolutionManagerViewProvider';
 import { dispatchActionToActiveEditor } from '../editor/init';
-import { duplicateBigraphArtifacts } from '../commands/duplicate-bigraph';
+import { duplicateBigraphArtifacts, renameBigraphArtifacts } from '../commands/duplicate-bigraph';
 
 let bigraphExplorerProvider: BigraphExplorerProvider;
 let dragAndDropController: BigraphExplorerDragAndDropController;
@@ -364,6 +364,29 @@ export function initExplorerSidebar(): vscode.Disposable[] {
         }
     );
 
+    const renameBigraphCommand = vscode.commands.registerCommand(
+        'bigraph.renameBigraph',
+        async (item: unknown) => {
+            if (!item || typeof item !== 'object') { return; }
+            const maybeFile = item as { label?: unknown; uri?: vscode.Uri };
+            if (typeof maybeFile.label !== 'string' || !maybeFile.uri) { return; }
+
+            const newName = await vscode.window.showInputBox({
+                title: 'Rename bigraph',
+                prompt: 'New base name (same folder; renames .xmi, signatures, and .bigraph-meta)',
+                value: maybeFile.label,
+                valueSelection: [0, maybeFile.label.length]
+            });
+            if (newName === undefined) { return; }
+
+            const newUri = await renameBigraphArtifacts(maybeFile.uri, newName);
+            if (!newUri) { return; }
+
+            getBigraphExplorerProvider()?.refresh();
+            await vscode.commands.executeCommand('vscode.openWith', newUri, 'bigraph.glspDiagram');
+        }
+    );
+
     const addToVerificationCommand = vscode.commands.registerCommand(
         'bigraph.addToVerification',
         async (item: unknown) => {
@@ -462,7 +485,8 @@ export function initExplorerSidebar(): vscode.Disposable[] {
         playRewriteRuleOrSetCommand,
         addToVerificationCommand,
         composeBigraphCommand,
-        duplicateBigraphCommand
+        duplicateBigraphCommand,
+        renameBigraphCommand
     ];
 }
 
