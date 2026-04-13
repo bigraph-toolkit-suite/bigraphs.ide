@@ -58,11 +58,7 @@
     stroke-dasharray: 6, 4;
 }
 
-.bigraph-site > text,
-.bigraph-site-empty > text,
-.bigraph-site-filled > text {
-    fill: #ffffff !important;
-}
+/* Site label fill comes from .bigraph-svg-label on the text element */
 
 /* Empty site: dashed orange — signals "open placeholder" */
 .bigraph-site-empty {
@@ -130,11 +126,29 @@
     stroke: #2e7d32;
 }
 
+/*
+ * Diagram shapes use light pastel fills. In dark workbench themes, --vscode-editor-foreground is
+ * light (meant for text on the dark editor canvas) — wrong on those fills. VS Code sets
+ * body.vscode-light | body.vscode-dark | body.vscode-high-contrast* so we pick ink per UI theme.
+ */
+body.vscode-light .bigraph-svg-label,
+body.vscode-high-contrast-light .bigraph-svg-label,
+body.vscode-light .bigraph-label,
+body.vscode-high-contrast-light .bigraph-label {
+    fill: var(--vscode-editor-foreground, var(--vscode-foreground));
+}
+
+body.vscode-dark .bigraph-svg-label,
+body.vscode-dark .bigraph-label,
+body.vscode-high-contrast:not(.vscode-high-contrast-light) .bigraph-svg-label,
+body.vscode-high-contrast:not(.vscode-high-contrast-light) .bigraph-label {
+    fill: var(--vscode-editor-background, #1e1e1e);
+}
+
 /* Labels */
 .bigraph-label {
     font-family: Arial, sans-serif;
     font-size: 12px;
-    fill: #333333;
 }
 
 /* Port styles */
@@ -245,10 +259,9 @@
     fill: #666;
 }
 
-/* Labels */
+/* Labels (fill from body.vscode-* rules above) */
 .bigraph-label {
     font-size: 12px;
-    fill: #333;
     text-anchor: middle;
     dominant-baseline: middle;
     pointer-events: none;
@@ -267,9 +280,18 @@
 
 .bigraph-button-text {
     font-size: 10px;
-    fill: #333;
     text-anchor: middle;
     pointer-events: none;
+}
+
+body.vscode-light .bigraph-button-text,
+body.vscode-high-contrast-light .bigraph-button-text {
+    fill: var(--vscode-editor-foreground, var(--vscode-foreground));
+}
+
+body.vscode-dark .bigraph-button-text,
+body.vscode-high-contrast:not(.vscode-high-contrast-light) .bigraph-button-text {
+    fill: var(--vscode-editor-background, #1e1e1e);
 }
 
 /* Dynamic styling will be applied via JavaScript */

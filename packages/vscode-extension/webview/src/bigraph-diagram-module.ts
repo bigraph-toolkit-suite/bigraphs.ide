@@ -31,6 +31,9 @@ import { BigraphContextMenuProvider } from './context-menu';
 import { BigraphContextMenuService } from './bigraph-context-menu-service';
 import { BigraphPlaceEdgeView } from './bigraph-place-edge-view';
 
+/** Class for diagram labels; fill is set in CSS using body.vscode-light / vscode-dark (see bigraph-styles.css). */
+const DIAGRAM_LABEL_CLASS = 'bigraph-svg-label';
+
 /**
  * Custom view for hyper edge nodes (green text, no frame)
  */
@@ -66,11 +69,11 @@ export class BigraphHyperEdgeView extends ShapeView {
             y: (node.size.height / 2).toString(),
             'text-anchor': 'middle',
             'dominant-baseline': 'central',
-            fill: '#2E7D32', // Darker green text for better contrast
             'font-family': 'Arial, sans-serif',
             'font-size': '11',
             'font-weight': 'bold'
         }, label);
+        setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
 
         // Render children
         const children = context.renderChildren(node);
@@ -188,11 +191,11 @@ export class BigraphInnerNameView extends ShapeView {
             y: ((height + notchDepth) / 2).toString(),
             'text-anchor': 'middle',
             'dominant-baseline': 'central',
-            fill: '#5D4037', // Dark brown
             'font-family': 'Arial, sans-serif',
             'font-size': '11',
             'font-weight': 'bold'
         }, label);
+        setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
 
         const children = context.renderChildren(node);
         const vnode = svg('g', {});
@@ -260,11 +263,11 @@ export class BigraphOuterNameView extends ShapeView {
             y: ((height - tipSize) / 2).toString(),
             'text-anchor': 'middle',
             'dominant-baseline': 'central',
-            fill: '#01579B', // Dark blue
             'font-family': 'Arial, sans-serif',
             'font-size': '11',
             'font-weight': 'bold'
         }, label);
+        setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
 
         const children = context.renderChildren(node);
         const vnode = svg('g', {});
@@ -326,6 +329,9 @@ export class BigraphCustomNodeView extends ShapeView {
 
         // Create label text
         const text = svg('text', textAttrs, label);
+        if (!color) {
+            setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
+        }
 
         // Render children
         const children = context.renderChildren(node);
@@ -369,21 +375,19 @@ export class BigraphCustomNodeView extends ShapeView {
     }
 
     /**
-     * Get contrasting text color (black/white) based on background
+     * Black/white text on arbitrary control fill so labels stay readable.
      */
     private getContrastColor(hex: string): string {
         if (!hex.startsWith('#') || hex.length !== 7) {
             return '#000000';
         }
-        
         try {
             const r = parseInt(hex.slice(1, 3), 16);
             const g = parseInt(hex.slice(3, 5), 16);
             const b = parseInt(hex.slice(5, 7), 16);
-            
             const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
             return luminance > 0.5 ? '#000000' : '#ffffff';
-        } catch (e) {
+        } catch {
             return '#000000';
         }
     }
@@ -419,11 +423,11 @@ export class BigraphRootNodeView extends ShapeView {
             y: (node.size.height / 2).toString(),
             'text-anchor': 'middle',
             'dominant-baseline': 'central',
-            fill: '#212121', // Almost black
             'font-family': 'Arial, sans-serif',
             'font-size': '10',
             'font-weight': 'bold'
         }, label);
+        setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
 
         const children = context.renderChildren(node);
         const vnode = svg('g', {});
@@ -475,13 +479,13 @@ export class BigraphSiteView extends ShapeView {
             y: filled ? '14' : (h / 2).toString(),
             'text-anchor': filled ? 'start' : 'middle',
             'dominant-baseline': 'central',
-            fill: '#ffffff',
             'font-family': 'Arial, sans-serif',
             'font-size': filled ? '11' : '14',
             'font-weight': 'bold',
             'font-style': filled ? 'italic' : 'normal',
             opacity: '1'
         }, label);
+        setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
 
         const children = context.renderChildren(node);
         const vnode = svg('g', {});
