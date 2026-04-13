@@ -301,6 +301,18 @@
 
 /* ── Place Graph: 2-column card grid ───────────────────────────────── */
 
+/* Server placeholder when the signature has no controls — plain text, not a card button */
+.bp-place-hint {
+    grid-column: 1 / -1;
+    padding: 2px 2px 4px;
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.35;
+    color: var(--vscode-descriptionForeground);
+    cursor: default;
+    user-select: text;
+}
+
 .bp-card-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -415,7 +427,8 @@
 
 /* Filtered-out items: fade instead of hide */
 .bp-card.bp-filtered-out,
-.bp-link-item.bp-filtered-out {
+.bp-link-item.bp-filtered-out,
+.bp-place-hint.bp-filtered-out {
     opacity: 0.15;
     pointer-events: none;
     transition: opacity 0.15s;

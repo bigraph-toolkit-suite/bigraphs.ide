@@ -364,7 +364,19 @@ export class BigraphCustomPalette {
         AT: 'Atomic', AC: 'Active', PA: 'Passive',
     };
 
+    private buildPlaceholderHint(item: PaletteItem): HTMLElement {
+        const el = document.createElement('div');
+        el.className = 'bp-place-hint';
+        el.setAttribute('data-label', item.label);
+        el.textContent = item.label;
+        return el;
+    }
+
     private buildCard(item: PaletteItem): HTMLElement {
+        if (item.id === 'bigraph.node.placeholder') {
+            return this.buildPlaceholderHint(item);
+        }
+
         const card = document.createElement('div');
         card.className = 'bp-card';
         card.setAttribute('data-label', item.label);
