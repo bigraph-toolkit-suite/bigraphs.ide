@@ -1,6 +1,11 @@
 import type { EvoState } from './EvoState.js';
 import type { EvoHistory } from './EvoHistory.js';
 import type { VsCodeApi } from './types.js';
+import {
+	RuleApplicationStrategy,
+	RULE_APPLICATION_STRATEGY_LABELS,
+	normalizeRuleApplicationStrategy,
+} from '../ruleApplicationStrategy.js';
 
 export class EvoForm {
 	private readonly state: EvoState;
@@ -20,6 +25,7 @@ export class EvoForm {
 	private readonly maxOpsEl: HTMLInputElement;
 	private readonly checkpointFileGenEl: HTMLInputElement;
 	private readonly visualizeStepsEl: HTMLInputElement;
+	private readonly ruleApplicationStrategyEl: HTMLSelectElement;
 
 	constructor(state: EvoState, history: EvoHistory, vscode: VsCodeApi) {
 		this.state   = state;
@@ -38,6 +44,14 @@ export class EvoForm {
 		this.maxOpsEl           = document.getElementById('maxOperations')            as HTMLInputElement;
 		this.checkpointFileGenEl = document.getElementById('checkpointFileGeneration') as HTMLInputElement;
 		this.visualizeStepsEl   = document.getElementById('visualizeIntermediateSteps') as HTMLInputElement;
+		this.ruleApplicationStrategyEl = document.getElementById('ruleApplicationStrategy') as HTMLSelectElement;
+		this.ruleApplicationStrategyEl.replaceChildren();
+		for (const strategy of [RuleApplicationStrategy.FirstFirst, RuleApplicationStrategy.RoundRobin]) {
+			const opt = document.createElement('option');
+			opt.value = strategy;
+			opt.textContent = RULE_APPLICATION_STRATEGY_LABELS[strategy];
+			this.ruleApplicationStrategyEl.appendChild(opt);
+		}
 
 		this.setActionBarVisible(false);
 		this.setRunningState(false);
@@ -113,6 +127,7 @@ export class EvoForm {
 				maxOperations:              parseInt(this.maxOpsEl.value, 10) || 10,
 				checkpointFileGeneration:   this.checkpointFileGenEl.checked,
 				visualizeIntermediateSteps: this.visualizeStepsEl.checked,
+				ruleApplicationStrategy:    this.ruleApplicationStrategyEl.value as RuleApplicationStrategy,
 				workspaceBigraph:           st.currentWorkspaceBigraph,
 			},
 		});
@@ -132,6 +147,7 @@ export class EvoForm {
 			maxOperations:              parseInt(this.maxOpsEl.value, 10) || 10,
 			checkpointFileGeneration:   this.checkpointFileGenEl.checked,
 			visualizeIntermediateSteps: this.visualizeStepsEl.checked,
+			ruleApplicationStrategy:    this.ruleApplicationStrategyEl.value as RuleApplicationStrategy,
 		};
 	}
 
@@ -142,6 +158,9 @@ export class EvoForm {
 	setMaxOps(value: number): void            { this.maxOpsEl.value                = String(value); }
 	setCheckpointFileGen(value: boolean): void { this.checkpointFileGenEl.checked  = value; }
 	setVisualizeSteps(value: boolean): void   { this.visualizeStepsEl.checked      = value; }
+	setRuleApplicationStrategy(value: string): void {
+		this.ruleApplicationStrategyEl.value = normalizeRuleApplicationStrategy(value);
+	}
 
 	// ── Private ───────────────────────────────────────────────────────────────
 
@@ -169,5 +188,6 @@ export class EvoForm {
 		this.maxOpsEl.addEventListener('input', () => this.reportFormState());
 		this.checkpointFileGenEl.addEventListener('change',  () => this.reportFormState());
 		this.visualizeStepsEl.addEventListener('change',     () => this.reportFormState());
+		this.ruleApplicationStrategyEl.addEventListener('change', () => this.reportFormState());
 	}
 }

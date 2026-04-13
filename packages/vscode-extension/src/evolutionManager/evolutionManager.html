@@ -14,6 +14,7 @@
 		.field label { display: block; font-size: 0.85em; color: var(--vscode-descriptionForeground); margin-bottom: 0.2rem; }
 		.field input[type="text"] { width: 100%; padding: 0.25rem 0.4rem; font-family: inherit; font-size: inherit; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
 		.field input[readonly] { opacity: 0.75; cursor: default; }
+		.field select { width: 100%; padding: 0.25rem 0.4rem; font-family: inherit; font-size: inherit; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
 		.field input[type="number"] { width: 100%; padding: 0.25rem 0.4rem; font-family: inherit; font-size: inherit; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
 		.field input[type="number"]:disabled { opacity: 0.4; cursor: default; }
 		.max-ops-row { display: flex; align-items: center; gap: 0.4rem; }
@@ -125,6 +126,10 @@
 				<div class="verification-list" id="verificationList">
 					<div class="verification-drop-hint">Drop bigraphs from the explorer here…</div>
 				</div>
+			</div>
+			<div class="field">
+				<label for="ruleApplicationStrategy">Rule application strategy</label>
+				<select id="ruleApplicationStrategy" title="How rewrite rules are tried on each step"></select>
 			</div>
 			<div class="field">
 				<div class="max-ops-row">

@@ -188,6 +188,9 @@ export class EvoMessages {
 				if (Array.isArray(msg.verificationBigraphs)) {
 					st.lastVerificationBigraphs = (msg.verificationBigraphs as VerificationBigraph[]).map((v) => ({ ...v, stop: v.stop !== false }));
 				}
+				if (typeof msg.ruleApplicationStrategy === 'string') {
+					this.form.setRuleApplicationStrategy(msg.ruleApplicationStrategy);
+				}
 				if (Array.isArray(msg.operations)) {
 					const ops2   = msg.operations as EvolutionOperation[];
 					st.setReferencedRewriteRuleIds(ops2);
@@ -260,6 +263,7 @@ export class EvoMessages {
 				if (typeof s.maxOperations === 'number')          { this.form.setMaxOps(s.maxOperations); }
 				if (typeof s.checkpointFileGeneration === 'boolean') { this.form.setCheckpointFileGen(s.checkpointFileGeneration); }
 				if (typeof s.visualizeIntermediateSteps === 'boolean') { this.form.setVisualizeSteps(s.visualizeIntermediateSteps); }
+				if (typeof s.ruleApplicationStrategy === 'string') { this.form.setRuleApplicationStrategy(s.ruleApplicationStrategy); }
 				if (Array.isArray(s.rewriteRules)) {
 					st.lastRewriteRules = s.rewriteRules as RewriteRule[];
 					this.rules.render(st.lastRewriteRules);

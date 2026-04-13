@@ -56,6 +56,11 @@ public class EvolutionRunAction extends Action {
     private int maxOperations;
     private boolean checkpointFileGeneration;
     private boolean visualizeIntermediateSteps;
+    /**
+     * How rewrite rules are scheduled — wire values match
+     * {@link org.eclipse.glsp.example.bigraph.evolution.RuleApplicationStrategy#getWireValue()}.
+     */
+    private String ruleApplicationStrategy;
 
     public EvolutionRunAction() { super(KIND); }
 
@@ -69,4 +74,6 @@ public class EvolutionRunAction extends Action {
     public int getMaxOperations()                          { return maxOperations; }
     public boolean isCheckpointFileGeneration()            { return checkpointFileGeneration; }
     public boolean isVisualizeIntermediateSteps()          { return visualizeIntermediateSteps; }
+    /** @return Wire value for {@link org.eclipse.glsp.example.bigraph.evolution.RuleApplicationStrategy}, or null. */
+    public String getRuleApplicationStrategy()             { return ruleApplicationStrategy; }
 }

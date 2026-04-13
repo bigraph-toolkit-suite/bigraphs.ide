@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
 import { type EvolutionActionPayload } from './runEvolution.js';
-import { type EvolutionFormState } from './evolutionManagerState.js';
+import {
+	RuleApplicationStrategy,
+	normalizeRuleApplicationStrategy,
+	type EvolutionFormState,
+} from './evolutionManagerState.js';
 import { setEvolutionFolder, refreshTreeFromJson, handleVerifyResult } from './evolutionManagerJsonIO.js';
 import { handleEvolutionAction, handleTreeNodeClicked, loadEvolutionManagerHtml, syncWorkspaceBigraphToCursor } from './evolutionManagerActions.js';
 import * as fs from 'fs';
@@ -102,6 +106,21 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 		}
 	}
 
+	private _persistRuleApplicationStrategy(strategy: EvolutionFormState['ruleApplicationStrategy']): void {
+		const folderPath = this._evolutionConfigPath;
+		if (!folderPath) {
+			return;
+		}
+		const evoJsonPath = path.join(folderPath, 'evolution.json');
+		try {
+			const json = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8')) as Record<string, unknown>;
+			json['ruleApplicationStrategy'] = strategy;
+			fs.writeFileSync(evoJsonPath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+		} catch {
+			vscode.window.showWarningMessage('Could not save rule application strategy to evolution.json.');
+		}
+	}
+
 	/**
 	 * Called when the user selects an existing evolution folder from the Evolutions list.
 	 */
@@ -125,6 +144,7 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 			maxOperations: 10,
 			checkpointFileGeneration: true,
 			visualizeIntermediateSteps: false,
+			ruleApplicationStrategy: RuleApplicationStrategy.FirstFirst,
 			workspaceBigraph: '',
 			operations: [],
 			evolutionConfigRelPath: null,
@@ -232,13 +252,22 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 						break;
 					case 'formStateChanged':
 						if (msg.state) {
-							this._formState = {
+							const prevStrategy = normalizeRuleApplicationStrategy(this._formState?.ruleApplicationStrategy);
+							const merged: EvolutionFormState = {
 								...msg.state,
+								ruleApplicationStrategy: normalizeRuleApplicationStrategy(
+									msg.state.ruleApplicationStrategy ?? this._formState?.ruleApplicationStrategy
+								),
 								operations:             this._formState?.operations             ?? msg.state.operations            ?? [],
 								checkpointCursor:       this._formState?.checkpointCursor       ?? msg.state.checkpointCursor      ?? null,
 								workspaceBigraph:       msg.state.workspaceBigraph || this._formState?.workspaceBigraph || '',
 								evolutionConfigRelPath: this._formState?.evolutionConfigRelPath ?? msg.state.evolutionConfigRelPath ?? null
 							};
+							const strategyChanged = prevStrategy !== merged.ruleApplicationStrategy;
+							this._formState = merged;
+							if (this._evolutionConfigPath && strategyChanged) {
+								this._persistRuleApplicationStrategy(merged.ruleApplicationStrategy);
+							}
 						}
 						break;
 				case 'verificationBigraphsChanged': {

@@ -43,6 +43,7 @@ import org.eclipse.glsp.example.bigraph.actions.EvolutionStartedAction;
 import org.eclipse.glsp.example.bigraph.actions.PublishEvolutionStateAction;
 import org.eclipse.glsp.example.bigraph.evolution.EvolutionOperation;
 import org.eclipse.glsp.example.bigraph.evolution.EvolutionRegistry;
+import org.eclipse.glsp.example.bigraph.evolution.RuleApplicationStrategy;
 import org.eclipse.glsp.example.bigraph.handler.support.BigraphNotifications;
 import org.eclipse.glsp.example.bigraph.model.BigraphIO;
 import org.eclipse.glsp.example.bigraph.model.BigraphLoadException;
@@ -171,7 +172,7 @@ public class EvolutionRunActionHandler extends AbstractActionHandler<EvolutionRu
             final List<PureBigraph> parsedVerifications = loadVerifications(action.getVerificationBigraphs(), signature);
 
             final RunContext ctx = new RunContext(action, signature, parsedRules, parsedVerifications, maxOps);
-            final PureBigraph finalBigraph = runRoundRobinLoop(initial, ctx, op);
+            final PureBigraph finalBigraph = runEvolutionLoop(initial, ctx, op);
 
             commitFinalState(finalBigraph, ctx);
 
@@ -259,13 +260,17 @@ public class EvolutionRunActionHandler extends AbstractActionHandler<EvolutionRu
     }
 
     /**
-     * Round-robin loop: cycles through all rules repeatedly until no rule matches
-     * in a full pass or the operation cap is reached.
-     * Returns the bigraph state after the last successful application.
+     * Applies rewrite rules until no rule matches in a full scan (for the chosen strategy),
+     * a stop condition matches, pause is requested, or the operation cap is reached.
+     *
+     * <p><b>first-first</b>: each step scans rules in order from index 0 and applies at most
+     * one rule (the first that matches), then repeats.</p>
+     * <p><b>round-robin</b>: each step scans from a rotating start index and applies at most
+     * one rule (the first that matches), advancing the start after each success.</p>
      */
-    private PureBigraph runRoundRobinLoop(final PureBigraph initial,
-                                          final RunContext ctx,
-                                          final EvolutionOperation op) {
+    private PureBigraph runEvolutionLoop(final PureBigraph initial,
+                                         final RunContext ctx,
+                                         final EvolutionOperation op) {
         // Read evolution.json once before the loop; updated in-memory after each application.
         // Use checkpoint-cursor as the predecessor for the first new operation so that
         // branching from any historic checkpoint is handled correctly.
@@ -273,36 +278,70 @@ public class EvolutionRunActionHandler extends AbstractActionHandler<EvolutionRu
         ctx.predecessorId = extractCursorId(ctx.evoJsonContent);
 
         PureBigraph current = initial;
-        boolean anyMatchedThisRound;
+        final boolean roundRobin = RuleApplicationStrategy.fromWire(ctx.action.getRuleApplicationStrategy())
+            == RuleApplicationStrategy.ROUND_ROBIN;
+        int nextStartIndex = 0;
 
-        // Check stop condition before we even start
         if (matchesVerification(current, ctx)) { return current; }
 
-        do {
-            anyMatchedThisRound = false;
+        while (ctx.totalApplied < ctx.maxOps) {
+            if (shouldPause(op)) { return current; }
 
-            for (int i = 0; i < ctx.rules.size(); i++) {
-                if (shouldPause(op)) { return current; }
-                if (ctx.totalApplied >= ctx.maxOps) { return current; }
+            boolean progressed = false;
 
-                final PureBigraph result = tryApplyRule(current, i, ctx);
-                if (result == null) { continue; }
+            if (roundRobin) {
+                final int n = ctx.rules.size();
+                for (int o = 0; o < n; o++) {
+                    if (shouldPause(op)) { return current; }
+                    if (ctx.totalApplied >= ctx.maxOps) { return current; }
+                    final int i = (nextStartIndex + o) % n;
+                    final PureBigraph result = tryApplyRule(current, i, ctx);
+                    if (result == null) { continue; }
 
-                anyMatchedThisRound = true;
-                recordApplication(result, ctx.rules.get(i), ctx);
-                current = result;
+                    progressed = true;
+                    recordApplication(result, ctx.rules.get(i), ctx);
+                    current = result;
+                    nextStartIndex = (i + 1) % n;
 
-                if (ctx.action.isVisualizeIntermediateSteps()) {
-                    publishState(current, ctx, false);
+                    if (ctx.action.isVisualizeIntermediateSteps()) {
+                        publishState(current, ctx, false);
+                    }
+                    if (shouldPause(op)) { return current; }
+                    if (matchesVerification(current, ctx)) {
+                        LOGGER.info("Stop condition matched after {} rule application(s) – halting evolution.", ctx.totalApplied);
+                        return current;
+                    }
+                    break;
                 }
-                if (shouldPause(op)) { return current; }
-                if (matchesVerification(current, ctx)) {
-                    LOGGER.info("Stop condition matched after {} rule application(s) – halting evolution.", ctx.totalApplied);
-                    return current;
+            } else {
+                for (int i = 0; i < ctx.rules.size(); i++) {
+                    if (shouldPause(op)) { return current; }
+                    if (ctx.totalApplied >= ctx.maxOps) { return current; }
+
+                    final PureBigraph result = tryApplyRule(current, i, ctx);
+                    if (result == null) { continue; }
+
+                    progressed = true;
+                    recordApplication(result, ctx.rules.get(i), ctx);
+                    current = result;
+
+                    if (ctx.action.isVisualizeIntermediateSteps()) {
+                        publishState(current, ctx, false);
+                    }
+                    if (shouldPause(op)) { return current; }
+                    if (matchesVerification(current, ctx)) {
+                        LOGGER.info("Stop condition matched after {} rule application(s) – halting evolution.", ctx.totalApplied);
+                        return current;
+                    }
+                    break;
                 }
             }
 
-        } while (anyMatchedThisRound && ctx.totalApplied < ctx.maxOps);
+            if (!progressed) {
+                LOGGER.info("Evolution loop finished. Total rule applications: {}", ctx.totalApplied);
+                return current;
+            }
+        }
 
         LOGGER.info("Evolution loop finished. Total rule applications: {}", ctx.totalApplied);
         return current;

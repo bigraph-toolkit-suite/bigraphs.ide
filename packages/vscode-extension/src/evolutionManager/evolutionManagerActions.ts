@@ -8,6 +8,7 @@ import {
 	copyBigraphTripletIfDifferent,
 	type EvolutionActionPayload
 } from './runEvolution.js';
+import { normalizeRuleApplicationStrategy } from './evolutionManagerState.js';
 import type { EvolutionManagerViewProvider } from './evolutionManagerViewProvider.js';
 
 // ── HTML loader ──────────────────────────────────────────────────────────────
@@ -81,7 +82,10 @@ export function handleEvolutionAction(
 		maxOperationsEnabled: msg.maxOperationsEnabled !== false,
 		maxOperations: typeof msg.maxOperations === 'number' ? msg.maxOperations : 10,
 		checkpointFileGeneration: msg.checkpointFileGeneration !== false,
-		visualizeIntermediateSteps: !!msg.visualizeIntermediateSteps
+		visualizeIntermediateSteps: !!msg.visualizeIntermediateSteps,
+		ruleApplicationStrategy: normalizeRuleApplicationStrategy(
+			msg.ruleApplicationStrategy ?? provider?.formState?.ruleApplicationStrategy
+		)
 	};
 
 	if (provider && !provider.isNewEvolution && provider.evolutionConfigPath && provider.formState?.workspaceBigraph) {

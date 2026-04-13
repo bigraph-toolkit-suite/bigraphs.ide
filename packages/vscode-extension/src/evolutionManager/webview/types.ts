@@ -32,6 +32,9 @@ export interface VerificationBigraph {
 	stop: boolean;
 }
 
+import { RuleApplicationStrategy } from '../ruleApplicationStrategy.js';
+export { RuleApplicationStrategy };
+
 // ── VS Code webview API stub ────────────────────────────────────────────────
 
 export interface VsCodeApi {
@@ -114,6 +117,7 @@ export interface FillEvolutionFormMsg {
 	operations?: EvolutionOperation[];
 	checkpointCursor?: string | null;
 	evolutionConfigRelPath?: string | null;
+	ruleApplicationStrategy?: RuleApplicationStrategy;
 }
 
 export interface RestoreFormStateMsg {
@@ -127,6 +131,7 @@ export interface RestoreFormStateMsg {
 		maxOperations?: number;
 		checkpointFileGeneration?: boolean;
 		visualizeIntermediateSteps?: boolean;
+		ruleApplicationStrategy?: RuleApplicationStrategy;
 		rewriteRules?: RewriteRule[];
 		verificationBigraphs?: VerificationBigraph[];
 		operations?: EvolutionOperation[];

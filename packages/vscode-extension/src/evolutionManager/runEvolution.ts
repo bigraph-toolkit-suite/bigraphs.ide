@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import EditorProvider from '../editor/editorProvider';
+import { normalizeRuleApplicationStrategy, type RuleApplicationStrategy } from './evolutionManagerState.js';
 
 export interface EvolutionActionPayload {
 	actionType: string;
@@ -17,6 +18,8 @@ export interface EvolutionActionPayload {
 	maxOperations: number;
 	checkpointFileGeneration: boolean;
 	visualizeIntermediateSteps: boolean;
+	/** When omitted, resolved from evolution.json or defaults to first-first. */
+	ruleApplicationStrategy?: RuleApplicationStrategy;
 }
 
 // ---------------------------------------------------------------------------
@@ -272,6 +275,10 @@ export async function dispatchEvolutionRunForExisting(payload: EvolutionActionPa
 			stop: true
 		}));
 
+	const strategy = normalizeRuleApplicationStrategy(
+		payload.ruleApplicationStrategy ?? evoConfig['ruleApplicationStrategy']
+	);
+
 	try {
 		await dispatchToGlsp({
 			actionType,
@@ -283,6 +290,7 @@ export async function dispatchEvolutionRunForExisting(payload: EvolutionActionPa
 			maxOperations,
 			checkpointFileGeneration,
 			visualizeIntermediateSteps,
+			ruleApplicationStrategy: strategy,
 			clientId: clientId ?? undefined
 		});
 	} catch (e) {
@@ -466,12 +474,19 @@ function copyVerificationFiles(
  * whose result points to checkpoints/original.xmi. All subsequent rule operations
  * reference this entry as their chain root via the predecessor field.
  */
-function writeEvolutionJson(evolutionFolder: string, evolutionLabel: string, rules: PreparedRule[], verification: PreparedVerificationBigraph[]): string {
+function writeEvolutionJson(
+	evolutionFolder: string,
+	evolutionLabel: string,
+	rules: PreparedRule[],
+	verification: PreparedVerificationBigraph[],
+	ruleApplicationStrategy: RuleApplicationStrategy
+): string {
 	const originalOpId = randomId(10);
 	const evolutionJson: Record<string, unknown> = {
 		label: evolutionLabel,
 		rules,
 		verification,
+		ruleApplicationStrategy,
 		'workspace-bigraph': 'workspace-bigraph.xmi',
 		operations: [
 			{
@@ -518,6 +533,7 @@ async function dispatchToGlsp(params: {
 	maxOperations: number;
 	checkpointFileGeneration: boolean;
 	visualizeIntermediateSteps: boolean;
+	ruleApplicationStrategy: RuleApplicationStrategy;
 	clientId: string | undefined;
 }): Promise<void> {
 	const { setPendingRunFolder, sendActionToServer } = await import('../editor/glsp/connector.js');
@@ -545,7 +561,8 @@ async function dispatchToGlsp(params: {
 		maxOperationsEnabled: params.maxOperationsEnabled,
 		maxOperations: params.maxOperations,
 		checkpointFileGeneration: params.checkpointFileGeneration,
-		visualizeIntermediateSteps: params.visualizeIntermediateSteps
+		visualizeIntermediateSteps: params.visualizeIntermediateSteps,
+		ruleApplicationStrategy: params.ruleApplicationStrategy
 	}, params.clientId);
 
 	if (!sent) {
@@ -582,7 +599,13 @@ export async function prepareEvolutionRunFolder(payload: EvolutionActionPayload)
 	const evolutionVerification = copyVerificationFiles(rawVerification, setup.verificationDir, workspaceRoot);
 
 	createWorkspaceBigraphCopy(setup);
-	writeEvolutionJson(setup.evolutionFolder, payload.evolutionLabel, evolutionRules, evolutionVerification);
+	writeEvolutionJson(
+		setup.evolutionFolder,
+		payload.evolutionLabel,
+		evolutionRules,
+		evolutionVerification,
+		normalizeRuleApplicationStrategy(payload.ruleApplicationStrategy)
+	);
 
 	// Notify the Evolutions list panel that a new folder has appeared
 	const { refreshEvolutionsList } = await import('./init.js');
@@ -611,6 +634,7 @@ export async function prepareEvolutionRunFolder(payload: EvolutionActionPayload)
 			maxOperations: payload.maxOperations,
 			checkpointFileGeneration: payload.checkpointFileGeneration,
 			visualizeIntermediateSteps: payload.visualizeIntermediateSteps,
+			ruleApplicationStrategy: normalizeRuleApplicationStrategy(payload.ruleApplicationStrategy),
 			clientId: clientId ?? undefined
 		});
 		vscode.window.showInformationMessage(`Evolution project created: ${path.basename(setup.evolutionFolder)}`);

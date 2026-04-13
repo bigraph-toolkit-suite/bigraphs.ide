@@ -1,7 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { parseOperations, type EvolutionFormState, type EvolutionOperation } from './evolutionManagerState.js';
+import {
+	parseOperations,
+	normalizeRuleApplicationStrategy,
+	type EvolutionFormState,
+	type EvolutionOperation
+} from './evolutionManagerState.js';
 import type { EvolutionManagerViewProvider } from './evolutionManagerViewProvider.js';
 
 // ── setEvolutionFolder ───────────────────────────────────────────────────────
@@ -77,6 +82,7 @@ export function setEvolutionFolder(
 		maxOperations: typeof config['maxOperations'] === 'number' ? config['maxOperations'] : 10,
 		checkpointFileGeneration: config['checkpointFileGeneration'] !== false,
 		visualizeIntermediateSteps: !!config['visualizeIntermediateSteps'],
+		ruleApplicationStrategy: normalizeRuleApplicationStrategy(config['ruleApplicationStrategy']),
 		workspaceBigraph,
 		operations,
 		evolutionConfigRelPath: configRelPath,
@@ -95,7 +101,8 @@ export function setEvolutionFolder(
 		operations,
 		workspaceBigraph,
 		evolutionConfigRelPath: configRelPath,
-		checkpointCursor
+		checkpointCursor,
+		ruleApplicationStrategy: normalizeRuleApplicationStrategy(config['ruleApplicationStrategy'])
 	});
 
 	const bigraphToOpen = workspaceBigraph || bigraphAbsPath;

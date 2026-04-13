@@ -1,4 +1,11 @@
 import * as path from 'path';
+import type { RuleApplicationStrategy } from './ruleApplicationStrategy.js';
+
+export {
+	RuleApplicationStrategy,
+	RULE_APPLICATION_STRATEGY_LABELS,
+	normalizeRuleApplicationStrategy,
+} from './ruleApplicationStrategy.js';
 
 export interface VerificationCheckEntry {
 	id: string;
@@ -28,6 +35,7 @@ export interface EvolutionFormState {
 	maxOperations: number;
 	checkpointFileGeneration: boolean;
 	visualizeIntermediateSteps: boolean;
+	ruleApplicationStrategy: RuleApplicationStrategy;
 	/** `workspace-bigraph` from the JSON – the current working bigraph of this evolution. */
 	workspaceBigraph: string;
 	/** All recorded operations from the evolution history. */
