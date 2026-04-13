@@ -100,6 +100,11 @@
         "command": "bigraph.composeBigraph",
         "title": "Compose with Canvas Bigraph",
         "icon": "$(arrow-swap)"
+      },
+      {
+        "command": "bigraph.duplicateBigraph",
+        "title": "Duplicate Bigraph",
+        "icon": "$(copy)"
       }
     ],
     "viewsContainers": {
@@ -201,6 +206,11 @@
         },
         {
           "command": "bigraph.composeBigraph",
+          "when": "view == bigraphExplorer && viewItem == bigraphFile",
+          "group": "inline"
+        },
+        {
+          "command": "bigraph.duplicateBigraph",
           "when": "view == bigraphExplorer && viewItem == bigraphFile",
           "group": "inline"
         }

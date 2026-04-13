@@ -15,6 +15,7 @@ import {
 import { getHtmlViewProvider } from '../rewriteRuleEditor/htmlViewProvider';
 import { getEvolutionManagerViewProvider } from '../evolutionManager/evolutionManagerViewProvider';
 import { dispatchActionToActiveEditor } from '../editor/init';
+import { duplicateBigraphArtifacts } from '../commands/duplicate-bigraph';
 
 let bigraphExplorerProvider: BigraphExplorerProvider;
 let dragAndDropController: BigraphExplorerDragAndDropController;
@@ -339,6 +340,30 @@ export function initExplorerSidebar(): vscode.Disposable[] {
         }
     );
 
+    const duplicateBigraphCommand = vscode.commands.registerCommand(
+        'bigraph.duplicateBigraph',
+        async (item: unknown) => {
+            if (!item || typeof item !== 'object') { return; }
+            const maybeFile = item as { label?: unknown; uri?: vscode.Uri };
+            if (typeof maybeFile.label !== 'string' || !maybeFile.uri) { return; }
+
+            const suggested = `${maybeFile.label}-copy`;
+            const newName = await vscode.window.showInputBox({
+                title: 'Duplicate bigraph',
+                prompt: 'Name for the duplicate (same folder)',
+                value: suggested,
+                valueSelection: [0, suggested.length]
+            });
+            if (newName === undefined) { return; }
+
+            const newUri = await duplicateBigraphArtifacts(maybeFile.uri, newName);
+            if (!newUri) { return; }
+
+            getBigraphExplorerProvider()?.refresh();
+            await vscode.commands.executeCommand('vscode.openWith', newUri, 'bigraph.glspDiagram');
+        }
+    );
+
     const addToVerificationCommand = vscode.commands.registerCommand(
         'bigraph.addToVerification',
         async (item: unknown) => {
@@ -436,7 +461,8 @@ export function initExplorerSidebar(): vscode.Disposable[] {
         openRewriteRuleEditorSideCommand,
         playRewriteRuleOrSetCommand,
         addToVerificationCommand,
-        composeBigraphCommand
+        composeBigraphCommand,
+        duplicateBigraphCommand
     ];
 }
 
