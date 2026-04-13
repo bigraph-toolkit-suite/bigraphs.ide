@@ -17,8 +17,8 @@
     </filter>
     <mask id="outerRingGaps">
       <rect x="0" y="0" width="1024" height="558" fill="white"/>
-      <circle cx="512" cy="130" r="8.4" fill="black"/>
-      <circle cx="512" cy="428" r="8.4" fill="black"/>
+      <circle cx="512" cy="130" r="31.5" fill="black"/>
+      <circle cx="512" cy="428" r="31.5" fill="black"/>
     </mask>
   </defs>
 
@@ -28,8 +28,8 @@
     <circle cx="512" cy="279" r="149" stroke="#8F93B8" stroke-opacity="0.60" stroke-width="4" mask="url(#outerRingGaps)"/>
 
     <!-- tiny markers on large ring -->
-    <circle cx="512" cy="130" r="4.1" fill="#B3B7D5" fill-opacity="0.85"/>
-    <circle cx="512" cy="428" r="4.1" fill="#B3B7D5" fill-opacity="0.85"/>
+    <circle cx="512" cy="130" r="15" fill="#B3B7D5" fill-opacity="0.85"/>
+    <circle cx="512" cy="428" r="15" fill="#B3B7D5" fill-opacity="0.85"/>
 
     <!-- small top-right outlined circle -->
     <circle cx="661" cy="176" r="34" stroke="#868BAC" stroke-opacity="0.58" stroke-width="4"/>
@@ -41,8 +41,8 @@
     <path d="M 512 279 C 612 286, 663 236, 661 176" stroke="url(#orbitB)" stroke-width="5" stroke-linecap="round" fill="none"/>
 
     <!-- core point and endpoint -->
-    <circle cx="512" cy="279" r="5" fill="#6EB7FF"/>
-    <circle cx="661" cy="176" r="4.5" fill="#6CFFF2"/>
+    <circle cx="512" cy="279" r="17" fill="#6EB7FF"/>
+    <circle cx="661" cy="176" r="16.5" fill="#6CFFF2"/>
   </g>
 
 </svg>

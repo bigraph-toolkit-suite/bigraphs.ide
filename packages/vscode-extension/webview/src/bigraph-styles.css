@@ -58,8 +58,6 @@
     stroke-dasharray: 6, 4;
 }
 
-/* Site label fill comes from .bigraph-svg-label on the text element */
-
 /* Empty site: dashed orange — signals "open placeholder" */
 .bigraph-site-empty {
     fill: #fff8e1;
@@ -134,14 +132,26 @@
 body.vscode-light .bigraph-svg-label,
 body.vscode-high-contrast-light .bigraph-svg-label,
 body.vscode-light .bigraph-label,
-body.vscode-high-contrast-light .bigraph-label {
+body.vscode-high-contrast-light .bigraph-label,
+body.vscode-light .bigraph-site > text,
+body.vscode-high-contrast-light .bigraph-site > text,
+body.vscode-light .bigraph-site-empty > text,
+body.vscode-high-contrast-light .bigraph-site-empty > text,
+body.vscode-light .bigraph-site-filled > text,
+body.vscode-high-contrast-light .bigraph-site-filled > text {
     fill: var(--vscode-editor-foreground, var(--vscode-foreground));
 }
 
 body.vscode-dark .bigraph-svg-label,
 body.vscode-dark .bigraph-label,
 body.vscode-high-contrast:not(.vscode-high-contrast-light) .bigraph-svg-label,
-body.vscode-high-contrast:not(.vscode-high-contrast-light) .bigraph-label {
+body.vscode-high-contrast:not(.vscode-high-contrast-light) .bigraph-label,
+body.vscode-dark .bigraph-site > text,
+body.vscode-dark .bigraph-site-empty > text,
+body.vscode-dark .bigraph-site-filled > text,
+body.vscode-high-contrast:not(.vscode-high-contrast-light) .bigraph-site > text,
+body.vscode-high-contrast:not(.vscode-high-contrast-light) .bigraph-site-empty > text,
+body.vscode-high-contrast:not(.vscode-high-contrast-light) .bigraph-site-filled > text {
     fill: var(--vscode-editor-background, #1e1e1e);
 }
 

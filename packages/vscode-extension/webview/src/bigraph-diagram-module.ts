@@ -30,9 +30,14 @@ import { svg } from '@eclipse-glsp/client';
 import { BigraphContextMenuProvider } from './context-menu';
 import { BigraphContextMenuService } from './bigraph-context-menu-service';
 import { BigraphPlaceEdgeView } from './bigraph-place-edge-view';
+import { setClass } from 'sprotty';
 
 /** Class for diagram labels; fill is set in CSS using body.vscode-light / vscode-dark (see bigraph-styles.css). */
 const DIAGRAM_LABEL_CLASS = 'bigraph-svg-label';
+
+function labelClass(text: VNode): void {
+    setClass(text, DIAGRAM_LABEL_CLASS, true);
+}
 
 /**
  * Custom view for hyper edge nodes (green text, no frame)
@@ -73,7 +78,7 @@ export class BigraphHyperEdgeView extends ShapeView {
             'font-size': '11',
             'font-weight': 'bold'
         }, label);
-        setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
+        labelClass(text);
 
         // Render children
         const children = context.renderChildren(node);
@@ -195,7 +200,7 @@ export class BigraphInnerNameView extends ShapeView {
             'font-size': '11',
             'font-weight': 'bold'
         }, label);
-        setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
+        labelClass(text);
 
         const children = context.renderChildren(node);
         const vnode = svg('g', {});
@@ -267,7 +272,7 @@ export class BigraphOuterNameView extends ShapeView {
             'font-size': '11',
             'font-weight': 'bold'
         }, label);
-        setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
+        labelClass(text);
 
         const children = context.renderChildren(node);
         const vnode = svg('g', {});
@@ -330,7 +335,7 @@ export class BigraphCustomNodeView extends ShapeView {
         // Create label text
         const text = svg('text', textAttrs, label);
         if (!color) {
-            setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
+            labelClass(text);
         }
 
         // Render children
@@ -427,7 +432,7 @@ export class BigraphRootNodeView extends ShapeView {
             'font-size': '10',
             'font-weight': 'bold'
         }, label);
-        setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
+        labelClass(text);
 
         const children = context.renderChildren(node);
         const vnode = svg('g', {});
@@ -485,7 +490,7 @@ export class BigraphSiteView extends ShapeView {
             'font-style': filled ? 'italic' : 'normal',
             opacity: '1'
         }, label);
-        setAttr(text, 'class', DIAGRAM_LABEL_CLASS);
+        labelClass(text);
 
         const children = context.renderChildren(node);
         const vnode = svg('g', {});

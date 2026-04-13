@@ -424,6 +424,9 @@
 .bp-card.bp-card-site .bp-card-meta {
     display: none;
 }
+.bp-card.bp-card-site .bp-card-name {
+    color: var(--vscode-foreground);
+}
 
 /* Filtered-out items: fade instead of hide */
 .bp-card.bp-filtered-out,

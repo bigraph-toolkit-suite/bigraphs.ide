@@ -14,9 +14,11 @@
 
 package org.eclipse.glsp.example.bigraph.handler;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -168,8 +170,8 @@ public class CreateBigraphNodeOperationHandler extends GModelCreateNodeOperation
                 }
             }
             
-            // Set node name
-            String nodeName = controlName.toLowerCase() + "_" + System.currentTimeMillis();
+            // Set node name: base = control name, then controlName1, controlName2, ... among existing nodes
+            String nodeName = allocateUniqueNodeName(bigraph, controlName);
             newNode.setName(nodeName);
             BigraphNodeIdentity.getOrCreateStableId(newNode);
             
@@ -198,5 +200,26 @@ public class CreateBigraphNodeOperationHandler extends GModelCreateNodeOperation
             BigraphNotifications.notifyError(actionDispatcher,
                     "Could not create node: " + e.getMessage());
         }
+    }
+
+    /**
+     * Picks a short display name: {@code controlName}, or {@code controlName1}, {@code controlName2}, …
+     * if that string is already used by any node. Names are compared against all current nodes.
+     */
+    static String allocateUniqueNodeName(final PureBigraphMutable bigraph, final String controlName) {
+        final Set<String> used = new HashSet<>();
+        for (NodeEntity<?> n : bigraph.getNodes()) {
+            if (n.getName() != null && !n.getName().isEmpty()) {
+                used.add(n.getName());
+            }
+        }
+        if (!used.contains(controlName)) {
+            return controlName;
+        }
+        int i = 1;
+        while (used.contains(controlName + i)) {
+            i++;
+        }
+        return controlName + i;
     }
 }
