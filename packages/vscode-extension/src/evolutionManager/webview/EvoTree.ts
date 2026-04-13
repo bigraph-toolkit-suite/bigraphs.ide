@@ -26,6 +26,21 @@ const NODE_R  = 14;
 const LEVEL_H = 70;
 const MIN_SEP = 40;
 
+/** Synthetic root shown when there are no operations yet (e.g. before `evolution.json` exists). */
+const PLACEHOLDER_ROOT_ID = '__evo-tree-placeholder-root';
+
+function makePlaceholderOperation(): EvolutionOperation {
+	return {
+		id:            PLACEHOLDER_ROOT_ID,
+		type:          'original',
+		date:          '',
+		predecessor:   'null',
+		result:        '',
+		rule:          null,
+		verification:  [],
+	};
+}
+
 export class EvoTree {
 	private readonly sectionEl: HTMLElement;
 	private readonly svgEl: SVGSVGElement;
@@ -44,6 +59,8 @@ export class EvoTree {
 	private dragStartY                  = 0;
 	private dragOffX                    = 0;
 	private dragOffY                    = 0;
+	/** True while the canvas shows the pre-run placeholder instead of real `operations` from JSON. */
+	private placeholderMode             = false;
 
 	constructor(vscode: VsCodeApi) {
 		this.vscode     = vscode;
@@ -57,19 +74,43 @@ export class EvoTree {
 
 	// ── Public API ──────────────────────────────────────────────────────────
 
-	update(ops: EvolutionOperation[], cursorId: string | null): void {
-		this.ops    = ops       ?? [];
-		this.cursor = cursorId  ?? null;
-		const hasOps = this.ops.length > 0;
-		this.sectionEl.classList.toggle('visible', hasOps);
-		if (!hasOps) { return; }
+	/**
+	 * @param hideSection When true (no evolution selected), the whole tree panel stays hidden.
+	 *   Otherwise empty `operations` renders a single placeholder node — the initial state before any run.
+	 */
+	update(ops: EvolutionOperation[], cursorId: string | null, hideSection?: boolean): void {
+		if (hideSection) {
+			this.placeholderMode = false;
+			this.ops             = [];
+			this.cursor          = null;
+			this.sectionEl.classList.remove('visible');
+			(this.svgEl as unknown as Element).innerHTML = '';
+			return;
+		}
+
+		const raw = ops ?? [];
+		if (raw.length === 0) {
+			this.placeholderMode = true;
+			this.ops             = [makePlaceholderOperation()];
+			this.cursor          = PLACEHOLDER_ROOT_ID;
+		} else {
+			this.placeholderMode = false;
+			this.ops             = raw;
+			this.cursor          = cursorId ?? null;
+		}
+
+		this.sectionEl.classList.add('visible');
 		this.scale = 1;
 		this.centerOnCursor();
 		this.render();
 	}
 
 	setCursor(id: string | null): void {
-		this.cursor = id ?? null;
+		if (this.placeholderMode && !id) {
+			this.cursor = PLACEHOLDER_ROOT_ID;
+		} else {
+			this.cursor = id ?? null;
+		}
 		this.render();
 	}
 
@@ -205,6 +246,7 @@ export class EvoTree {
 		});
 
 		nodes.forEach((n) => {
+			const isPlaceholder = n.id === PLACEHOLDER_ROOT_ID;
 			const isCursor   = n.id === this.cursor;
 			const hasResult  = !!n.result;
 			const stateClass = isCursor     ? 'state-cursor'
@@ -215,7 +257,8 @@ export class EvoTree {
 			nodeG.appendChild(this.svgMake('circle', {
 				class: `t-node-bg ${stateClass}`, cx: String(n.x), cy: String(n.y), r: String(NODE_R),
 			}));
-			const shortLabel = n.type === 'original' ? '⬤' : n.type === 'rule' ? '▶' : '✎';
+			const shortLabel = isPlaceholder ? '◉'
+				: n.type === 'original' ? '⬤' : n.type === 'rule' ? '▶' : '✎';
 			const lbl = this.svgMake('text', { class: 't-label', x: String(n.x), y: String(n.y) });
 			lbl.textContent = shortLabel;
 			nodeG.appendChild(lbl);
@@ -242,13 +285,18 @@ export class EvoTree {
 				const wrapOff = this.wrapEl.getBoundingClientRect();
 				const mx = evt.clientX - wrapOff.left;
 				const my = evt.clientY - wrapOff.top;
-				const lines = [
-					`<b>${n.type || 'op'}</b>`,
-					n.date   ? new Date(n.date).toLocaleString() : '',
-					n.rule   ? `Rule: ${n.rule}` : '',
-					n.result ? `📄 ${n.result}`  : '(no checkpoint)',
-					isCursor ? '⟵ cursor' : '',
-				].filter(Boolean).join('<br>');
+				const lines = isPlaceholder
+					? [
+						'<b>Initial state</b>',
+						'No evolution steps yet — run or step to grow the tree.',
+					].join('<br>')
+					: [
+						`<b>${n.type || 'op'}</b>`,
+						n.date   ? new Date(n.date).toLocaleString() : '',
+						n.rule   ? `Rule: ${n.rule}` : '',
+						n.result ? `📄 ${n.result}`  : '(no checkpoint)',
+						isCursor ? '⟵ cursor' : '',
+					].filter(Boolean).join('<br>');
 				this.tooltipEl.innerHTML      = lines;
 				this.tooltipEl.style.display  = 'block';
 				this.tooltipEl.style.left     = `${mx + 14}px`;

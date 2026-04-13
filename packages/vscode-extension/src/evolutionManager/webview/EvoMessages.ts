@@ -126,7 +126,7 @@ export class EvoMessages {
 					st.referencedRewriteRuleIds = new Set<string>();
 					this.form.showEvolutionForm(false);
 					this.form.setConfigPathBar(null);
-					this.tree.update([], null);
+					this.tree.update([], null, true);
 				}
 				break;
 			}
@@ -199,6 +199,11 @@ export class EvoMessages {
 					this.verif.applyStatesFromOp(curOp2);
 				} else {
 					st.referencedRewriteRuleIds = new Set<string>();
+					this.history.render([]);
+					const cursorEmpty = (msg.checkpointCursor as string | null) ?? null;
+					this.tree.update([], cursorEmpty);
+					st.currentCursorOperationId = cursorEmpty;
+					this.verif.applyStatesFromOp(null);
 				}
 				this.verif.render(st.lastVerificationBigraphs);
 				this.form.showEvolutionForm(true);
@@ -273,6 +278,11 @@ export class EvoMessages {
 					this.verif.applyStatesFromOp(rCurOp);
 				} else {
 					st.referencedRewriteRuleIds = new Set<string>();
+					this.history.render([]);
+					const rCursorEmpty = (s.checkpointCursor as string | null) ?? null;
+					this.tree.update([], rCursorEmpty);
+					st.currentCursorOperationId = rCursorEmpty;
+					this.verif.applyStatesFromOp(null);
 				}
 				this.verif.render(st.lastVerificationBigraphs);
 				if (typeof s.workspaceBigraph === 'string') {
