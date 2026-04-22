@@ -9,6 +9,10 @@
 			"name": "Run Extension",
 			"type": "extensionHost",
 			"request": "launch",
+			// Cursor can leave the extension host stopped on the first line (debugBrk) while the
+			// debugger never attaches in time → "Extension host did not start in 10 seconds" and
+			// no activation / no Debug Console logs. VS Code often attaches fast enough to hide it.
+			"stopOnEntry": false,
 			"args": [
 				"--extensionDevelopmentPath=${workspaceFolder}"
 			],

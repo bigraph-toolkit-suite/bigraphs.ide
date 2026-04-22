@@ -1,5 +1,6 @@
 {
   "name": "bigraphide",
+  "publisher": "dev-manuel",
   "displayName": "Bigraphide",
   "description": "",
   "version": "0.0.1",
@@ -368,6 +369,45 @@
           }
         },
         "toolReferenceName": "bigraph-getSignature"
+      },
+      {
+        "name": "bigraph-addControl",
+        "displayName": "Bigraph Add Control",
+        "description": "Adds a new control to the bigraph signature (writes companion .signature files and reloads the model). Use before bigraph-addNode when the needed control type does not exist yet.",
+        "modelDescription": "Adds a control to the dynamic signature with a name, non-negative integer arity, and optional kind ATOMIC (default), ACTIVE, or PASSIVE. Persists signature and reloads the diagram.",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the new control (should be unique in the signature)."
+            },
+            "arity": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Link arity (number of ports) for this control."
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "ATOMIC",
+                "ACTIVE",
+                "PASSIVE"
+              ],
+              "description": "Optional. Control kind. Default: ATOMIC."
+            },
+            "filePath": {
+              "type": "string",
+              "description": "Optional. Absolute path to the bigraph .xmi file."
+            }
+          },
+          "required": [
+            "name",
+            "arity"
+          ]
+        },
+        "toolReferenceName": "bigraph-addControl"
       },
       {
         "name": "bigraph-getLinks",
