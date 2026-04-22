@@ -61,6 +61,18 @@ export function registerBigraphTools(
         }
     }));
 
+    disposables.push(vscode.lm.registerTool('bigraph-addControl', {
+        async invoke(options) {
+            const { name, arity, status, filePath } = (options?.input ?? {}) as {
+                name: string;
+                arity: number;
+                status?: string;
+                filePath?: string;
+            };
+            return textResult(await facade.addControl(name, arity, status, filePath));
+        }
+    }));
+
     disposables.push(vscode.lm.registerTool('bigraph-getLinks', {
         async invoke(options) {
             const { filePath } = (options?.input ?? {}) as { filePath?: string };

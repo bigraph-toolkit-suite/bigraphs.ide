@@ -118,6 +118,13 @@ export class McpApiServer {
                 return this.facade.findByControl(params.control as string, fp);
             case 'getSignature':
                 return this.facade.getSignature(fp);
+            case 'addControl':
+                return this.facade.addControl(
+                    params.name as string,
+                    params.arity as number,
+                    params.status as string | undefined,
+                    fp
+                );
             case 'getLinks':
                 return this.facade.getLinks(fp);
             case 'getNeighbors':

@@ -103,6 +103,7 @@ type ParentControlAndFile = { parentId: string; controlName: string; filePath?: 
 type ElementIdAndFile = { elementId: string; filePath?: string };
 type SourceTargetAndFile = { sourceId: string; targetId: string; filePath?: string };
 type AlgorithmAndFile = { algorithm?: string; filePath?: string };
+type AddControlParams = { name: string; arity: number; status?: string; filePath?: string };
 
 // ─── MCP server ───
 
@@ -190,6 +191,27 @@ server.registerTool(
         inputSchema: z.object(optionalFileSchema),
     },
     async ({ filePath }: OptionalFile) => textContent(await callApi('getSignature', { filePath }))
+);
+
+server.registerTool(
+    'bigraph_addControl',
+    {
+        title: 'Bigraph Add Control',
+        description:
+            'Adds a new control to the bigraph signature (updates companion signature files and reloads the diagram). ' +
+            'After this, bigraph_addNode can use the new controlName. status: ATOMIC (default), ACTIVE, or PASSIVE.',
+        inputSchema: z.object({
+            name: z.string().describe('Name of the new control (unique in the signature).'),
+            arity: z.number().int().min(0).describe('Link arity (number of ports) for this control.'),
+            status: z
+                .enum(['ATOMIC', 'ACTIVE', 'PASSIVE'])
+                .optional()
+                .describe('Control kind. Default: ATOMIC.'),
+            ...optionalFileSchema,
+        }),
+    },
+    async ({ name, arity, status, filePath }: AddControlParams) =>
+        textContent(await callApi('addControl', { name, arity, status, filePath }))
 );
 
 server.registerTool(

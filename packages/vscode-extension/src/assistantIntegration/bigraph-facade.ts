@@ -125,6 +125,10 @@ export class BigraphFacade {
         return this.query('getSignature', {}, filePath);
     }
 
+    async addControl(name: string, arity: number, status: string | undefined, filePath?: string): Promise<unknown> {
+        return this.query('addControl', { name, arity, status }, filePath);
+    }
+
     async getLinks(filePath?: string): Promise<unknown> {
         return this.query('getLinks', {}, filePath);
     }

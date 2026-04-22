@@ -85,6 +85,12 @@ export class BigraphBridge {
                 return this.serverRequest('bigraph.requestFindByControl', { control: params.control });
             case 'getSignature':
                 return this.serverRequest('bigraph.requestSignature', {});
+            case 'addControl':
+                return this.dispatchAddControl(
+                    params.name as string,
+                    params.arity as number,
+                    (params.status as string | undefined) ?? 'ATOMIC'
+                );
             case 'getLinks':
                 return this.serverRequest('bigraph.requestLinks', {});
             case 'getNeighbors':
@@ -149,6 +155,27 @@ export class BigraphBridge {
             })
         );
         return { success: true };
+    }
+
+    /**
+     * Adds a control to the dynamic signature (companion .signature.xmi / .signature.ecore) and reloads the model.
+     */
+    private async dispatchAddControl(name: string, arity: number, status: string): Promise<unknown> {
+        const trimmed = (name ?? '').trim();
+        if (!trimmed) {
+            throw new Error('addControl: name must be a non-empty string');
+        }
+        if (!Number.isInteger(arity) || arity < 0) {
+            throw new Error('addControl: arity must be a non-negative integer');
+        }
+        const st = (status ?? 'ATOMIC').toUpperCase();
+        await this.dispatcher.dispatch({
+            kind: 'bigraph.createControl',
+            name: trimmed,
+            arity,
+            status: st,
+        } as { kind: string; name: string; arity: number; status: string });
+        return { success: true, name: trimmed, arity, status: st };
     }
 
     private async dispatchAddSite(): Promise<unknown> {
