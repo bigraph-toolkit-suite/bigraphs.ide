@@ -18,7 +18,7 @@
     <description>GLSP Server example for Bigraph modeling with Node Explorer</description>
 
     <properties>
-        <bigraph.version>2.4.0</bigraph.version>
+        <bigraph.version>2.5.0-SNAPSHOT</bigraph.version>
         <package-type>jar</package-type>
     </properties>
 
