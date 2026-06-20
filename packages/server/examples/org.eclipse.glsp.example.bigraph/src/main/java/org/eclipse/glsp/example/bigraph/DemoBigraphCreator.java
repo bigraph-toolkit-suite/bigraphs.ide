@@ -623,15 +623,16 @@ public class DemoBigraphCreator {
             // Step 3: Find matches of the rule in the main bigraph
             LOGGER.info("📋 Searching for matches in main bigraph...");
             AbstractBigraphMatcher<PureBigraph> matcher = AbstractBigraphMatcher.create(PureBigraph.class);
-            MatchIterable<BigraphMatch<PureBigraph>> matches = matcher.match(mainBigraph, rule);
+            MatchIterable<?> matches = matcher.match(mainBigraph, rule);
             
-            Iterator<BigraphMatch<PureBigraph>> iterator = matches.iterator();
+            Iterator<?> iterator = matches.iterator();
             
             // Step 4: Apply the rule to the first match
             // Note: MatchIterable is single-use, so we grab the first match directly
             // and count remaining matches without exhausting it first.
             if (iterator.hasNext()) {
-                BigraphMatch<PureBigraph> firstMatch = iterator.next();
+                @SuppressWarnings("unchecked")
+                BigraphMatch<PureBigraph> firstMatch = (BigraphMatch<PureBigraph>) iterator.next();
                 int matchCount = 1;
                 while (iterator.hasNext()) {
                     iterator.next();
