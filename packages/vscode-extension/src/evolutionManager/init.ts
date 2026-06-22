@@ -1,46 +1,18 @@
 import * as vscode from 'vscode';
 import { EvolutionsProvider } from '../evolutionsExplorer/evolutionsProvider';
-import { EvolutionManagerViewProvider, getEvolutionManagerViewProvider } from './evolutionManagerViewProvider';
+import { EvolutionManagerViewProvider } from './evolutionManagerViewProvider';
+import { getEvolutionManagerViewProvider } from './evolutionManagerRegistry.js';
+import { notifyEvolutionManagerActiveXmiTab } from './evolutionManagerActiveTab.js';
+import { registerEvolutionsProvider } from '../evolutionsExplorer/evolutionsListRegistry.js';
 
-/** Returns the fsPath of the currently active XMI tab, or undefined. */
-function getActiveXmiFsPath(): string | undefined {
-    for (const group of vscode.window.tabGroups.all) {
-        for (const tab of group.tabs) {
-            if (tab.isActive && tab.input instanceof vscode.TabInputCustom && tab.input.uri.fsPath.endsWith('.xmi')) {
-                return tab.input.uri.fsPath;
-            }
-        }
-    }
-    return undefined;
-}
-
-/** Sends the currently active XMI tab (if any) to the Evolution Manager webview. */
-export function notifyEvolutionManagerActiveXmiTab(): void {
-    const { getEvolutionManagerViewProvider } = require('./evolutionManagerViewProvider') as typeof import('./evolutionManagerViewProvider');
-    const provider = getEvolutionManagerViewProvider();
-    if (!provider) { return; }
-    const fsPath = getActiveXmiFsPath();
-    const relativePath = fsPath ? vscode.workspace.asRelativePath(fsPath) : null;
-    provider.postMessage({
-        type: 'activeTabChanged',
-        clientId: null,
-        fsPath: fsPath ?? null,
-        relativePath
-    });
-}
-
-let _evolutionsProvider: EvolutionsProvider | null = null;
-
-/** Refreshes the Evolutions list panel (e.g. after a new evolution folder is created). */
-export function refreshEvolutionsList(): void {
-    _evolutionsProvider?.refresh();
-}
+export { notifyEvolutionManagerActiveXmiTab } from './evolutionManagerActiveTab.js';
+export { refreshEvolutionsList } from '../evolutionsExplorer/evolutionsListRegistry.js';
 
 export function initEvolutionSidebar(context: vscode.ExtensionContext): vscode.Disposable[] {
     const disposables: vscode.Disposable[] = [];
 
     const evolutionsProvider = new EvolutionsProvider();
-    _evolutionsProvider = evolutionsProvider;
+    registerEvolutionsProvider(evolutionsProvider);
     const evolutionsTreeView = vscode.window.createTreeView('evolutions', {
         treeDataProvider: evolutionsProvider
     });
@@ -73,7 +45,6 @@ export function initEvolutionSidebar(context: vscode.ExtensionContext): vscode.D
         })
     );
 
-    // Track active XMI tab changes and push to the Evolution Manager
     disposables.push(
         vscode.window.tabGroups.onDidChangeTabGroups(() => notifyEvolutionManagerActiveXmiTab())
     );

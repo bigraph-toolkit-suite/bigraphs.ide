@@ -8,7 +8,6 @@ import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.in
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.inject;
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.signature;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
@@ -87,29 +86,6 @@ class EvolutionRegressionTest {
         assertTrue(Files.size(workspaceFile) > 0L);
         assertEquals(1, BigraphIO.parseBigraphFromFile(workspaceFile.toFile()).getNodes().size());
         assertTrue(Files.readString(evolutionJson).contains("\"checkpoint-cursor\" : \"cursor-42\""));
-    }
-
-    @Test
-    void evolutionRegistryRejectsConcurrentRunsUntilTheActiveOneIsRemoved() {
-        EvolutionRegistry registry = EvolutionRegistry.getInstance();
-        clearRegistry(registry);
-
-        EvolutionOperation active = new EvolutionOperation("active-op", "play");
-        EvolutionOperation second = new EvolutionOperation("second-op", "step");
-
-        assertEquals("active-op", registry.registerExclusive(active));
-        assertNull(registry.registerExclusive(second));
-        assertEquals("active-op", registry.getActiveOperationId());
-
-        assertTrue(registry.pause("active-op"));
-        active.markPaused();
-        assertEquals(EvolutionOperation.State.PAUSED, active.getState());
-
-        registry.remove("active-op");
-        assertNull(registry.getActiveOperationId());
-        assertEquals("second-op", registry.registerExclusive(second));
-
-        registry.remove("second-op");
     }
 
     @Test

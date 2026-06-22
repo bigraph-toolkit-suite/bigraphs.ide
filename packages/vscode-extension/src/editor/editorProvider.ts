@@ -1,169 +1,198 @@
 import { GlspEditorProvider, GlspVscodeConnector } from '@eclipse-glsp/vscode-integration';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { getEvolutionManagerViewProvider } from '../evolutionManager/evolutionManagerViewProvider';
+import { getEvolutionManagerViewProvider } from '../evolutionManager/evolutionManagerRegistry.js';
 import type { SessionRegistry } from '../assistantIntegration/session-registry';
 import type { BigraphFacade } from '../assistantIntegration/bigraph-facade';
-
-/** Returns true when the given file lives inside a *.evolution folder and is not the
- *  active workspace-bigraph (which the user and the engine are allowed to modify). */
-function isEvolutionReadOnly(fsPath: string): boolean {
-    const parts = fsPath.split(path.sep);
-    if (!parts.some(segment => segment.endsWith('.evolution'))) {
-        return false;
-    }
-    return path.basename(fsPath) !== 'workspace-bigraph.xmi';
-}
+import {
+	handleManagedSave,
+	handleWorkspaceBarAction,
+	postWorkspaceBarState,
+	postWorkspaceBarStateToAllPanels,
+} from '../workspaceBigraph/workspaceBigraphService.js';
+import {
+	consumePendingManagedOpen,
+	getSession,
+	registerSession,
+	unregisterSession,
+} from '../workspaceBigraph/sessionRegistry.js';
+import {
+	getEvolutionFolderFromPath,
+	isEvolutionReadOnly,
+	isWorkspaceBigraphPath,
+} from '../workspaceBigraph/bigraphArtifacts.js';
+import { notifyEvolutionManagerActiveXmiTab } from '../evolutionManager/evolutionManagerActiveTab.js';
+import { openManagedWorkspaceBigraph } from '../workspaceBigraph/openWorkspaceBigraph.js';
+import {
+	getActiveClientInfo as registryGetActiveClientInfo,
+	getClientIdForFsPath as registryGetClientIdForFsPath,
+	getFsPathForClientId as registryGetFsPathForClientId,
+	postMessageToAllGlspPanels,
+	registerGlspClient,
+	setActiveGlspClientId,
+	unregisterGlspClient,
+} from './glspClientRegistry.js';
+import { markSessionDisposed } from './glspServerBridge.js';
 
 export default class EditorProvider extends GlspEditorProvider {
-    diagramType = 'bigraph-xmi';
+	diagramType = 'bigraph-xmi';
 
-    private static panels: Set<vscode.WebviewPanel> = new Set();
-    private static readOnlyMode = false;
+	private static readOnlyMode = false;
 
-    /** Maps clientId → absolute fsPath of the document opened in that panel. */
-    private static clientIdToPath: Map<string, string> = new Map();
-    /** Maps clientId → its WebviewPanel, so we can check .active at any time. */
-    private static clientIdToPanel: Map<string, vscode.WebviewPanel> = new Map();
-    /** clientId of the most recently focused bigraph panel. */
-    private static activeClientId: string | undefined;
+	static getClientIdForFsPath(fsPath: string): string | undefined {
+		return registryGetClientIdForFsPath(fsPath);
+	}
 
-    /** Returns the GLSP clientId for the given absolute fsPath, or undefined if not open. */
-    static getClientIdForFsPath(fsPath: string): string | undefined {
-        for (const [cid, p] of EditorProvider.clientIdToPath) {
-            if (p === fsPath) { return cid; }
-        }
-        return undefined;
-    }
+	static getFsPathForClientId(clientId: string): string | undefined {
+		return registryGetFsPathForClientId(clientId);
+	}
 
-    /** Returns the absolute fsPath for the given GLSP clientId, or undefined if not tracked. */
-    static getFsPathForClientId(clientId: string): string | undefined {
-        return EditorProvider.clientIdToPath.get(clientId);
-    }
+	static getActiveClientInfo(): { clientId: string; fsPath: string } | undefined {
+		return registryGetActiveClientInfo();
+	}
 
-    static getActiveClientInfo(): { clientId: string; fsPath: string } | undefined {
-        // First try the explicitly tracked active client
-        const id = EditorProvider.activeClientId;
-        if (id) {
-            const fsPath = EditorProvider.clientIdToPath.get(id);
-            if (fsPath) { return { clientId: id, fsPath }; }
-        }
-        // Fall back: find any panel that is currently active
-        for (const [cid, panel] of EditorProvider.clientIdToPanel) {
-            if (panel.active) {
-                const fsPath = EditorProvider.clientIdToPath.get(cid);
-                if (fsPath) {
-                    EditorProvider.activeClientId = cid;
-                    return { clientId: cid, fsPath };
-                }
-            }
-        }
-        // Last resort: return the most recently registered panel
-        const lastEntry = [...EditorProvider.clientIdToPath.entries()].at(-1);
-        if (lastEntry) {
-            return { clientId: lastEntry[0], fsPath: lastEntry[1] };
-        }
-        return undefined;
-    }
+	constructor(
+		protected readonly extensionContext: vscode.ExtensionContext,
+		protected override readonly glspVscodeConnector: GlspVscodeConnector,
+		protected readonly sessionRegistry?: SessionRegistry,
+		protected readonly bigraphFacade?: BigraphFacade
+	) {
+		super(glspVscodeConnector);
+	}
 
-    private static notifyEvolutionManagerActiveTab(): void {
-        const info = EditorProvider.getActiveClientInfo();
-        const evolutionManager = getEvolutionManagerViewProvider();
-        if (!evolutionManager) { return; }
-        const relativePath = info?.fsPath
-            ? vscode.workspace.asRelativePath(info.fsPath)
-            : null;
-        evolutionManager.postMessage({
-            type: 'activeTabChanged',
-            clientId: info?.clientId ?? null,
-            fsPath: info?.fsPath ?? null,
-            relativePath: relativePath ?? null
-        });
-    }
+	static postMessageToAllPanels(message: unknown): void {
+		postMessageToAllGlspPanels(message);
+	}
 
-    constructor(
-        protected readonly extensionContext: vscode.ExtensionContext,
-        protected override readonly glspVscodeConnector: GlspVscodeConnector,
-        protected readonly sessionRegistry?: SessionRegistry,
-        protected readonly bigraphFacade?: BigraphFacade
-    ) {
-        super(glspVscodeConnector);
-    }
+	static postWorkspaceBarState(clientId: string): void {
+		postWorkspaceBarState(clientId);
+	}
 
-    static postMessageToAllPanels(message: any): void {
-        for (const panel of EditorProvider.panels) {
-            panel.webview.postMessage(message);
-        }
-    }
+	static postWorkspaceBarStateToAllPanels(): void {
+		postWorkspaceBarStateToAllPanels();
+	}
 
-    static setReadOnlyMode(enabled: boolean): void {
-        EditorProvider.readOnlyMode = enabled;
-        EditorProvider.postMessageToAllPanels({ type: 'setReadonlyMode', readonly: enabled });
-    }
+	static setReadOnlyMode(enabled: boolean): void {
+		EditorProvider.readOnlyMode = enabled;
+		EditorProvider.postMessageToAllPanels({ type: 'setReadonlyMode', readonly: enabled });
+	}
 
-    static isReadOnlyMode(): boolean {
-        return EditorProvider.readOnlyMode;
-    }
+	static isReadOnlyMode(): boolean {
+		return EditorProvider.readOnlyMode;
+	}
 
-    setUpWebview(
-        document: vscode.CustomDocument,
-        webviewPanel: vscode.WebviewPanel,
-        _token: vscode.CancellationToken,
-        clientId: string
-    ): void {
-        EditorProvider.panels.add(webviewPanel);
-        EditorProvider.clientIdToPath.set(clientId, document.uri.fsPath);
-        EditorProvider.clientIdToPanel.set(clientId, webviewPanel);
+	override async saveCustomDocument(
+		document: vscode.CustomDocument,
+		cancellation: vscode.CancellationToken
+	): Promise<void> {
+		const handled = await handleManagedSave(document);
+		if (handled) { return; }
+		return super.saveCustomDocument(document, cancellation);
+	}
 
-        const filePath = document.uri.fsPath;
-        const fileName = path.basename(filePath);
-        if (this.sessionRegistry) {
-            this.sessionRegistry.register({ clientId, filePath, fileName, panel: webviewPanel });
-        }
-        if (this.bigraphFacade) {
-            this.bigraphFacade.registerPanel(webviewPanel);
-            console.log('[bigraphide] Facade panel listener registered for', clientId);
-        }
+	private async registerWorkspaceSession(clientId: string, filePath: string): Promise<void> {
+		const pending = consumePendingManagedOpen(filePath);
+		if (pending) {
+			registerSession(clientId, filePath, { managed: true, evolutionFolder: pending.evolutionFolder });
+			return;
+		}
 
-        const isReadOnly = EditorProvider.readOnlyMode || isEvolutionReadOnly(document.uri.fsPath);
+		if (isWorkspaceBigraphPath(filePath)) {
+			const evoFolder = getEvolutionFolderFromPath(filePath);
+			if (evoFolder) {
+				const provider = getEvolutionManagerViewProvider();
+				if (provider) {
+					provider.setEvolutionFolder(evoFolder, { skipOpenBigraph: true });
+				} else {
+					await openManagedWorkspaceBigraph(filePath, evoFolder);
+				}
+				registerSession(clientId, filePath, { managed: true, evolutionFolder: evoFolder });
+			}
+			return;
+		}
 
-        // If this panel is already the active one at registration time, track it immediately.
-        if (webviewPanel.active) {
-            EditorProvider.activeClientId = clientId;
-            this.sessionRegistry?.setActive(clientId);
-        }
+		if (isEvolutionReadOnly(filePath)) {
+			registerSession(clientId, filePath, { managed: false, evolutionFolder: null });
+		}
+	}
 
-        webviewPanel.onDidDispose(async () => {
-            EditorProvider.panels.delete(webviewPanel);
-            EditorProvider.clientIdToPath.delete(clientId);
-            EditorProvider.clientIdToPanel.delete(clientId);
-            this.sessionRegistry?.unregister(clientId);
-            const { markSessionDisposed } = await import('./glsp/connector.js');
-            markSessionDisposed(clientId);
-            if (EditorProvider.activeClientId === clientId) {
-                EditorProvider.activeClientId = undefined;
-                EditorProvider.notifyEvolutionManagerActiveTab();
-            }
-        });
+	private syncEvolutionManagerForTab(clientId: string, filePath: string): void {
+		const session = getSession(clientId);
+		if (!session?.managed || !isWorkspaceBigraphPath(filePath) || !session.evolutionFolder) {
+			return;
+		}
+		const provider = getEvolutionManagerViewProvider();
+		if (!provider || provider.evolutionConfigPath === session.evolutionFolder) {
+			return;
+		}
+		provider.setEvolutionFolder(session.evolutionFolder, { skipOpenBigraph: true });
+	}
 
-        webviewPanel.onDidChangeViewState(() => {
-            if (webviewPanel.active) {
-                EditorProvider.activeClientId = clientId;
-                this.sessionRegistry?.setActive(clientId);
-                EditorProvider.notifyEvolutionManagerActiveTab();
-            }
-        });
+	setUpWebview(
+		document: vscode.CustomDocument,
+		webviewPanel: vscode.WebviewPanel,
+		_token: vscode.CancellationToken,
+		clientId: string
+	): void {
+		registerGlspClient(clientId, document.uri.fsPath, webviewPanel);
 
-        const webview = webviewPanel.webview;
-        webviewPanel.webview.options = {
-            enableScripts: true,
-            localResourceRoots: [this.extensionContext.extensionUri]
-        };
+		const filePath = document.uri.fsPath;
+		const fileName = path.basename(filePath);
+		if (this.sessionRegistry) {
+			this.sessionRegistry.register({ clientId, filePath, fileName, panel: webviewPanel });
+		}
+		if (this.bigraphFacade) {
+			this.bigraphFacade.registerPanel(webviewPanel);
+		}
 
-        const webviewPath = vscode.Uri.joinPath(this.extensionContext.extensionUri, 'webview', 'dist', 'webview.js');
-        const webviewUri = webview.asWebviewUri(webviewPath);
+		void this.registerWorkspaceSession(clientId, filePath).then(() => {
+			EditorProvider.postWorkspaceBarState(clientId);
+		});
 
-        webviewPanel.webview.html = `
+		const isReadOnly = EditorProvider.readOnlyMode || isEvolutionReadOnly(filePath);
+
+		if (webviewPanel.active) {
+			setActiveGlspClientId(clientId);
+			this.sessionRegistry?.setActive(clientId);
+		}
+
+		webviewPanel.onDidDispose(() => {
+			unregisterGlspClient(clientId, webviewPanel);
+			unregisterSession(clientId);
+			this.sessionRegistry?.unregister(clientId);
+			markSessionDisposed(clientId);
+			if (registryGetActiveClientInfo()?.clientId === clientId) {
+				setActiveGlspClientId(undefined);
+			}
+			notifyEvolutionManagerActiveXmiTab();
+		});
+
+		webviewPanel.onDidChangeViewState(() => {
+			if (webviewPanel.active) {
+				setActiveGlspClientId(clientId);
+				this.sessionRegistry?.setActive(clientId);
+				this.syncEvolutionManagerForTab(clientId, filePath);
+				notifyEvolutionManagerActiveXmiTab();
+				postWorkspaceBarState(clientId);
+			}
+		});
+
+		webviewPanel.webview.onDidReceiveMessage((msg: { type?: string; action?: string }) => {
+			if (msg?.type === 'workspaceBarAction' && msg.action) {
+				void handleWorkspaceBarAction(clientId, msg.action);
+			}
+		});
+
+		const webview = webviewPanel.webview;
+		webviewPanel.webview.options = {
+			enableScripts: true,
+			localResourceRoots: [this.extensionContext.extensionUri]
+		};
+
+		const webviewPath = vscode.Uri.joinPath(this.extensionContext.extensionUri, 'webview', 'dist', 'webview.js');
+		const webviewUri = webview.asWebviewUri(webviewPath);
+
+		webviewPanel.webview.html = `
             <!DOCTYPE html>
             <html lang="en">
                 <head>
@@ -181,7 +210,8 @@ export default class EditorProvider extends GlspEditorProvider {
                         body {
                             margin: 0;
                             padding: 0;
-                            font-family: Arial, sans-serif;
+                            font-family: var(--vscode-font-family, Arial, sans-serif);
+                            font-size: var(--vscode-font-size, 13px);
                             background-color: #f5f5f5;
                             overflow: hidden;
                         }
@@ -190,12 +220,16 @@ export default class EditorProvider extends GlspEditorProvider {
                             height: 100vh;
                             position: relative;
                         }
-                        #readonly-overlay {
+                        .editor-banner {
                             position: fixed;
                             top: 0;
                             left: 0;
                             right: 0;
                             z-index: 9999;
+                            pointer-events: auto;
+                            user-select: none;
+                        }
+                        #readonly-overlay {
                             display: ${isReadOnly ? 'block' : 'none'};
                             pointer-events: none;
                         }
@@ -209,8 +243,67 @@ export default class EditorProvider extends GlspEditorProvider {
                             background: #f2cc60;
                             color: #3b2f00;
                             border-bottom: 1px solid #c49a1e;
-                            user-select: none;
                             text-align: center;
+                        }
+                        #workspace-bar {
+                            display: none;
+                            background: var(--vscode-editorWidget-background, #252526);
+                            color: var(--vscode-editorWidget-foreground, #ccc);
+                            border-bottom: 1px solid var(--vscode-widget-border, #454545);
+                            padding: 6px 10px;
+                            box-sizing: border-box;
+                        }
+                        #workspace-bar.visible { display: block; }
+                        #workspace-bar.loading { position: relative; overflow: hidden; }
+                        #workspace-bar.loading::after {
+                            content: '';
+                            position: absolute;
+                            inset: 0;
+                            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+                            animation: ws-shimmer 1.2s infinite;
+                        }
+                        @keyframes ws-shimmer {
+                            0% { transform: translateX(-100%); }
+                            100% { transform: translateX(100%); }
+                        }
+                        .ws-bar-row {
+                            display: flex;
+                            align-items: center;
+                            gap: 12px;
+                            flex-wrap: wrap;
+                        }
+                        .ws-bar-title {
+                            font-weight: 600;
+                            font-size: 11px;
+                            letter-spacing: 0.04em;
+                            text-transform: uppercase;
+                            margin-right: 4px;
+                        }
+                        .ws-bar-section {
+                            display: flex;
+                            align-items: center;
+                            gap: 6px;
+                        }
+                        .ws-bar-label {
+                            font-size: 11px;
+                            opacity: 0.75;
+                        }
+                        .ws-bar-btn {
+                            font: inherit;
+                            font-size: 11px;
+                            padding: 3px 8px;
+                            border-radius: 3px;
+                            border: 1px solid var(--vscode-button-border, #555);
+                            background: var(--vscode-button-secondaryBackground, #3a3d41);
+                            color: var(--vscode-button-secondaryForeground, #ccc);
+                            cursor: pointer;
+                        }
+                        .ws-bar-btn:disabled {
+                            opacity: 0.4;
+                            cursor: default;
+                        }
+                        .ws-bar-btn:not(:disabled):hover {
+                            background: var(--vscode-button-secondaryHoverBackground, #45494e);
                         }
                         body.readonly-active .bigraph-palette [data-section="place-graph"] .bp-card,
                         body.readonly-active .bigraph-palette [data-section="place-graph"] [data-action="add-control"],
@@ -226,42 +319,83 @@ export default class EditorProvider extends GlspEditorProvider {
                 </head>
                 <body>
                     <div id="${clientId}_container"></div>
-                    <div id="readonly-overlay">
-                        <div id="readonly-banner">Read-only mode enabled</div>
+                    <div class="editor-banner">
+                        <div id="readonly-overlay">
+                            <div id="readonly-banner">Read-only mode enabled</div>
+                        </div>
+                        <div id="workspace-bar">
+                            <div class="ws-bar-row">
+                                <span class="ws-bar-title">Workspace Bigraph</span>
+                                <div class="ws-bar-section">
+                                    <span class="ws-bar-label">Alignment</span>
+                                    <button type="button" class="ws-bar-btn" id="ws-btn-revert-alignment" disabled>Revert</button>
+                                </div>
+                                <div class="ws-bar-section">
+                                    <span class="ws-bar-label">Structure</span>
+                                    <button type="button" class="ws-bar-btn" id="ws-btn-commit" disabled>Commit</button>
+                                    <button type="button" class="ws-bar-btn" id="ws-btn-revert-structure" disabled>Revert</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <script src="${webviewUri}"></script>
                     <script>
                         (function() {
+                            const vscodeApi = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : null;
                             const overlay = document.getElementById('readonly-overlay');
+                            const workspaceBar = document.getElementById('workspace-bar');
+                            const btnRevertAlignment = document.getElementById('ws-btn-revert-alignment');
+                            const btnCommit = document.getElementById('ws-btn-commit');
+                            const btnRevertStructure = document.getElementById('ws-btn-revert-structure');
 
                             function applyReadOnly(enabled) {
-                                if (overlay) {
-                                    overlay.style.display = enabled ? 'block' : 'none';
-                                }
+                                if (overlay) { overlay.style.display = enabled ? 'block' : 'none'; }
                                 document.body.classList.toggle('readonly-active', enabled);
                             }
 
-                            // Apply initial state immediately (baked in from server side)
-                            applyReadOnly(${isReadOnly});
+                            function applyWorkspaceBar(state) {
+                                if (!workspaceBar) { return; }
+                                const visible = !!state.visible;
+                                workspaceBar.classList.toggle('visible', visible);
+                                workspaceBar.classList.toggle('loading', !!state.evolutionRunning);
+                                if (!visible) { return; }
+                                if (btnRevertAlignment) { btnRevertAlignment.disabled = !state.revertAlignmentEnabled; }
+                                if (btnCommit) { btnCommit.disabled = !state.commitEnabled; }
+                                if (btnRevertStructure) { btnRevertStructure.disabled = !state.revertStructureEnabled; }
+                                const banners = visible ? (workspaceBar.offsetHeight || 0) : 0;
+                                const readOnlyH = overlay && overlay.style.display !== 'none' ? (overlay.offsetHeight || 0) : 0;
+                                document.body.style.paddingTop = (banners + readOnlyH) + 'px';
+                            }
 
-                            // The tool-palette is rendered asynchronously by the GLSP bundle.
-                            // Re-apply after a short delay so the class lands after the DOM is ready.
+                            function postAction(action) {
+                                if (!vscodeApi) { return; }
+                                vscodeApi.postMessage({ type: 'workspaceBarAction', action: action });
+                            }
+
+                            if (btnRevertAlignment) { btnRevertAlignment.addEventListener('click', function() { postAction('revertAlignment'); }); }
+                            if (btnCommit) { btnCommit.addEventListener('click', function() { postAction('commitStructure'); }); }
+                            if (btnRevertStructure) { btnRevertStructure.addEventListener('click', function() { postAction('revertStructure'); }); }
+
+                            applyReadOnly(${isReadOnly});
+                            applyWorkspaceBar({ visible: false });
                             if (${isReadOnly}) {
-                                setTimeout(function() {
-                                    document.body.classList.add('readonly-active');
-                                }, 500);
+                                setTimeout(function() { document.body.classList.add('readonly-active'); }, 500);
                             }
 
                             window.addEventListener('message', function(event) {
                                 const msg = event.data;
-                                if (!msg || msg.type !== 'setReadonlyMode') {
+                                if (!msg || !msg.type) { return; }
+                                if (msg.type === 'setReadonlyMode') {
+                                    applyReadOnly(msg.readonly);
                                     return;
                                 }
-                                applyReadOnly(msg.readonly);
+                                if (msg.type === 'workspaceBarState') {
+                                    applyWorkspaceBar(msg);
+                                }
                             });
                         })();
                     </script>
                 </body>
             </html>`;
-    }
+	}
 }

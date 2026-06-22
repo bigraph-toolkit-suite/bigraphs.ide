@@ -3,12 +3,15 @@ import type { RewriteRule, VsCodeApi } from './types.js';
 
 const DROP_HINT = `<div class="rewrite-rule-drop-hint">Drop rewrite rules from the explorer here…</div>`;
 const TRASH_SVG = `<svg viewBox="0 0 16 16"><path d="M6 2h4l1 1h3v1H2V3h3l1-1zm-2 4h1v8H4V6zm3 0h1v8H7V6zm3 0h1v8h-1V6z"/></svg>`;
+const PLAY_SVG = `<svg viewBox="0 0 16 16"><path d="M3 2l11 6-11 6V2z"/></svg>`;
 
 export class EvoRules {
 	private readonly listEl: HTMLElement;
 	private readonly state: EvoState;
 	private readonly vscode: VsCodeApi;
 	private onChanged: (() => void) | null = null;
+	private onPlayRule: ((ruleId: string) => void) | null = null;
+	private evolutionRunning = false;
 
 	constructor(state: EvoState, vscode: VsCodeApi) {
 		this.state  = state;
@@ -19,6 +22,18 @@ export class EvoRules {
 	/** Register a callback invoked after a rule's active flag changes (for form-state reporting). */
 	setOnChanged(cb: () => void): void {
 		this.onChanged = cb;
+	}
+
+	/** Register a callback invoked when the per-rule play button is clicked. */
+	setOnPlayRule(cb: (ruleId: string) => void): void {
+		this.onPlayRule = cb;
+	}
+
+	setEvolutionRunning(running: boolean): void {
+		this.evolutionRunning = running;
+		this.listEl.querySelectorAll<HTMLButtonElement>('.rule-play-btn').forEach((btn) => {
+			btn.disabled = running || btn.dataset.playDisabled === 'true';
+		});
 	}
 
 	render(rules: RewriteRule[]): void {
@@ -36,6 +51,8 @@ export class EvoRules {
 			const isActive  = r.active !== false;
 			const tagClass  = `rule-tag${isActive ? ' active' : ''}`;
 			const canDelete = !this.state.hasEvolutionJson || !this.isRuleReferencedInOperations(r.id);
+			const canPlayRule = this.state.hasEvolutionJson && !!r.id;
+			const playDisabled = !canPlayRule || this.evolutionRunning;
 			return `<div class="item" data-rule-idx="${i}">`
 				+ `<span class="rule-name">`
 				+   (ruleName  ? `<span class="rule-label">${ruleName}</span>`       : '')
@@ -45,6 +62,7 @@ export class EvoRules {
 					? `<button class="rewrite-rule-del-btn" title="Delete" data-rule-idx="${i}">${TRASH_SVG}</button>`
 					: '')
 				+ `<span class="${tagClass}" data-rule-idx="${i}">active</span>`
+				+ `<button type="button" class="rule-play-btn" title="Run this rule once at cursor" data-rule-idx="${i}" data-rule-id="${r.id ?? ''}" data-play-disabled="${canPlayRule ? 'false' : 'true'}"${playDisabled ? ' disabled' : ''}>${PLAY_SVG}</button>`
 				+ `</div>`;
 		}).join('');
 
@@ -56,6 +74,16 @@ export class EvoRules {
 				this.state.lastRewriteRules[idx] = { ...rule, active: !rule.active };
 				tag.classList.toggle('active', this.state.lastRewriteRules[idx].active);
 				this.onChanged?.();
+			});
+		});
+
+		this.listEl.querySelectorAll<HTMLButtonElement>('.rule-play-btn').forEach((btn) => {
+			btn.addEventListener('click', (e) => {
+				e.stopPropagation();
+				if (btn.disabled) { return; }
+				const ruleId = btn.dataset.ruleId ?? '';
+				if (!ruleId) { return; }
+				this.onPlayRule?.(ruleId);
 			});
 		});
 
@@ -78,7 +106,7 @@ export class EvoRules {
 		});
 	}
 
-	/** Merges rules into the list (dedupes by label + redex + reactum paths). */
+	/** Merges rules into the list (dedupes by label + redex/reactum paths; extension filters by file content on import). */
 	appendRewriteRules(rules: Array<{ label: string; redexPath: string; reactumPath: string }>): void {
 		for (const r of rules) {
 			if (

@@ -5,6 +5,9 @@ export class EvoState {
 	/** clientId of the currently active bigraph editor tab. */
 	activeClientId: string | null = null;
 
+	/** Absolute fsPath of the active editor tab (for tree cursor highlight). */
+	activeEditorTabFsPath: string | null = null;
+
 	/** Absolute fsPath of the active tab (used in the action payload). */
 	activeFsPath: string | null = null;
 

@@ -17,7 +17,7 @@ package org.eclipse.glsp.example.bigraph.actions;
 import org.eclipse.glsp.server.actions.ResponseAction;
 
 /**
- * Sent from the server to the client immediately after a play/step operation is
+ * Sent from the server to the client immediately after a play operation is
  * started in a background thread. Carries the generated {@code operationId} so
  * the client can later pause it.
  *
@@ -28,7 +28,7 @@ public class EvolutionStartedAction extends ResponseAction {
     public static final String KIND = "bigraph.evolutionStarted";
 
     private String operationId;
-    /** "play" or "step" – the type that was started */
+    /** "play" – the type that was started */
     private String actionType;
 
     public EvolutionStartedAction() {

@@ -1,11 +1,18 @@
 import * as path from 'path';
 import type { RuleApplicationStrategy } from './ruleApplicationStrategy.js';
+import {
+	EvolutionJsonKey,
+	EvolutionOpKey,
+	EvolutionOperationType,
+	EvolutionVerificationCheckKey,
+} from './evolutionConstants.js';
 
 export {
 	RuleApplicationStrategy,
 	RULE_APPLICATION_STRATEGY_LABELS,
 	normalizeRuleApplicationStrategy,
 } from './ruleApplicationStrategy.js';
+export { EvolutionOperationType } from './evolutionConstants.js';
 
 export interface VerificationCheckEntry {
 	id: string;
@@ -14,7 +21,7 @@ export interface VerificationCheckEntry {
 
 export interface EvolutionOperation {
 	id: string;
-	type: string;
+	type: EvolutionOperationType | string;
 	date: string;
 	predecessor: string;
 	result: string;
@@ -55,16 +62,20 @@ export function parseOperations(
 	folderPath: string
 ): EvolutionOperation[] {
 	return rawOps.map((op) => ({
-		id: String(op['id'] ?? ''),
-		type: String(op['type'] ?? ''),
-		date: String(op['date'] ?? ''),
-		predecessor: String(op['predecessor'] ?? ''),
-		result: op['result'] ? path.join(folderPath, String(op['result'])) : '',
-		rule: op['rule'] !== null && op['rule'] !== undefined ? String(op['rule']) : null,
-		verification: Array.isArray(op['verification'])
-			? (op['verification'] as Record<string, unknown>[]).map((v) => ({
-				id: String(v['id'] ?? ''),
-				state: v['state'] === true
+		id: String(op[EvolutionOpKey.Id] ?? ''),
+		type: String(op[EvolutionOpKey.Type] ?? ''),
+		date: String(op[EvolutionOpKey.Date] ?? ''),
+		predecessor: String(op[EvolutionOpKey.Predecessor] ?? ''),
+		result: op[EvolutionOpKey.Result]
+			? path.join(folderPath, String(op[EvolutionOpKey.Result]))
+			: '',
+		rule: op[EvolutionOpKey.Rule] !== null && op[EvolutionOpKey.Rule] !== undefined
+			? String(op[EvolutionOpKey.Rule])
+			: null,
+		verification: Array.isArray(op[EvolutionOpKey.Verification])
+			? (op[EvolutionOpKey.Verification] as Record<string, unknown>[]).map((v) => ({
+				id: String(v[EvolutionVerificationCheckKey.Id] ?? ''),
+				state: v[EvolutionVerificationCheckKey.State] === true
 			}))
 			: []
 	}));

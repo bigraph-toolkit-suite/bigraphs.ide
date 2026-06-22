@@ -14,6 +14,7 @@ import {
 } from '../rewriteRuleExplorer/rewriteRuleExplorerProvider';
 import { getHtmlViewProvider } from '../rewriteRuleEditor/htmlViewProvider';
 import { getEvolutionManagerViewProvider } from '../evolutionManager/evolutionManagerViewProvider';
+import { filterNewRewriteRules } from '../evolutionManager/rewriteRuleDedup.js';
 import { dispatchActionToActiveEditor } from '../editor/init';
 import { duplicateBigraphArtifacts, renameBigraphArtifacts } from '../commands/duplicate-bigraph';
 
@@ -441,10 +442,14 @@ export function initExplorerSidebar(): vscode.Disposable[] {
             }
 
             if (evolutionManager.hasActiveEvolutionSession() && rewriteRules.length > 0) {
-                evolutionManager.postMessage({
-                    type: 'appendRewriteRulesToForm',
-                    rewriteRules
-                });
+                const existing = evolutionManager.formState?.rewriteRules ?? [];
+                const newRules = filterNewRewriteRules(existing, rewriteRules);
+                if (newRules.length > 0) {
+                    evolutionManager.postMessage({
+                        type: 'appendRewriteRulesToForm',
+                        rewriteRules: newRules
+                    });
+                }
                 await vscode.commands.executeCommand('workbench.view.extension.bigraph-explorer-container');
                 await vscode.commands.executeCommand('evolutionManagerView.focus');
                 if (!xmiUri) {

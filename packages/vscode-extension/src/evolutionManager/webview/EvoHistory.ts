@@ -1,4 +1,5 @@
 import type { EvolutionOperation } from './types.js';
+import { EvolutionOperationType } from '../evolutionConstants.js';
 
 export class EvoHistory {
 	private readonly listEl: HTMLElement;
@@ -16,9 +17,9 @@ export class EvoHistory {
 			return;
 		}
 		this.listEl.innerHTML = operations.map((op) => {
-			const label = op.type === 'rule'
+			const label = op.type === EvolutionOperationType.Rule
 				? 'Rule applied'
-				: op.type === 'manual' ? 'Manual edit' : op.type || 'Operation';
+				: op.type === EvolutionOperationType.Manual ? 'Manual edit' : op.type || 'Operation';
 			const date = op.date ? new Date(op.date).toLocaleString() : '';
 			return `<div class="history-item">`
 				+ `<span class="history-label">${label}</span>`

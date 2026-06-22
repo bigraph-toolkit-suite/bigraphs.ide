@@ -4,7 +4,8 @@
 	<meta charset="UTF-8">
 	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' {{CSP_SOURCE}}; style-src 'unsafe-inline' {{CSP_SOURCE}};">
 	<style>
-		body { padding: 0.5rem 0.75rem 0; font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); box-sizing: border-box; display: flex; flex-direction: column; height: 100vh; margin: 0; }
+		body { padding: 0.5rem 0.75rem 0; font-family: var(--vscode-font-family); font-size: var(--vscode-font-size); color: var(--vscode-foreground); box-sizing: border-box; display: flex; flex-direction: column; height: 100vh; margin: 0; user-select: none; -webkit-user-select: none; }
+		input, textarea, select, [contenteditable="true"] { user-select: text; -webkit-user-select: text; }
 		* { box-sizing: border-box; }
 		#placeholder { color: var(--vscode-descriptionForeground); padding: 0.5rem 0; }
 		#form-area { flex: 1; overflow-y: auto; padding-bottom: 0.5rem; }
@@ -13,6 +14,10 @@
 		.field { margin-bottom: 0.6rem; }
 		.field label { display: block; font-size: 0.85em; color: var(--vscode-descriptionForeground); margin-bottom: 0.2rem; }
 		.field input[type="text"] { width: 100%; padding: 0.25rem 0.4rem; font-family: inherit; font-size: inherit; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
+		.evolution-label-row { display: flex; align-items: center; gap: 0.4rem; }
+		.evolution-label-row input[type="text"] { flex: 1; min-width: 0; }
+		.close-project-btn { flex-shrink: 0; padding: 0.25rem 0.55rem; font-family: inherit; font-size: 0.85em; background: var(--vscode-button-secondaryBackground, var(--vscode-input-background)); color: var(--vscode-button-secondaryForeground, var(--vscode-foreground)); border: 1px solid var(--vscode-input-border); border-radius: 2px; cursor: pointer; white-space: nowrap; }
+		.close-project-btn:hover { background: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground)); }
 		.field input[readonly] { opacity: 0.75; cursor: default; }
 		.field select { width: 100%; padding: 0.25rem 0.4rem; font-family: inherit; font-size: inherit; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
 		.field input[type="number"] { width: 100%; padding: 0.25rem 0.4rem; font-family: inherit; font-size: inherit; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
@@ -32,6 +37,10 @@
 		.rewrite-rule-del-btn { background: none; border: none; color: var(--vscode-descriptionForeground); cursor: pointer; padding: 0.1rem; display: flex; align-items: center; opacity: 0.7; flex-shrink: 0; margin-left: 0.35rem; }
 		.rewrite-rule-del-btn:hover { opacity: 1; color: var(--vscode-foreground); }
 		.rewrite-rule-del-btn svg { width: 12px; height: 12px; fill: currentColor; }
+		.rule-play-btn { background: none; border: none; color: var(--vscode-descriptionForeground); cursor: pointer; padding: 0.1rem; display: flex; align-items: center; justify-content: center; opacity: 0.7; flex-shrink: 0; margin-left: 0.35rem; }
+		.rule-play-btn:hover:not(:disabled) { opacity: 1; color: var(--vscode-foreground); }
+		.rule-play-btn:disabled { opacity: 0.35; cursor: default; }
+		.rule-play-btn svg { width: 12px; height: 12px; fill: currentColor; display: block; }
 		.rule-tag { flex-shrink: 0; margin-left: 0.4rem; padding: 0.05rem 0.45rem; border-radius: 3px; border: 1px solid var(--vscode-input-border); font-size: 0.72em; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; user-select: none; transition: color 0.1s, border-color 0.1s; background: transparent; color: var(--vscode-descriptionForeground); }
 		.rule-tag.active { background: transparent; color: var(--vscode-foreground); border-color: var(--vscode-foreground); }
 		/* ── Verification bigraphs ──────────────────────────────────────────── */
@@ -88,14 +97,19 @@
 		#tree-canvas-wrap:active { cursor: grabbing; }
 		#tree-svg { position: absolute; top: 0; left: 0; }
 		/* node circles */
-		.t-node-bg { stroke-width: 2; transition: filter 0.15s; }
+		.t-node-bg { stroke-width: 2; transition: filter 0.15s, stroke-width 0.15s; pointer-events: none; }
 		.t-node-bg.state-none  { fill: var(--vscode-input-background); stroke: #555; }
 		.t-node-bg.state-has-checkpoint { fill: #3b82f6; stroke: #60a5fa; }
 		.t-node-bg.state-cursor { fill: #f59e0b; stroke: #fbbf24; }
-		.t-node-hit { fill: transparent; cursor: default; }
-		.t-node-hit:hover ~ .t-node-bg { filter: brightness(1.3); }
-		.t-edge { stroke: #555; stroke-width: 1.5; fill: none; stroke-linecap: round; }
+		.t-node-group.hover .t-node-bg { filter: brightness(1.25); stroke-width: 3; }
+		.t-node-group-clickable.hover .t-node-bg.state-has-checkpoint { fill: #60a5fa; }
+		.t-node-group-clickable.hover .t-node-bg.state-cursor { fill: #fbbf24; }
+		.t-node-hit { fill: rgba(0, 0, 0, 0.001); pointer-events: all; }
+		.t-node-hit-clickable { cursor: pointer; }
+		.t-edge { stroke: #555; stroke-width: 2.75; fill: none; stroke-linecap: round; }
 		.t-label { font-size: 9px; fill: var(--vscode-foreground); text-anchor: middle; dominant-baseline: central; pointer-events: none; opacity: 0.85; }
+		.t-edge-label { font-size: 8.5px; fill: var(--vscode-descriptionForeground); text-anchor: middle; dominant-baseline: central; pointer-events: none; paint-order: stroke; stroke: var(--vscode-input-background); stroke-width: 3px; stroke-linejoin: round; }
+		.t-edge-label-manual { fill: #fdba74; }
 		/* tooltip */
 		#tree-tooltip { position: absolute; background: var(--vscode-editorHoverWidget-background, #252526); color: var(--vscode-editorHoverWidget-foreground, #ccc); border: 1px solid var(--vscode-editorHoverWidget-border, #454545); border-radius: 4px; padding: 0.3rem 0.5rem; font-size: 0.75em; pointer-events: none; white-space: nowrap; display: none; z-index: 10; max-width: 260px; white-space: normal; line-height: 1.4; }
 	</style>
@@ -107,7 +121,10 @@
 		<form id="form" class="">
 			<div class="field">
 				<label for="evolutionLabel">Evolution label</label>
-				<input type="text" id="evolutionLabel" placeholder="e.g. my-evolution" />
+				<div class="evolution-label-row">
+					<input type="text" id="evolutionLabel" placeholder="e.g. my-evolution" />
+					<button type="button" id="btnCloseProject" class="close-project-btn" title="Close the current evolution project">Close Project</button>
+				</div>
 			</div>
 			<div class="field">
 				<label for="bigraphPath">Bigraph</label>
@@ -158,10 +175,6 @@
 		<!-- Play -->
 		<button type="button" class="action-btn" id="btnPlay" title="Play evolution">
 			<svg viewBox="0 0 16 16"><path d="M3 2l11 6-11 6V2z"/></svg>
-		</button>
-		<!-- Step -->
-		<button type="button" class="action-btn" id="btnStep" title="Step (one operation)">
-			<svg viewBox="0 0 16 16"><path d="M3 2l8 6-8 6V2z"/><rect x="12" y="2" width="2" height="12"/></svg>
 		</button>
 		<!-- Pause -->
 		<button type="button" class="action-btn" id="btnPause" title="Pause evolution">

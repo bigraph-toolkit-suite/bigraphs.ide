@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { getDragService } from '../dragging';
+import { EVOLUTION_FOLDER_SUFFIX } from '../evolutionManager/evolutionConstants.js';
 
 function logDnd(_scope: string, _event: string, _details?: unknown): void {
     // DnD debug channel removed intentionally.
@@ -81,7 +82,7 @@ export class BigraphExplorerProvider implements vscode.TreeDataProvider<BigraphE
         const uris = await vscode.workspace.findFiles('**/*.xmi');
         const filtered = uris
             .filter(uri => !uri.fsPath.endsWith('.signature.xmi'))
-            .filter(uri => !uri.fsPath.split(path.sep).some(seg => seg.endsWith('.evolution')));
+            .filter(uri => !uri.fsPath.split(path.sep).some(seg => seg.endsWith(EVOLUTION_FOLDER_SUFFIX)));
 
         const root = makeNode();
 

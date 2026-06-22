@@ -39,9 +39,9 @@ public class EvolutionRunAction extends Action {
         public String getPath() { return path; }
     }
 
-    /** "play", "step", or "pause" */
+    /** "play" or "pause" */
     private String actionType;
-    /** For pause: the id of the operation to cancel. Null for play/step. */
+    /** For pause: the id of the operation to cancel. Null for play. */
     private String operationId;
     /** Active rewrite rules (each with absolute redex + reactum paths). */
     private List<RuleRef> rules;

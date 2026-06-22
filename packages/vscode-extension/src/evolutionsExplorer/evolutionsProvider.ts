@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
+import { EVOLUTION_FOLDER_SUFFIX } from '../evolutionManager/evolutionConstants.js';
 
-const EVOLUTION_SUFFIX = '.evolution';
+const EVOLUTION_SUFFIX = EVOLUTION_FOLDER_SUFFIX;
 
 class EvolutionFolderItem extends vscode.TreeItem {
 	constructor(

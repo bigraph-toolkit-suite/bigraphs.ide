@@ -1,4 +1,6 @@
+import type { EvoState } from './EvoState.js';
 import type { EvolutionOperation, VsCodeApi } from './types.js';
+import { EvolutionOperationType } from '../evolutionConstants.js';
 
 interface TreeNode {
 	id: string;
@@ -22,9 +24,13 @@ interface TreeLayout {
 	nodeMap: Record<string, TreeNode>;
 }
 
-const NODE_R  = 14;
+const NODE_R     = 14;
+const NODE_HIT_R = 20;
 const LEVEL_H = 70;
-const MIN_SEP = 40;
+/** Minimum horizontal gap between sibling branch leaf centers. */
+const MIN_SEP = 72;
+/** Approximate px per character for edge labels at 8.5px font. */
+const EDGE_LABEL_CHAR_PX = 6.5;
 
 /** Synthetic root shown when there are no operations yet (e.g. before `evolution.json` exists). */
 const PLACEHOLDER_ROOT_ID = '__evo-tree-placeholder-root';
@@ -32,7 +38,7 @@ const PLACEHOLDER_ROOT_ID = '__evo-tree-placeholder-root';
 function makePlaceholderOperation(): EvolutionOperation {
 	return {
 		id:            PLACEHOLDER_ROOT_ID,
-		type:          'original',
+		type:          EvolutionOperationType.Original,
 		date:          '',
 		predecessor:   'null',
 		result:        '',
@@ -48,9 +54,12 @@ export class EvoTree {
 	private readonly tooltipEl: HTMLElement;
 	private readonly ctxMenuEl: HTMLDivElement;
 	private readonly vscode: VsCodeApi;
+	private readonly state: EvoState;
 
 	private ops: EvolutionOperation[]   = [];
 	private cursor: string | null       = null;
+	/** When null the cursor checkpoint is not visually highlighted (e.g. workspace tab closed). */
+	private highlightCursorId: string | null = null;
 	private scale                       = 1;
 	private offX                        = 0;
 	private offY                        = 0;
@@ -62,8 +71,9 @@ export class EvoTree {
 	/** True while the canvas shows the pre-run placeholder instead of real `operations` from JSON. */
 	private placeholderMode             = false;
 
-	constructor(vscode: VsCodeApi) {
+	constructor(vscode: VsCodeApi, state: EvoState) {
 		this.vscode     = vscode;
+		this.state      = state;
 		this.sectionEl  = document.getElementById('tree-section')!;
 		this.svgEl      = document.getElementById('tree-svg') as unknown as SVGSVGElement;
 		this.wrapEl     = document.getElementById('tree-canvas-wrap')!;
@@ -83,6 +93,7 @@ export class EvoTree {
 			this.placeholderMode = false;
 			this.ops             = [];
 			this.cursor          = null;
+			this.highlightCursorId = null;
 			this.sectionEl.classList.remove('visible');
 			(this.svgEl as unknown as Element).innerHTML = '';
 			return;
@@ -101,7 +112,7 @@ export class EvoTree {
 
 		this.sectionEl.classList.add('visible');
 		this.scale = 1;
-		this.centerOnCursor();
+		this.centerOnCursor(this.cursor);
 		this.render();
 	}
 
@@ -111,6 +122,12 @@ export class EvoTree {
 		} else {
 			this.cursor = id ?? null;
 		}
+		this.render();
+	}
+
+	/** Controls whether the cursor checkpoint is visually highlighted in the tree. */
+	setHighlightCursor(id: string | null): void {
+		this.highlightCursorId = id;
 		this.render();
 	}
 
@@ -146,11 +163,13 @@ export class EvoTree {
 		}
 
 		const x: Record<string, number> = {};
-		let leafCounter = 0;
+		let nextLeafX = 0;
 		const assignX = (id: string): void => {
 			const ch = children[id] ?? [];
 			if (ch.length === 0) {
-				x[id] = leafCounter++ * (NODE_R * 2 + MIN_SEP);
+				const slot = this.leafSlotWidth(byId[id]);
+				x[id] = nextLeafX + slot / 2;
+				nextLeafX += slot;
 				return;
 			}
 			ch.forEach(assignX);
@@ -185,22 +204,23 @@ export class EvoTree {
 
 	// ── Rendering ─────────────────────────────────────────────────────────────
 
-	private centerOnCursor(): void {
+	private centerOnCursor(nodeId?: string | null): void {
 		const lyt = this.layout(this.ops);
 		if (!lyt.nodes.length) { this.offX = 0; this.offY = 0; return; }
 
 		const wrapW  = this.wrapEl.clientWidth  || 300;
 		const wrapH  = this.wrapEl.clientHeight || 220;
 		const pad    = NODE_R * 4;
-		let target   = lyt.nodes.find((n) => n.id === this.cursor) ?? lyt.nodes[0];
+		const targetId = nodeId ?? this.cursor;
+		const target   = lyt.nodes.find((n) => n.id === targetId) ?? lyt.nodes[lyt.nodes.length - 1];
 		const allX   = lyt.nodes.map((n) => n.x);
 		const minX   = Math.min(...allX);
 		const maxX   = Math.max(...allX);
 		const treeW  = maxX - minX || 1;
-		const centreX = (wrapW - treeW) / 2 - minX;
+		const centreX = (wrapW - treeW * this.scale) / 2 - minX * this.scale;
 
-		this.offX = wrapW  / 2 - target.x - centreX;
-		this.offY = wrapH  / 2 - target.y - pad;
+		this.offX = wrapW  / 2 - target.x * this.scale - centreX;
+		this.offY = wrapH  / 2 - target.y * this.scale - pad;
 	}
 
 	private render(): void {
@@ -243,45 +263,72 @@ export class EvoTree {
 				class: 't-edge',
 				d: `M${x1},${y1} C${x1},${cy} ${x2},${cy} ${x2},${y2}`,
 			}));
+
+			const ruleLabel = this.edgeLabelFor(e.to);
+			if (ruleLabel) {
+				const lx = (x1 + x2) / 2;
+				const ly = cy;
+				const isManual = e.to.type === EvolutionOperationType.Manual;
+				const edgeLbl = this.svgMake('text', {
+					class: isManual ? 't-edge-label t-edge-label-manual' : 't-edge-label',
+					x: String(lx),
+					y: String(ly),
+				});
+				edgeLbl.textContent = ruleLabel;
+				g.appendChild(edgeLbl);
+			}
 		});
+
+		const gVisual = this.svgMake('g', { class: 't-nodes-visual' });
+		const gHits   = this.svgMake('g', { class: 't-nodes-hits' });
 
 		nodes.forEach((n) => {
 			const isPlaceholder = n.id === PLACEHOLDER_ROOT_ID;
-			const isCursor   = n.id === this.cursor;
+			const isCursor   = this.highlightCursorId !== null && n.id === this.highlightCursorId;
 			const hasResult  = !!n.result;
 			const stateClass = isCursor     ? 'state-cursor'
 				: hasResult   ? 'state-has-checkpoint'
 				: 'state-none';
 
-			const nodeG  = this.svgMake('g', {});
+			const nodeG = this.svgMake('g', {
+				class: `t-node-group${hasResult ? ' t-node-group-clickable' : ''}`,
+				'data-node-id': n.id,
+			});
 			nodeG.appendChild(this.svgMake('circle', {
 				class: `t-node-bg ${stateClass}`, cx: String(n.x), cy: String(n.y), r: String(NODE_R),
 			}));
 			const shortLabel = isPlaceholder ? '◉'
-				: n.type === 'original' ? '⬤' : n.type === 'rule' ? '▶' : '✎';
+				: n.type === EvolutionOperationType.Original ? '⬤'
+				: n.type === EvolutionOperationType.Rule ? '▶' : '✎';
 			const lbl = this.svgMake('text', { class: 't-label', x: String(n.x), y: String(n.y) });
 			lbl.textContent = shortLabel;
 			nodeG.appendChild(lbl);
+			gVisual.appendChild(nodeG);
+
+			if (!hasResult) { return; }
 
 			const hit = this.svgMake('circle', {
-				class: 't-node-hit', cx: String(n.x), cy: String(n.y), r: String(NODE_R + 4),
+				class: 't-node-hit t-node-hit-clickable',
+				cx: String(n.x),
+				cy: String(n.y),
+				r: String(NODE_HIT_R),
+				'data-node-id': n.id,
 			});
-			if (hasResult) {
-				(hit as SVGElement).style.cursor = 'pointer';
-				hit.addEventListener('click', (evt) => {
-					evt.stopPropagation();
-					this.vscode.postMessage({ type: 'treeNodeClicked', operationId: n.id, resultPath: n.result! });
-				});
-				hit.addEventListener('contextmenu', (evt: MouseEvent) => {
-					evt.preventDefault();
-					evt.stopPropagation();
-					const wrapOff = this.wrapEl.getBoundingClientRect();
-					const mx = evt.clientX - wrapOff.left;
-					const my = evt.clientY - wrapOff.top;
-					this.showContextMenu(mx, my, n.id);
-				});
-			}
+			hit.addEventListener('mousedown', (evt) => evt.stopPropagation());
+			hit.addEventListener('click', (evt) => {
+				evt.stopPropagation();
+				this.vscode.postMessage({ type: 'treeNodeClicked', operationId: n.id, resultPath: n.result! });
+			});
+			hit.addEventListener('contextmenu', (evt: MouseEvent) => {
+				evt.preventDefault();
+				evt.stopPropagation();
+				const wrapOff = this.wrapEl.getBoundingClientRect();
+				const mx = evt.clientX - wrapOff.left;
+				const my = evt.clientY - wrapOff.top;
+				this.showContextMenu(mx, my, n.id);
+			});
 			hit.addEventListener('mouseenter', (evt) => {
+				nodeG.classList.add('hover');
 				const wrapOff = this.wrapEl.getBoundingClientRect();
 				const mx = evt.clientX - wrapOff.left;
 				const my = evt.clientY - wrapOff.top;
@@ -302,11 +349,15 @@ export class EvoTree {
 				this.tooltipEl.style.left     = `${mx + 14}px`;
 				this.tooltipEl.style.top      = `${my - 10}px`;
 			});
-			hit.addEventListener('mouseleave', () => { this.tooltipEl.style.display = 'none'; });
-
-			nodeG.appendChild(hit);
-			g.appendChild(nodeG);
+			hit.addEventListener('mouseleave', () => {
+				nodeG.classList.remove('hover');
+				this.tooltipEl.style.display = 'none';
+			});
+			gHits.appendChild(hit);
 		});
+
+		g.appendChild(gVisual);
+		g.appendChild(gHits);
 
 		(this.svgEl as unknown as Element).appendChild(g);
 	}
@@ -336,6 +387,8 @@ export class EvoTree {
 		}, { passive: false });
 
 		this.wrapEl.addEventListener('mousedown', (e) => {
+			const target = e.target as Element | null;
+			if (target?.closest?.('.t-node-hit-clickable')) { return; }
 			this.dragging   = true;
 			this.dragStartX = e.clientX;
 			this.dragStartY = e.clientY;
@@ -412,6 +465,38 @@ export class EvoTree {
 	private hideContextMenu(): void {
 		this.ctxMenuEl.style.display = 'none';
 		delete this.ctxMenuEl.dataset['operationId'];
+	}
+
+	private edgeLabelFor(node: TreeNode): string | null {
+		if (node.type === EvolutionOperationType.Manual) {
+			return 'manual';
+		}
+		if (node.type === EvolutionOperationType.Rule) {
+			return this.ruleLabelFor(node.rule);
+		}
+		return null;
+	}
+
+	/** Horizontal space reserved for a leaf branch; widens when the edge label is long. */
+	private leafSlotWidth(op: EvolutionOperation | undefined): number {
+		const base = NODE_R * 2 + MIN_SEP;
+		if (!op) { return base; }
+		const label = op.type === EvolutionOperationType.Manual
+			? 'manual'
+			: op.type === EvolutionOperationType.Rule
+				? this.ruleLabelFor(op.rule)
+				: null;
+		if (!label) { return base; }
+		const labelWidth = label.length * EDGE_LABEL_CHAR_PX + 20;
+		// Sibling edge labels sit near midpoints, so reserve ~2× label width between leaves.
+		return Math.max(base, labelWidth * 2);
+	}
+
+	private ruleLabelFor(ruleId: string | null): string | null {
+		if (!ruleId) { return null; }
+		const match = this.state.lastRewriteRules.find((r) => r.id === ruleId);
+		const label = match?.label?.trim();
+		return label || ruleId;
 	}
 
 	private svgMake(tag: string, attrs: Record<string, string>): SVGElement {

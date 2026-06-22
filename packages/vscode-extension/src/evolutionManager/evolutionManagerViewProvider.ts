@@ -5,24 +5,33 @@ import {
 	normalizeRuleApplicationStrategy,
 	type EvolutionFormState,
 } from './evolutionManagerState.js';
-import { setEvolutionFolder, refreshTreeFromJson, handleVerifyResult } from './evolutionManagerJsonIO.js';
+import { setEvolutionFolder, refreshTreeFromModel, handleVerifyResult } from './evolutionManagerJsonIO.js';
 import { handleEvolutionAction, handleTreeNodeClicked, loadEvolutionManagerHtml, syncWorkspaceBigraphToCursor } from './evolutionManagerActions.js';
+import { EvolutionDocument } from './evolutionDocument.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getDragService } from '../dragging';
 import type { DndZoneDescriptor } from '../dragging';
+import { sendActionToServer } from '../editor/glspServerBridge.js';
+import { registerEvolutionManagerViewProvider } from './evolutionManagerRegistry.js';
+import { notifyEvolutionManagerActiveXmiTab } from './evolutionManagerActiveTab.js';
+import {
+	EVOLUTION_JSON,
+	EvolutionJsonKey,
+	EvolutionOpKey,
+	EvolutionRuleKey,
+	EvolutionSubdir,
+	EvolutionVerificationCheckKey,
+	EvolutionVerificationKey,
+} from './evolutionConstants.js';
+import { META_EXTENSION, TRIPLET_EXTENSIONS, closeCustomEditorTab } from '../workspaceBigraph/bigraphArtifacts.js';
 
 function logDnd(_scope: string, _event: string, _details?: unknown): void {
 	// DnD debug channel removed intentionally.
 }
 
 export { type EvolutionFormState } from './evolutionManagerState.js';
-
-let _instance: EvolutionManagerViewProvider | null = null;
-
-export function getEvolutionManagerViewProvider(): EvolutionManagerViewProvider | null {
-	return _instance;
-}
+export { getEvolutionManagerViewProvider } from './evolutionManagerRegistry.js';
 
 /**
  * Webview view provider for the Evolution Manager sidebar section.
@@ -32,17 +41,19 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 	private _evolutionConfigPath: string | null = null;
 	private readonly _extensionUri: vscode.Uri;
 	_formState: EvolutionFormState | null = null;
+	private _evolutionDocument: EvolutionDocument | null = null;
 	/** Maps verificationId → operationId for in-flight verify requests. */
 	private readonly _pendingVerifyOperationId = new Map<string, string | null>();
 
 	constructor(extensionUri: vscode.Uri) {
 		this._extensionUri = extensionUri;
-		_instance = this;
+		registerEvolutionManagerViewProvider(this);
 	}
 
 	// ── Accessors ──────────────────────────────────────────────────────────────
 
 	get formState(): EvolutionFormState | null { return this._formState; }
+	get evolutionDocument(): EvolutionDocument | null { return this._evolutionDocument; }
 	get evolutionConfigPath(): string | null   { return this._evolutionConfigPath; }
 	get isNewEvolution(): boolean              { return this._evolutionConfigPath === null; }
 
@@ -82,19 +93,21 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 
 	// ── State setters ──────────────────────────────────────────────────────────
 
+	setEvolutionDocument(doc: EvolutionDocument | null): void {
+		this._evolutionDocument = doc;
+	}
+
 	setFormState(state: EvolutionFormState): void {
 		if (state.evolutionConfigRelPath) {
 			if (!this._evolutionConfigPath) {
 				const ws = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 				if (ws) {
-					const dir = path.dirname(path.join(ws, state.evolutionConfigRelPath));
-					if (fs.existsSync(path.join(dir, 'evolution.json'))) {
-						this._evolutionConfigPath = dir;
-					}
+					this._evolutionConfigPath = path.dirname(path.join(ws, state.evolutionConfigRelPath));
 				}
 			}
 		} else {
 			this._evolutionConfigPath = null;
+			this._evolutionDocument = null;
 		}
 		this._formState = state;
 	}
@@ -107,26 +120,24 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 	}
 
 	private _persistRuleApplicationStrategy(strategy: EvolutionFormState['ruleApplicationStrategy']): void {
-		const folderPath = this._evolutionConfigPath;
-		if (!folderPath) {
+		const doc = this._evolutionDocument;
+		if (!doc) {
 			return;
 		}
-		const evoJsonPath = path.join(folderPath, 'evolution.json');
 		try {
-			const json = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8')) as Record<string, unknown>;
-			json['ruleApplicationStrategy'] = strategy;
-			fs.writeFileSync(evoJsonPath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+			doc.setRuleApplicationStrategy(strategy);
+			doc.persist();
 		} catch {
-			vscode.window.showWarningMessage('Could not save rule application strategy to evolution.json.');
+			vscode.window.showWarningMessage(`Could not save rule application strategy to ${EVOLUTION_JSON}.`);
 		}
 	}
 
 	/**
 	 * Called when the user selects an existing evolution folder from the Evolutions list.
 	 */
-	setEvolutionFolder(folderPath: string): void {
+	setEvolutionFolder(folderPath: string, options?: { skipOpenBigraph?: boolean }): void {
 		this._evolutionConfigPath = folderPath;
-		setEvolutionFolder(folderPath, this);
+		setEvolutionFolder(folderPath, this, options);
 	}
 
 	/**
@@ -134,6 +145,7 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 	 */
 	setNewEvolution(): void {
 		this._evolutionConfigPath = null;
+		this._evolutionDocument = null;
 		this._formState = {
 			evolutionLabel: '',
 			bigraphFsPath: '',
@@ -154,10 +166,21 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 	}
 
 	/**
+	 * Closes the current evolution project and resets the form so a new one can be created.
+	 */
+	async closeEvolutionProject(): Promise<void> {
+		const workspaceBigraph = this._formState?.workspaceBigraph?.trim();
+		if (workspaceBigraph) {
+			await closeCustomEditorTab(workspaceBigraph);
+		}
+		this.setNewEvolution();
+	}
+
+	/**
 	 * Re-reads evolution.json and pushes fresh operations + checkpointCursor to the webview.
 	 */
-	refreshTreeFromJson(): void {
-		refreshTreeFromJson(this);
+	refreshTreeFromModel(): void {
+		refreshTreeFromModel(this);
 	}
 
 	/** Called by the connector when the server responds with a verify result. */
@@ -237,7 +260,6 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 					break;
 				}
 					case 'webviewReady': {
-						const { notifyEvolutionManagerActiveXmiTab } = require('./init') as typeof import('./init');
 						notifyEvolutionManagerActiveXmiTab();
 						if (this._formState !== null) {
 							this.postMessage({ type: 'restoreFormState', state: this._formState });
@@ -331,6 +353,11 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 					);
 					break;
 				}
+				case 'closeEvolutionProject':
+					this.closeEvolutionProject().catch((err) =>
+						console.error('[Evolution Manager] closeEvolutionProject failed:', err)
+					);
+					break;
 				}
 			}
 		);
@@ -345,7 +372,6 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 		verificationPath: string;
 		checkpointPath?: string;
 	}): Promise<void> {
-		const { sendActionToServer } = await import('../editor/glsp/connector.js');
 		const sent = sendActionToServer({
 			kind: 'bigraph.verifyBigraph',
 			verificationId: req.verificationId,
@@ -360,24 +386,14 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 	private async _deleteCheckpoint(operationId: string): Promise<void> {
 		try {
 			const folderPath = this._evolutionConfigPath;
-			if (!folderPath) { return; }
+			const doc = this._evolutionDocument;
+			if (!folderPath || !doc) { return; }
 			if (!operationId) { return; }
 
-			const evoJsonPath = path.join(folderPath, 'evolution.json');
-			let json: Record<string, unknown>;
-			try {
-				json = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8')) as Record<string, unknown>;
-			} catch {
-				vscode.window.showWarningMessage('Could not read evolution.json.');
-				return;
-			}
-
-			const ops = Array.isArray(json['operations'])
-				? (json['operations'] as Record<string, unknown>[])
-				: [];
+			const ops = doc.getRawOperations();
 			const byId = new Map<string, Record<string, unknown>>();
 			for (const op of ops) {
-				const id = String(op['id'] ?? '');
+				const id = String(op[EvolutionOpKey.Id] ?? '');
 				if (id) { byId.set(id, op); }
 			}
 			const target = byId.get(operationId);
@@ -386,8 +402,8 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 			// Compute subtree (successors) rooted at operationId.
 			const children = new Map<string, string[]>();
 			for (const op of ops) {
-				const id = String(op['id'] ?? '');
-				const pred = String(op['predecessor'] ?? '');
+				const id = String(op[EvolutionOpKey.Id] ?? '');
+				const pred = String(op[EvolutionOpKey.Predecessor] ?? '');
 				if (!id || !pred) { continue; }
 				if (!children.has(pred)) { children.set(pred, []); }
 				children.get(pred)!.push(id);
@@ -411,28 +427,30 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 				if (choice !== 'Delete') { return; }
 			}
 
-			// Delete checkpoint triplet files for every removed operation that has a `result`.
+			// Delete checkpoint triplet + meta for every removed operation that has a `result`.
 			for (const id of toDelete) {
 				const op = byId.get(id);
 				if (!op) { continue; }
-				const rel = typeof op['result'] === 'string' ? op['result'] : '';
+				const rel = typeof op[EvolutionOpKey.Result] === 'string'
+					? (op[EvolutionOpKey.Result] as string)
+					: '';
 				if (!rel) { continue; }
 				const absXmi = path.isAbsolute(rel) ? rel : path.join(folderPath, rel);
 				const base = absXmi.replace(/\.xmi$/i, '');
-				for (const ext of ['.xmi', '.signature.ecore', '.signature.xmi']) {
+				for (const ext of [...TRIPLET_EXTENSIONS, META_EXTENSION]) {
 					const p = base + ext;
 					try { if (fs.existsSync(p)) { fs.unlinkSync(p); } } catch { /* ignore */ }
 				}
 			}
 
-			const filteredOps = ops.filter((o) => !toDelete.has(String(o['id'] ?? '')));
-			const remainingIds = new Set(filteredOps.map((o) => String(o['id'] ?? '')).filter(Boolean));
+			const filteredOps = ops.filter((o) => !toDelete.has(String(o[EvolutionOpKey.Id] ?? '')));
+			const remainingIds = new Set(filteredOps.map((o) => String(o[EvolutionOpKey.Id] ?? '')).filter(Boolean));
 
 			const predMap = new Map<string, string | null>();
 			for (const op of ops) {
-				const id = String(op['id'] ?? '');
+				const id = String(op[EvolutionOpKey.Id] ?? '');
 				if (!id) { continue; }
-				const raw = op['predecessor'];
+				const raw = op[EvolutionOpKey.Predecessor];
 				let p: string | null = null;
 				if (raw !== null && raw !== undefined) {
 					const s = String(raw);
@@ -441,7 +459,7 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 				predMap.set(id, p);
 			}
 
-			let newCursor: string | null = typeof json['checkpoint-cursor'] === 'string' ? json['checkpoint-cursor'] : null;
+			let newCursor: string | null = doc.getCheckpointCursor();
 			if (newCursor && toDelete.has(newCursor)) {
 				let walk: string | null = newCursor;
 				while (walk !== null && toDelete.has(walk)) {
@@ -452,17 +470,17 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 				newCursor = null;
 			}
 
-			json['operations'] = filteredOps;
-			json['checkpoint-cursor'] = newCursor;
+			doc.setRawOperations(filteredOps);
+			doc.setCheckpointCursor(newCursor);
 
 			try {
-				fs.writeFileSync(evoJsonPath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+				doc.persist();
 			} catch {
-				vscode.window.showWarningMessage('Could not write evolution.json.');
+				vscode.window.showWarningMessage(`Could not write ${EVOLUTION_JSON}.`);
 				return;
 			}
 
-			refreshTreeFromJson(this);
+			refreshTreeFromModel(this);
 			await syncWorkspaceBigraphToCursor(this, { force: true });
 		} catch {
 			vscode.window.showWarningMessage('Could not delete checkpoint.');
@@ -473,53 +491,41 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 		try {
 			if (!ruleId) { return; }
 			const folderPath = this._evolutionConfigPath;
-			if (!folderPath) { return; }
+			const doc = this._evolutionDocument;
+			if (!folderPath || !doc) { return; }
 
-			const evoJsonPath = path.join(folderPath, 'evolution.json');
-			let json: Record<string, unknown>;
-			try {
-				json = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8')) as Record<string, unknown>;
-			} catch {
-				vscode.window.showWarningMessage('Could not read evolution.json.');
-				return;
-			}
-
-			const ops = Array.isArray(json['operations'])
-				? (json['operations'] as Record<string, unknown>[])
-				: [];
-			const isReferenced = ops.some((op) => String(op['rule'] ?? '') === ruleId);
+			const ops = doc.getRawOperations();
+			const isReferenced = ops.some((op) => String(op[EvolutionOpKey.Rule] ?? '') === ruleId);
 			if (isReferenced) {
 				vscode.window.showWarningMessage('Cannot delete rewrite rule because it is referenced by an operation.');
 				return;
 			}
 
-			const rules = Array.isArray(json['rules'])
-				? (json['rules'] as Record<string, unknown>[])
-				: [];
-			const idx = rules.findIndex((r) => String(r['id'] ?? '') === ruleId);
+			const rules = doc.getRules();
+			const idx = rules.findIndex((r) => String(r[EvolutionRuleKey.Id] ?? '') === ruleId);
 			if (idx < 0) { return; }
 
 			const removed = rules.splice(idx, 1)[0] ?? {};
-			json['rules'] = rules;
+			doc.setRules(rules);
 
 			const cleanupRelPath = (rel: unknown): void => {
 				const relPath = typeof rel === 'string' ? rel : '';
 				if (!relPath) { return; }
 				const absXmi = path.isAbsolute(relPath) ? relPath : path.join(folderPath, relPath);
 				const base = absXmi.replace(/\.xmi$/i, '');
-				for (const ext of ['.xmi', '.signature.ecore', '.signature.xmi']) {
+				for (const ext of TRIPLET_EXTENSIONS) {
 					const p = base + ext;
 					try { if (fs.existsSync(p)) { fs.unlinkSync(p); } } catch { /* ignore */ }
 				}
 			};
 
-			cleanupRelPath(removed['redex']);
-			cleanupRelPath(removed['reactum']);
+			cleanupRelPath(removed[EvolutionRuleKey.Redex]);
+			cleanupRelPath(removed[EvolutionRuleKey.Reactum]);
 
 			try {
-				fs.writeFileSync(evoJsonPath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+				doc.persist();
 			} catch {
-				vscode.window.showWarningMessage('Could not write evolution.json.');
+				vscode.window.showWarningMessage(`Could not write ${EVOLUTION_JSON}.`);
 				return;
 			}
 
@@ -551,66 +557,52 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 	private async _deleteVerificationBigraph(verificationId: string): Promise<void> {
 		try {
 			const folderPath = this._evolutionConfigPath;
-			if (!folderPath) { return; }
+			const doc = this._evolutionDocument;
+			if (!folderPath || !doc) { return; }
 			if (!verificationId) { return; }
 
-			const evoJsonPath = path.join(folderPath, 'evolution.json');
-			let json: Record<string, unknown>;
-			try {
-				json = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8')) as Record<string, unknown>;
-			} catch {
-				vscode.window.showWarningMessage('Could not read evolution.json.');
-				return;
-			}
-
-			// Top-level `verification` array: remove the definition and keep the spliced row for file paths
-			const verificationArr = Array.isArray(json['verification'])
-				? (json['verification'] as Record<string, unknown>[])
-				: [];
-			const idx = verificationArr.findIndex((v) => String(v['id'] ?? '') === verificationId);
+			const verificationArr = doc.getVerification();
+			const idx = verificationArr.findIndex((v) => String(v[EvolutionVerificationKey.Id] ?? '') === verificationId);
 			if (idx < 0) { return; }
 
 			const deleted = verificationArr.splice(idx, 1)[0] ?? {};
-			json['verification'] = verificationArr;
+			doc.setVerification(verificationArr);
 
-			// History: each operation may list verification checks; keep only checks that still
-			// reference existing top-level verification entries.
 			const remainingVerificationIds = new Set(
 				verificationArr
-					.map((v) => String(v['id'] ?? ''))
+					.map((v) => String(v[EvolutionVerificationKey.Id] ?? ''))
 					.filter((id) => id.length > 0)
 			);
-			const ops = Array.isArray(json['operations'])
-				? (json['operations'] as Record<string, unknown>[])
-				: [];
+			const ops = doc.getRawOperations();
 			for (const op of ops) {
-				const verList = Array.isArray(op['verification'])
-					? (op['verification'] as Record<string, unknown>[])
+				const verList = Array.isArray(op[EvolutionOpKey.Verification])
+					? (op[EvolutionOpKey.Verification] as Record<string, unknown>[])
 					: [];
 				const filtered = verList.filter((entry) =>
-					remainingVerificationIds.has(String(entry['id'] ?? ''))
+					remainingVerificationIds.has(String(entry[EvolutionVerificationCheckKey.Id] ?? ''))
 				);
 				if (filtered.length !== verList.length) {
-					op['verification'] = filtered;
+					op[EvolutionOpKey.Verification] = filtered;
 				}
 			}
-			json['operations'] = ops;
+			doc.setRawOperations(ops);
 
-			// On-disk cleanup: same basename as the `.xmi` stored in `deleted.path` (instance + signature pair)
-			const relPath = typeof deleted['path'] === 'string' ? deleted['path'] : '';
+			const relPath = typeof deleted[EvolutionVerificationKey.Path] === 'string'
+				? (deleted[EvolutionVerificationKey.Path] as string)
+				: '';
 			if (relPath) {
 				const absXmi = path.isAbsolute(relPath) ? relPath : path.join(folderPath, relPath);
 				const base = absXmi.replace(/\.xmi$/i, '');
-				for (const ext of ['.xmi', '.signature.ecore', '.signature.xmi']) {
+				for (const ext of TRIPLET_EXTENSIONS) {
 					const p = base + ext;
 					try { if (fs.existsSync(p)) { fs.unlinkSync(p); } } catch { /* ignore */ }
 				}
 			}
 
 			try {
-				fs.writeFileSync(evoJsonPath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+				doc.persist();
 			} catch {
-				vscode.window.showWarningMessage('Could not write evolution.json.');
+				vscode.window.showWarningMessage(`Could not write ${EVOLUTION_JSON}.`);
 				return;
 			}
 
@@ -694,20 +686,13 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 		verificationBigraphs: EvolutionFormState['verificationBigraphs']
 	): Promise<void> {
 		const folderPath = this._evolutionConfigPath;
-		if (!folderPath) {
+		const doc = this._evolutionDocument;
+		if (!folderPath || !doc) {
 			return;
 		}
 
-		const evoJsonPath = path.join(folderPath, 'evolution.json');
-		let json: Record<string, unknown>;
-		try {
-			json = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8')) as Record<string, unknown>;
-		} catch {
-			vscode.window.showWarningMessage('Could not read evolution.json.');
-			return;
-		}
-
-		const verificationDir = path.join(folderPath, 'verification');
+		const existingVerification = doc.getVerification();
+		const verificationDir = path.join(folderPath, EvolutionSubdir.Verification);
 		try {
 			fs.mkdirSync(verificationDir, { recursive: true });
 		} catch {
@@ -715,12 +700,9 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 			return;
 		}
 
-		const existingVerification = Array.isArray(json['verification'])
-			? (json['verification'] as Record<string, unknown>[])
-			: [];
 		const existingById = new Map<string, Record<string, unknown>>();
 		for (const entry of existingVerification) {
-			const id = String(entry['id'] ?? '');
+			const id = String(entry[EvolutionVerificationKey.Id] ?? '');
 			if (id) {
 				existingById.set(id, entry);
 			}
@@ -765,8 +747,8 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 
 			let relPath = '';
 			const existing = existingById.get(id);
-			const existingRelPath = existing && typeof existing['path'] === 'string'
-				? this._normalizeRel(existing['path'])
+			const existingRelPath = existing && typeof existing[EvolutionVerificationKey.Path] === 'string'
+				? this._normalizeRel(existing[EvolutionVerificationKey.Path] as string)
 				: '';
 			const insideEvolution = path.relative(folderPath, sourceAbs);
 			if (insideEvolution && !insideEvolution.startsWith('..') && !path.isAbsolute(insideEvolution)) {
@@ -775,7 +757,7 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 				relPath = existingRelPath;
 			} else {
 				const destBase = this._copyBigraphTripletIntoDir(sourceAbs, verificationDir);
-				relPath = `verification/${destBase}.xmi`;
+				relPath = `${EvolutionSubdir.Verification}/${destBase}.xmi`;
 			}
 
 			nextVerification.push({
@@ -792,11 +774,11 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 			});
 		}
 
-		json['verification'] = nextVerification;
+		doc.setVerification(nextVerification);
 		try {
-			fs.writeFileSync(evoJsonPath, JSON.stringify(json, null, 2) + '\n', 'utf8');
+			doc.persist();
 		} catch {
-			vscode.window.showWarningMessage('Could not write evolution.json.');
+			vscode.window.showWarningMessage(`Could not write ${EVOLUTION_JSON}.`);
 			return;
 		}
 

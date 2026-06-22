@@ -45,6 +45,7 @@ export class EvoMessages {
 		switch (msg.type) {
 
 			case 'activeTabChanged': {
+				st.activeEditorTabFsPath = (msg.fsPath as string | null) ?? null;
 				st.activeClientId = (msg.clientId as string | null) ?? null;
 				if (!st.bigraphLockedFromConfig) {
 					st.activeFsPath = (msg.fsPath as string | null) ?? null;
@@ -58,6 +59,7 @@ export class EvoMessages {
 						}
 					}
 				}
+				this.syncTreeCursorHighlight(st);
 				break;
 			}
 
@@ -105,6 +107,7 @@ export class EvoMessages {
 					if (msg.runFolder) { st.operationMap[opId] = msg.runFolder as string; }
 				}
 				this.form.setRunningState(true);
+				this.rules.setEvolutionRunning(true);
 				break;
 			}
 
@@ -113,6 +116,7 @@ export class EvoMessages {
 					st.currentOperationId = null;
 				}
 				this.form.setRunningState(false);
+				this.rules.setEvolutionRunning(false);
 				break;
 			}
 
@@ -144,6 +148,7 @@ export class EvoMessages {
 			case 'setCursor': {
 				st.currentCursorOperationId = (msg.cursorId as string | null) ?? null;
 				this.tree.setCursor(st.currentCursorOperationId);
+				this.syncTreeCursorHighlight(st);
 				break;
 			}
 
@@ -153,9 +158,11 @@ export class EvoMessages {
 				const cursor1  = (msg.checkpointCursor as string | null) ?? null;
 				this.history.render(ops1);
 				this.tree.update(ops1, cursor1);
+				this.rules.render(st.lastRewriteRules);
 				st.currentCursorOperationId = cursor1;
 				const curOp1 = ops1.find((o) => o.id === cursor1) ?? null;
 				this.verif.applyStatesFromOp(curOp1);
+				this.syncTreeCursorHighlight(st);
 				break;
 			}
 
@@ -183,7 +190,6 @@ export class EvoMessages {
 				}
 				if (Array.isArray(msg.rewriteRules)) {
 					st.lastRewriteRules = (msg.rewriteRules as RewriteRule[]).map((r) => ({ ...r, active: r.active !== false }));
-					this.rules.render(st.lastRewriteRules);
 				}
 				if (Array.isArray(msg.verificationBigraphs)) {
 					st.lastVerificationBigraphs = (msg.verificationBigraphs as VerificationBigraph[]).map((v) => ({ ...v, stop: v.stop !== false }));
@@ -211,7 +217,9 @@ export class EvoMessages {
 				this.verif.render(st.lastVerificationBigraphs);
 				this.form.showEvolutionForm(true);
 				this.form.setConfigPathBar((msg.evolutionConfigRelPath as string | null) ?? null);
+				this.rules.render(st.lastRewriteRules);
 				this.form.reportFormState();
+				this.syncTreeCursorHighlight(st);
 				break;
 			}
 
@@ -266,7 +274,6 @@ export class EvoMessages {
 				if (typeof s.ruleApplicationStrategy === 'string') { this.form.setRuleApplicationStrategy(s.ruleApplicationStrategy); }
 				if (Array.isArray(s.rewriteRules)) {
 					st.lastRewriteRules = s.rewriteRules as RewriteRule[];
-					this.rules.render(st.lastRewriteRules);
 				}
 				if (Array.isArray(s.verificationBigraphs)) {
 					st.lastVerificationBigraphs = s.verificationBigraphs as VerificationBigraph[];
@@ -293,12 +300,21 @@ export class EvoMessages {
 					st.currentWorkspaceBigraph = s.workspaceBigraph;
 				}
 				this.form.setConfigPathBar((s.evolutionConfigRelPath as string | null) ?? null);
+				this.rules.render(st.lastRewriteRules);
 				this.form.reportFormState();
+				this.syncTreeCursorHighlight(st);
 				break;
 			}
 
 			default:
 				break;
 		}
+	}
+
+	private syncTreeCursorHighlight(st: EvoState): void {
+		const ws = st.currentWorkspaceBigraph;
+		const active = st.activeEditorTabFsPath;
+		const wsActive = !!(ws && active && ws === active);
+		this.tree.setHighlightCursor(wsActive ? st.currentCursorOperationId : null);
 	}
 }

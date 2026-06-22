@@ -16,13 +16,18 @@ declare function acquireVsCodeApi(): VsCodeApi;
 	const history  = new EvoHistory();
 	const rules    = new EvoRules(state, vscode);
 	const verif    = new EvoVerification(state, vscode);
-	const tree     = new EvoTree(vscode);
+	const tree     = new EvoTree(vscode, state);
 	const form     = new EvoForm(state, history, vscode);
 	const msgs     = new EvoMessages(state, history, rules, verif, tree, form, vscode);
 	const dndBridge = new WebviewDndBridge(vscode);
 
 	// Wire rules back to form-state reporting after active-tag changes
 	rules.setOnChanged(() => form.reportFormState());
+	rules.setOnPlayRule((ruleId) => {
+		if (vscode) {
+			vscode.postMessage(form.collectPlayRulePayload(ruleId));
+		}
+	});
 
 	msgs.init();
 	const verificationEl = document.getElementById('verificationList');

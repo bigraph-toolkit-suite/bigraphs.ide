@@ -58,7 +58,7 @@ import com.google.inject.Inject;
  * Handles {@link EvolutionRunAction} dispatched from the Evolution Manager.
  *
  * <ul>
- *   <li><b>play / step</b>: starts the work in a background thread, registers it in
+ *   <li><b>play</b>: starts the work in a background thread, registers it in
  *       {@link EvolutionRegistry}, and immediately returns an {@link EvolutionStartedAction}
  *       carrying the generated {@code operationId} back to the client.</li>
  *   <li><b>pause</b>: looks up the operation by the {@code operationId} supplied in the
@@ -102,7 +102,7 @@ public class EvolutionRunActionHandler extends AbstractActionHandler<EvolutionRu
     }
 
     // -----------------------------------------------------------------------
-    // play / step
+    // play
     // -----------------------------------------------------------------------
 
     private List<Action> startOperation(final EvolutionRunAction action) {
@@ -188,7 +188,6 @@ public class EvolutionRunActionHandler extends AbstractActionHandler<EvolutionRu
 
     /** Determines the maximum number of rule applications for this invocation. */
     private int resolveMaxOps(final EvolutionRunAction action) {
-        if ("step".equals(action.getActionType())) { return 1; }
         return action.isMaxOperationsEnabled()
             ? Math.max(1, action.getMaxOperations())
             : Integer.MAX_VALUE;

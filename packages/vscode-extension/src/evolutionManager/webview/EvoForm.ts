@@ -18,9 +18,9 @@ export class EvoForm {
 	private readonly configPathBarEl: HTMLElement;
 	private readonly actionBarEl: HTMLElement;
 	private readonly btnPlay: HTMLButtonElement;
-	private readonly btnStep: HTMLButtonElement;
 	private readonly btnPause: HTMLButtonElement;
 	private readonly evolutionLabelEl: HTMLInputElement;
+	private readonly btnCloseProject: HTMLButtonElement;
 	private readonly maxOpsEnabledEl: HTMLInputElement;
 	private readonly maxOpsEl: HTMLInputElement;
 	private readonly checkpointFileGenEl: HTMLInputElement;
@@ -37,9 +37,9 @@ export class EvoForm {
 		this.configPathBarEl    = document.getElementById('config-path-bar')!;
 		this.actionBarEl        = document.getElementById('action-bar')!;
 		this.btnPlay            = document.getElementById('btnPlay')  as HTMLButtonElement;
-		this.btnStep            = document.getElementById('btnStep')  as HTMLButtonElement;
 		this.btnPause           = document.getElementById('btnPause') as HTMLButtonElement;
 		this.evolutionLabelEl   = document.getElementById('evolutionLabel')           as HTMLInputElement;
+		this.btnCloseProject    = document.getElementById('btnCloseProject')         as HTMLButtonElement;
 		this.maxOpsEnabledEl    = document.getElementById('maxOperationsEnabled')     as HTMLInputElement;
 		this.maxOpsEl           = document.getElementById('maxOperations')            as HTMLInputElement;
 		this.checkpointFileGenEl = document.getElementById('checkpointFileGeneration') as HTMLInputElement;
@@ -77,10 +77,8 @@ export class EvoForm {
 
 	setRunningState(running: boolean): void {
 		this.btnPlay.disabled  = running;
-		this.btnStep.disabled  = running;
 		this.btnPause.disabled = !running;
 		this.btnPlay.style.display  = running ? 'none' : '';
-		this.btnStep.style.display  = running ? 'none' : '';
 		this.btnPause.style.display = running ? ''     : 'none';
 	}
 
@@ -151,6 +149,16 @@ export class EvoForm {
 		};
 	}
 
+	/** Runs a single rewrite rule once from the current evolution cursor. */
+	collectPlayRulePayload(ruleId: string): Record<string, unknown> {
+		return {
+			...this.collectPayload('play'),
+			targetRuleId: ruleId,
+			maxOperationsEnabled: true,
+			maxOperations: 1,
+		};
+	}
+
 	// ── Field value setters (called by message handlers) ─────────────────────
 
 	setEvolutionLabel(value: string): void    { this.evolutionLabelEl.value        = value; }
@@ -168,9 +176,6 @@ export class EvoForm {
 		this.btnPlay.addEventListener('click', () => {
 			this.vscode.postMessage(this.collectPayload('play'));
 		});
-		this.btnStep.addEventListener('click', () => {
-			this.vscode.postMessage(this.collectPayload('step'));
-		});
 		this.btnPause.addEventListener('click', () => {
 			this.vscode.postMessage({
 				type:        'evolutionAction',
@@ -181,6 +186,9 @@ export class EvoForm {
 		});
 
 		this.evolutionLabelEl.addEventListener('input', () => this.reportFormState());
+		this.btnCloseProject.addEventListener('click', () => {
+			this.vscode.postMessage({ type: 'closeEvolutionProject' });
+		});
 		this.maxOpsEnabledEl.addEventListener('change', () => {
 			this.applyMaxOpsEnabledState();
 			this.reportFormState();

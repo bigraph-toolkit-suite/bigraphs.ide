@@ -1,12 +1,40 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import EditorProvider from '../editor/editorProvider';
+import { getClientIdForFsPath } from '../editor/glspClientRegistry.js';
+import {
+	assumeSessionReady,
+	markSessionDisposed,
+	sendActionToServer,
+	setPendingRunFolder,
+	waitForClientSession,
+} from '../editor/glspServerBridge.js';
+import { basePathFromXmi, closeCustomEditorTab } from '../workspaceBigraph/bigraphArtifacts.js';
+import { openManagedWorkspaceBigraph } from '../workspaceBigraph/openWorkspaceBigraph.js';
+import { applyMetaToWorkspace, resolveInheritedMetaPath } from '../workspaceBigraph/metaInheritance.js';
+import { refreshEvolutionsList } from '../evolutionsExplorer/evolutionsListRegistry.js';
+import { getEvolutionManagerViewProvider } from './evolutionManagerRegistry.js';
+import { EvolutionDocument } from './evolutionDocument.js';
 import { normalizeRuleApplicationStrategy, type RuleApplicationStrategy } from './evolutionManagerState.js';
+import {
+	EVOLUTION_FOLDER_SUFFIX,
+	EVOLUTION_JSON,
+	EvolutionCheckpoint,
+	EvolutionJsonKey,
+	EvolutionOpKey,
+	EvolutionOperationType,
+	EvolutionSubdir,
+	EvolutionVerificationKey,
+	WORKSPACE_BIGRAPH_BASENAME,
+	WORKSPACE_BIGRAPH_XMI,
+} from './evolutionConstants.js';
+import { evolutionJsonPath, originalCheckpointPath, workspaceBigraphPath } from './evolutionPaths.js';
 
 export interface EvolutionActionPayload {
 	actionType: string;
 	clientId: string | null;
+	/** When set, run only this rewrite rule once (per-rule play button). */
+	targetRuleId?: string;
 	/** For pause: the id of the running operation to cancel. */
 	operationId?: string | null;
 	evolutionLabel: string;
@@ -28,12 +56,12 @@ export interface EvolutionActionPayload {
 
 /** Returns a unique folder path of the form <base>.evolution, <base>1.evolution, <base>2.evolution, … */
 function uniqueEvolutionFolderPath(workspaceRoot: string, labelSlug: string): string {
-	const base = path.join(workspaceRoot, `${labelSlug}.evolution`);
+	const base = path.join(workspaceRoot, `${labelSlug}${EVOLUTION_FOLDER_SUFFIX}`);
 	if (!fs.existsSync(base)) { return base; }
 	let n = 1;
 	let candidate: string;
 	do {
-		candidate = path.join(workspaceRoot, `${labelSlug}${n}.evolution`);
+		candidate = path.join(workspaceRoot, `${labelSlug}${n}${EVOLUTION_FOLDER_SUFFIX}`);
 		n++;
 	} while (fs.existsSync(candidate));
 	return candidate;
@@ -129,33 +157,31 @@ function randomId(length: number): string {
  * then resolves the GLSP clientId for that file.
  * Returns the clientId, or undefined if the file could not be registered.
  */
-async function focusBigraphAndResolveClientId(fsPath: string, forceReload = false): Promise<string | undefined> {
-	const existingClientId = EditorProvider.getClientIdForFsPath(fsPath);
+async function focusBigraphAndResolveClientId(
+	fsPath: string,
+	forceReload = false,
+	evolutionFolder?: string
+): Promise<string | undefined> {
+	const existingClientId = getClientIdForFsPath(fsPath);
 
 	if (forceReload) {
-		const { markSessionDisposed } = await import('../editor/glsp/connector.js');
 		if (existingClientId) { markSessionDisposed(existingClientId); }
 
-		for (const group of vscode.window.tabGroups.all) {
-			for (const tab of group.tabs) {
-				if (tab.input instanceof vscode.TabInputCustom && tab.input.uri.fsPath === fsPath) {
-					await vscode.window.tabGroups.close(tab);
-				}
-			}
-		}
-		await new Promise((resolve) => setTimeout(resolve, 100));
+		await closeCustomEditorTab(fsPath);
 	} else if (existingClientId) {
-		const { assumeSessionReady } = await import('../editor/glsp/connector.js');
 		assumeSessionReady(existingClientId);
 	}
 
-	await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(fsPath), 'bigraph.glspDiagram');
+	if (evolutionFolder && path.basename(fsPath) === WORKSPACE_BIGRAPH_XMI) {
+		await openManagedWorkspaceBigraph(fsPath, evolutionFolder);
+	} else {
+		await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(fsPath), 'bigraph.glspDiagram');
+	}
 	await new Promise((resolve) => setTimeout(resolve, 300));
 
-	const clientId = EditorProvider.getClientIdForFsPath(fsPath);
+	const clientId = getClientIdForFsPath(fsPath);
 	if (!clientId) { return undefined; }
 
-	const { waitForClientSession } = await import('../editor/glsp/connector.js');
 	const ready = await waitForClientSession(clientId);
 	if (!ready) {
 		console.warn(`[BigraphIDE] GLSP session for ${clientId} did not become ready within timeout`);
@@ -168,7 +194,7 @@ async function focusBigraphAndResolveClientId(fsPath: string, forceReload = fals
 // ---------------------------------------------------------------------------
 
 /**
- * Used when play/step is clicked on an already-prepared evolution (config exists).
+ * Used when play is clicked on an already-prepared evolution (config exists).
  * Validates the config, restores the workspace-bigraph from the cursor checkpoint if needed,
  * focuses the workspace-bigraph tab, resolves the GLSP client context, and dispatches.
  */
@@ -178,6 +204,7 @@ export async function dispatchEvolutionRunForExisting(payload: EvolutionActionPa
 }): Promise<void> {
 	const {
 		actionType,
+		targetRuleId,
 		rewriteRules,
 		maxOperationsEnabled,
 		maxOperations,
@@ -187,70 +214,66 @@ export async function dispatchEvolutionRunForExisting(payload: EvolutionActionPa
 		workspaceBigraphPath
 	} = payload;
 
-	const activeRules = rewriteRules.filter((r) => r.active !== false);
-	if (activeRules.length === 0) {
+	let activeRules = rewriteRules.filter((r) => r.active !== false);
+	if (targetRuleId) {
+		activeRules = activeRules.filter((r) => r.id === targetRuleId);
+		if (activeRules.length === 0) {
+			vscode.window.showErrorMessage('Rewrite rule not found or not active.');
+			return;
+		}
+	} else if (activeRules.length === 0) {
 		vscode.window.showErrorMessage('At least one active rewrite rule is required.');
 		return;
 	}
 
-	// --- Validate evolution.json ---
-	const evoJsonPath = path.join(evolutionFolder, 'evolution.json');
-	let evoConfig: Record<string, unknown>;
-	try {
-		evoConfig = JSON.parse(fs.readFileSync(evoJsonPath, 'utf8'));
-	} catch {
-		// Config missing or corrupt – fall back to full folder preparation
-		vscode.window.showWarningMessage('evolution.json not found or invalid – starting fresh evolution.');
-		await prepareEvolutionRunFolder(payload);
-		return;
+	// --- Use in-memory evolution model (load from disk only if provider is not bound) ---
+	const provider = getEvolutionManagerViewProvider();
+	let evolutionDoc: EvolutionDocument;
+
+	if (provider?.evolutionConfigPath === evolutionFolder && provider.evolutionDocument) {
+		evolutionDoc = provider.evolutionDocument;
+	} else {
+		const doc = EvolutionDocument.tryLoad(evolutionFolder);
+		if (!doc) {
+			vscode.window.showWarningMessage(`${EVOLUTION_JSON} not found or invalid – starting fresh evolution.`);
+			await prepareEvolutionRunFolder(payload);
+			return;
+		}
+		evolutionDoc = doc;
 	}
 
-	// --- Restore workspace-bigraph from cursor checkpoint if available ---
-	// The checkpoint-cursor points to the operation we are currently "at".
-	// If that operation has a checkpoint file, overwrite workspace-bigraph with it
-	// so the next run continues from exactly that state.
-	let workspaceBigraphRestored = false;
-	const cursorId = typeof evoConfig['checkpoint-cursor'] === 'string' ? evoConfig['checkpoint-cursor'] : null;
-	if (cursorId) {
-		const operations = Array.isArray(evoConfig['operations'])
-			? (evoConfig['operations'] as Record<string, unknown>[])
-			: [];
-		const cursorOp = operations.find((op) => op['id'] === cursorId);
-		const resultRelPath = cursorOp && typeof cursorOp['result'] === 'string' ? cursorOp['result'] : null;
+	const cursorId = evolutionDoc.getCheckpointCursor();
+	const parsedOperations = evolutionDoc.getOperations();
 
-		if (resultRelPath) {
-			// Checkpoint file exists for the cursor position – restore it into workspace-bigraph
-			const checkpointAbs = path.join(evolutionFolder, resultRelPath);
-			if (fs.existsSync(checkpointAbs)) {
-				const cpBase = checkpointAbs.replace(/\.xmi$/, '');
-				const wsBase = workspaceBigraphPath.replace(/\.xmi$/, '');
-				// Only prompt if at least one file actually differs
-				if (bigraphTripletsDiffer(cpBase, wsBase)) {
-					const answer = await vscode.window.showWarningMessage(
-						'The workspace bigraph differs from the checkpoint the cursor is pointing to. Overwrite workspace-bigraph with the checkpoint?',
-						{ modal: true },
-						'Overwrite'
-					);
-					if (answer !== 'Overwrite') { return; }
-					copyBigraphTripletIfDifferent(cpBase, wsBase);
-					workspaceBigraphRestored = true;
-				}
-			} else {
-				vscode.window.showWarningMessage(`Checkpoint file not found: ${resultRelPath}. Using existing workspace-bigraph.`);
+	// --- Restore workspace-bigraph from cursor checkpoint if available ---
+	let workspaceBigraphRestored = false;
+	if (cursorId) {
+		const cursorOp = parsedOperations.find((op) => op.id === cursorId);
+		const checkpointAbs = cursorOp?.result ?? null;
+
+		if (checkpointAbs) {
+			const cpBase = basePathFromXmi(checkpointAbs);
+			const wsBase = basePathFromXmi(workspaceBigraphPath);
+			if (bigraphTripletsDiffer(cpBase, wsBase)) {
+				const answer = await vscode.window.showWarningMessage(
+					'The workspace bigraph differs from the checkpoint the cursor is pointing to. Overwrite workspace-bigraph with the checkpoint?',
+					{ modal: true },
+					'Overwrite'
+				);
+				if (answer !== 'Overwrite') { return; }
+				copyBigraphTripletIfDifferent(cpBase, wsBase);
+				const metaSrc = resolveInheritedMetaPath(parsedOperations, cursorId, checkpointAbs);
+				applyMetaToWorkspace(metaSrc, workspaceBigraphPath);
+				workspaceBigraphRestored = true;
 			}
 		}
-		// If cursorOp has no result (e.g. it was a manual edit with no checkpoint file), keep workspace-bigraph as-is
 	}
 
 	// --- Ensure workspace-bigraph is open and focused before resolving clientId ---
-	// Force-reload the tab when the file content was replaced so the GLSP server
-	// picks up the restored bigraph state from disk instead of its in-memory model.
-	const clientId = await focusBigraphAndResolveClientId(workspaceBigraphPath, workspaceBigraphRestored);
+	const clientId = await focusBigraphAndResolveClientId(workspaceBigraphPath, workspaceBigraphRestored, evolutionFolder);
 
-	const checkpointsDir = path.join(evolutionFolder, 'checkpoints');
+	const checkpointsDir = path.join(evolutionFolder, EvolutionSubdir.Checkpoints);
 
-	// Map activeRules to the PreparedRule shape expected by dispatchToGlsp,
-	// resolving any relative paths to absolute ones under the evolutionFolder.
 	const preparedRules: PreparedRule[] = activeRules.map((r) => ({
 		id: r.id ?? '',
 		label: r.label ?? '',
@@ -262,21 +285,18 @@ export async function dispatchEvolutionRunForExisting(payload: EvolutionActionPa
 			: r.reactumPath
 	}));
 
-	// Read verification bigraphs from evolution.json (these are already copied into the folder)
-	const rawVerification = Array.isArray(evoConfig['verification'])
-		? (evoConfig['verification'] as Record<string, unknown>[])
-		: [];
+	const rawVerification = evolutionDoc.getVerification();
 	const preparedVerification: PreparedVerificationBigraph[] = rawVerification
-		.filter((v) => v['stop'] !== false)
+		.filter((v) => v[EvolutionVerificationKey.Stop] !== false)
 		.map((v) => ({
-			id: String(v['id'] ?? ''),
-			label: String(v['label'] ?? ''),
-			path: String(v['path'] ?? ''),
+			id: String(v[EvolutionVerificationKey.Id] ?? ''),
+			label: String(v[EvolutionVerificationKey.Label] ?? ''),
+			path: String(v[EvolutionVerificationKey.Path] ?? ''),
 			stop: true
 		}));
 
 	const strategy = normalizeRuleApplicationStrategy(
-		payload.ruleApplicationStrategy ?? evoConfig['ruleApplicationStrategy']
+		payload.ruleApplicationStrategy ?? evolutionDoc.getRaw()[EvolutionJsonKey.RuleApplicationStrategy]
 	);
 
 	try {
@@ -358,9 +378,9 @@ function validatePayload(
 function createEvolutionFolderStructure(workspaceRoot: string, evolutionLabel: string): EvolutionFolderSetup {
 	const labelSlug = evolutionLabel.trim().toLowerCase().replace(/\s+/g, '-');
 	const evolutionFolder = uniqueEvolutionFolderPath(workspaceRoot, labelSlug);
-	const rulesDir = path.join(evolutionFolder, 'rules');
-	const verificationDir = path.join(evolutionFolder, 'verification');
-	const checkpointsDir = path.join(evolutionFolder, 'checkpoints');
+	const rulesDir = path.join(evolutionFolder, EvolutionSubdir.Rules);
+	const verificationDir = path.join(evolutionFolder, EvolutionSubdir.Verification);
+	const checkpointsDir = path.join(evolutionFolder, EvolutionSubdir.Checkpoints);
 	fs.mkdirSync(evolutionFolder, { recursive: true });
 	fs.mkdirSync(rulesDir, { recursive: true });
 	fs.mkdirSync(verificationDir, { recursive: true });
@@ -370,8 +390,8 @@ function createEvolutionFolderStructure(workspaceRoot: string, evolutionLabel: s
 		rulesDir,
 		verificationDir,
 		checkpointsDir,
-		checkpointOriginalDest: path.join(checkpointsDir, 'original.xmi'),
-		workspaceBigraphDest: path.join(evolutionFolder, 'workspace-bigraph.xmi')
+		checkpointOriginalDest: originalCheckpointPath(evolutionFolder),
+		workspaceBigraphDest: workspaceBigraphPath(evolutionFolder)
 	};
 }
 
@@ -382,7 +402,7 @@ function createEvolutionFolderStructure(workspaceRoot: string, evolutionLabel: s
 function copyOriginalBigraphToCheckpoints(bigraphAbs: string, setup: EvolutionFolderSetup): void {
 	const srcDir = path.dirname(bigraphAbs);
 	const srcBase = path.basename(bigraphAbs, path.extname(bigraphAbs));
-	const destBase = path.join(setup.checkpointsDir, 'original');
+	const destBase = path.join(setup.checkpointsDir, EvolutionCheckpoint.OriginalBase);
 
 	fs.copyFileSync(bigraphAbs, setup.checkpointOriginalDest);
 	for (const ext of ['.signature.ecore', '.signature.xmi']) {
@@ -391,6 +411,10 @@ function copyOriginalBigraphToCheckpoints(bigraphAbs: string, setup: EvolutionFo
 			fs.copyFileSync(src, `${destBase}${ext}`);
 		}
 	}
+	const srcMeta = path.join(srcDir, `${srcBase}.bigraph-meta`);
+	if (fs.existsSync(srcMeta)) {
+		fs.copyFileSync(srcMeta, `${destBase}.bigraph-meta`);
+	}
 }
 
 /**
@@ -398,8 +422,8 @@ function copyOriginalBigraphToCheckpoints(bigraphAbs: string, setup: EvolutionFo
  * so the first run starts from the original state.
  */
 function createWorkspaceBigraphCopy(setup: EvolutionFolderSetup): void {
-	const destBase = path.join(setup.evolutionFolder, 'workspace-bigraph');
-	const srcBase = path.join(setup.checkpointsDir, 'original');
+	const destBase = path.join(setup.evolutionFolder, WORKSPACE_BIGRAPH_BASENAME);
+	const srcBase = path.join(setup.checkpointsDir, EvolutionCheckpoint.OriginalBase);
 
 	fs.copyFileSync(setup.checkpointOriginalDest, setup.workspaceBigraphDest);
 	for (const ext of ['.signature.ecore', '.signature.xmi']) {
@@ -407,6 +431,10 @@ function createWorkspaceBigraphCopy(setup: EvolutionFolderSetup): void {
 		if (fs.existsSync(src)) {
 			fs.copyFileSync(src, `${destBase}${ext}`);
 		}
+	}
+	const srcMeta = `${srcBase}.bigraph-meta`;
+	if (fs.existsSync(srcMeta)) {
+		fs.copyFileSync(srcMeta, `${destBase}.bigraph-meta`);
 	}
 }
 
@@ -432,8 +460,8 @@ function copyRuleFiles(
 		evolutionRules.push({
 			id: randomId(10),
 			label: rule.label ?? '',
-			redex: `rules/${redexBase}.xmi`,
-			reactum: `rules/${reactumBase}.xmi`
+			redex: `${EvolutionSubdir.Rules}/${redexBase}.xmi`,
+			reactum: `${EvolutionSubdir.Rules}/${reactumBase}.xmi`
 		});
 	}
 	return evolutionRules;
@@ -461,7 +489,7 @@ function copyVerificationFiles(
 		result.push({
 			id: vb.id ?? randomId(10),
 			label,
-			path: `verification/${destBase}.xmi`,
+			path: `${EvolutionSubdir.Verification}/${destBase}.xmi`,
 			stop: vb.stop !== false
 		});
 	}
@@ -483,25 +511,25 @@ function writeEvolutionJson(
 ): string {
 	const originalOpId = randomId(10);
 	const evolutionJson: Record<string, unknown> = {
-		label: evolutionLabel,
-		rules,
-		verification,
-		ruleApplicationStrategy,
-		'workspace-bigraph': 'workspace-bigraph.xmi',
-		operations: [
+		[EvolutionJsonKey.Label]: evolutionLabel,
+		[EvolutionJsonKey.Rules]: rules,
+		[EvolutionJsonKey.Verification]: verification,
+		[EvolutionJsonKey.RuleApplicationStrategy]: ruleApplicationStrategy,
+		[EvolutionJsonKey.WorkspaceBigraph]: WORKSPACE_BIGRAPH_XMI,
+		[EvolutionJsonKey.Operations]: [
 			{
-				id: originalOpId,
-				type: 'original',
-				date: new Date().toISOString(),
-				predecessor: null,
-				result: 'checkpoints/original.xmi',
-				rule: null
+				[EvolutionOpKey.Id]: originalOpId,
+				[EvolutionOpKey.Type]: EvolutionOperationType.Original,
+				[EvolutionOpKey.Date]: new Date().toISOString(),
+				[EvolutionOpKey.Predecessor]: null,
+				[EvolutionOpKey.Result]: EvolutionCheckpoint.OriginalXmiRel,
+				[EvolutionOpKey.Rule]: null
 			}
 		],
-		'checkpoint-cursor': originalOpId
+		[EvolutionJsonKey.CheckpointCursor]: originalOpId
 	};
 	fs.writeFileSync(
-		path.join(evolutionFolder, 'evolution.json'),
+		evolutionJsonPath(evolutionFolder),
 		JSON.stringify(evolutionJson, null, 2) + '\n',
 		'utf8'
 	);
@@ -510,7 +538,6 @@ function writeEvolutionJson(
 
 /** Notifies the Evolution Manager to update its bigraph input field. */
 async function notifyEvolutionManagerBigraphChanged(workspaceBigraphDest: string): Promise<void> {
-	const { getEvolutionManagerViewProvider } = await import('./evolutionManagerViewProvider.js');
 	const evolutionManager = getEvolutionManagerViewProvider();
 	if (evolutionManager) {
 		evolutionManager.postMessage({
@@ -536,7 +563,6 @@ async function dispatchToGlsp(params: {
 	ruleApplicationStrategy: RuleApplicationStrategy;
 	clientId: string | undefined;
 }): Promise<void> {
-	const { setPendingRunFolder, sendActionToServer } = await import('../editor/glsp/connector.js');
 	setPendingRunFolder(params.evolutionFolder);
 
 	// Only pass stop-tagged verification bigraphs with absolute paths to the backend
@@ -557,7 +583,7 @@ async function dispatchToGlsp(params: {
 		})),
 		verificationBigraphs: stopVerifications,
 		checkpointsDir: params.checkpointsDir,
-		evolutionJsonPath: path.join(params.evolutionFolder, 'evolution.json'),
+		evolutionJsonPath: evolutionJsonPath(params.evolutionFolder),
 		maxOperationsEnabled: params.maxOperationsEnabled,
 		maxOperations: params.maxOperations,
 		checkpointFileGeneration: params.checkpointFileGeneration,
@@ -608,18 +634,16 @@ export async function prepareEvolutionRunFolder(payload: EvolutionActionPayload)
 	);
 
 	// Notify the Evolutions list panel that a new folder has appeared
-	const { refreshEvolutionsList } = await import('./init.js');
 	refreshEvolutionsList();
 
 	// Lock the provider into this evolution by loading the freshly-created evolution.json.
 	// This re-populates all form state (including rules with their copied paths inside
-	// the evolution folder), so subsequent Play/Step clicks route to dispatchEvolutionRunForExisting
+	// the evolution folder), so subsequent Play clicks route to dispatchEvolutionRunForExisting
 	// and use the correct rule paths.
-	const { getEvolutionManagerViewProvider: getProvider } = await import('./evolutionManagerViewProvider.js');
-	getProvider()?.setEvolutionFolder(setup.evolutionFolder);
+	getEvolutionManagerViewProvider()?.setEvolutionFolder(setup.evolutionFolder);
 
-	const clientId = await focusBigraphAndResolveClientId(setup.workspaceBigraphDest)
-		?? EditorProvider.getClientIdForFsPath(bigraphAbs);
+	const clientId = (await focusBigraphAndResolveClientId(setup.workspaceBigraphDest, false, setup.evolutionFolder))
+		?? getClientIdForFsPath(bigraphAbs);
 
 	await notifyEvolutionManagerBigraphChanged(setup.workspaceBigraphDest);
 

@@ -17,7 +17,7 @@ package org.eclipse.glsp.example.bigraph.evolution;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Represents a single running evolution operation (play or step).
+ * Represents a single running evolution operation (play).
  * The background thread transitions through {@link State} values and checks
  * {@link #isPauseRequested()} at safe checkpoints.
  */
