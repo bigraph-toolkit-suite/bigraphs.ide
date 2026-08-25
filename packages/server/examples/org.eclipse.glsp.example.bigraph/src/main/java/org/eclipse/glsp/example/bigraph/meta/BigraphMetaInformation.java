@@ -39,6 +39,24 @@ public class BigraphMetaInformation {
     private Map<String, GPoint> rootPositions = new HashMap<>();
     private Map<String, ControlProperty> controlMeta = new HashMap<>();
 
+    /**
+     * Extension-owned meta blobs keyed by {@link org.eclipse.glsp.example.bigraph.extensions.IdeExtension#getId()}.
+     * Each value is opaque to the core (typically JSON serialized by the owning extension).
+     */
+    private Map<String, String> extensionSections = new HashMap<>();
+
+    /**
+     * Optional diagram-variant discriminator. Stores the {@code id} of a
+     * {@link org.eclipse.glsp.example.bigraph.model.ModelVariant} declared by
+     * some registered {@link org.eclipse.glsp.example.bigraph.extensions.IdeExtension}.
+     * {@code null} or absent in the file means the diagram falls back to the
+     * built-in {@code "bigraph"} variant.
+     */
+    private String modelType;
+
+    public String getModelType() { return modelType; }
+    public void setModelType(String modelType) { this.modelType = modelType; }
+
     public Map<String, GPoint> getNodePositions() { return nodePositions; }
     public void setNodePositions(Map<String, GPoint> nodePositions) { this.nodePositions = nodePositions; }
 
@@ -62,4 +80,25 @@ public class BigraphMetaInformation {
 
     public Map<String, ControlProperty> getControlMeta() { return controlMeta; }
     public void setControlMeta(Map<String, ControlProperty> controlMeta) { this.controlMeta = controlMeta; }
+
+    public Map<String, String> getExtensionSections() { return extensionSections; }
+    public void setExtensionSections(Map<String, String> extensionSections) {
+        this.extensionSections = extensionSections;
+    }
+
+  /** Returns the extension section payload for {@code extensionId}, or {@code null}. */
+    public String getExtensionSection(final String extensionId) {
+        return extensionSections.get(extensionId);
+    }
+
+    public void setExtensionSection(final String extensionId, final String payload) {
+        if (extensionId == null || extensionId.isBlank()) {
+            return;
+        }
+        if (payload == null || payload.isBlank()) {
+            extensionSections.remove(extensionId);
+        } else {
+            extensionSections.put(extensionId, payload);
+        }
+    }
 }

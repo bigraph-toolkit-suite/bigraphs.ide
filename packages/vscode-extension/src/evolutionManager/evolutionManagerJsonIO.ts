@@ -36,6 +36,7 @@ export function setEvolutionFolder(
 	}
 
 	provider.setEvolutionDocument(doc);
+	watchEvolutionJson(provider, folderPath);
 	const newState = buildFormStateFromDocument(doc, configRelPath);
 	provider.setFormState(newState);
 
@@ -56,6 +57,7 @@ export function setEvolutionFolder(
 		evolutionConfigRelPath: configRelPath,
 		checkpointCursor: newState.checkpointCursor,
 		ruleApplicationStrategy: newState.ruleApplicationStrategy,
+		extensionJson: newState.extensionJson ?? {},
 	});
 
 	const bigraphToOpen = newState.workspaceBigraph || bigraphAbsPath;
@@ -91,6 +93,38 @@ export function reloadEvolutionDocumentFromDisk(provider: EvolutionManagerViewPr
 		?? path.join(vscode.workspace.asRelativePath(folderPath), EVOLUTION_JSON);
 	provider.patchFormState(buildFormStateFromDocument(doc, configRelPath));
 	refreshTreeFromModel(provider);
+}
+
+// ── live tree: watch evolution.json while a project is bound ─────────────────
+
+let evolutionJsonWatcher: vscode.FileSystemWatcher | undefined;
+let evolutionJsonReloadTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Watches the bound project's evolution.json so the tree follows backend writes live. */
+export function watchEvolutionJson(provider: EvolutionManagerViewProvider, folderPath: string | null): void {
+	evolutionJsonWatcher?.dispose();
+	evolutionJsonWatcher = undefined;
+	if (evolutionJsonReloadTimer) {
+		clearTimeout(evolutionJsonReloadTimer);
+		evolutionJsonReloadTimer = undefined;
+	}
+	if (!folderPath) { return; }
+
+	const watcher = vscode.workspace.createFileSystemWatcher(
+		new vscode.RelativePattern(folderPath, EVOLUTION_JSON)
+	);
+	const scheduleReload = (): void => {
+		if (evolutionJsonReloadTimer) {
+			clearTimeout(evolutionJsonReloadTimer);
+		}
+		evolutionJsonReloadTimer = setTimeout(() => {
+			evolutionJsonReloadTimer = undefined;
+			reloadEvolutionDocumentFromDisk(provider);
+		}, 80);
+	};
+	watcher.onDidChange(scheduleReload);
+	watcher.onDidCreate(scheduleReload);
+	evolutionJsonWatcher = watcher;
 }
 
 // ── handleVerifyResult ───────────────────────────────────────────────────────

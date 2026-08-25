@@ -1,5 +1,6 @@
 package org.eclipse.glsp.example.bigraph.model;
 
+import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.ControlSpec;
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.addNode;
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.emptyBigraph;
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.firstRoot;
@@ -28,7 +29,7 @@ class BigraphNodeIdentityTest {
 
     @Test
     void getOrCreateStableIdSurvivesNodeRename() {
-        DynamicSignature sig = signature(new org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.ControlSpec("Room", 0));
+        DynamicSignature sig = signature(new ControlSpec("Room", 0));
         PureBigraphMutable bigraph = emptyBigraph(sig);
         NodeEntity<DynamicControl> node = addNode(bigraph, firstRoot(bigraph), "Room", "room");
 

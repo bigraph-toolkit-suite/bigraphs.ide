@@ -22,7 +22,6 @@ export const EvolutionJsonKey = {
 	MaxOperationsEnabled: 'maxOperationsEnabled',
 	MaxOperations: 'maxOperations',
 	CheckpointFileGeneration: 'checkpointFileGeneration',
-	VisualizeIntermediateSteps: 'visualizeIntermediateSteps',
 } as const;
 
 /** Keys on operation entries inside {@link EvolutionJsonKey.Operations}. */

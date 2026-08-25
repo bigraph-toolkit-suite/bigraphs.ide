@@ -5,7 +5,7 @@ import {
 	normalizeRuleApplicationStrategy,
 	type EvolutionFormState,
 } from './evolutionManagerState.js';
-import { setEvolutionFolder, refreshTreeFromModel, handleVerifyResult } from './evolutionManagerJsonIO.js';
+import { setEvolutionFolder, refreshTreeFromModel, handleVerifyResult, watchEvolutionJson } from './evolutionManagerJsonIO.js';
 import { handleEvolutionAction, handleTreeNodeClicked, loadEvolutionManagerHtml, syncWorkspaceBigraphToCursor } from './evolutionManagerActions.js';
 import { EvolutionDocument } from './evolutionDocument.js';
 import * as fs from 'fs';
@@ -144,6 +144,7 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 	 * Resets to a blank new-evolution state.
 	 */
 	setNewEvolution(): void {
+		watchEvolutionJson(this, null);
 		this._evolutionConfigPath = null;
 		this._evolutionDocument = null;
 		this._formState = {
@@ -155,7 +156,6 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 			maxOperationsEnabled: true,
 			maxOperations: 10,
 			checkpointFileGeneration: true,
-			visualizeIntermediateSteps: false,
 			ruleApplicationStrategy: RuleApplicationStrategy.FirstFirst,
 			workspaceBigraph: '',
 			operations: [],
@@ -353,6 +353,13 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 					);
 					break;
 				}
+				case 'setJsonRootValues': {
+					// Generic persistence channel for rewriting modes: writes
+					// root-level values (e.g. selectedOperationPath) into evolution.json.
+					const req = msg as unknown as { values?: Record<string, unknown> };
+					this._setJsonRootValues(req.values ?? {});
+					break;
+				}
 				case 'closeEvolutionProject':
 					this.closeEvolutionProject().catch((err) =>
 						console.error('[Evolution Manager] closeEvolutionProject failed:', err)
@@ -365,6 +372,26 @@ export class EvolutionManagerViewProvider implements vscode.WebviewViewProvider 
 		loadEvolutionManagerHtml(webviewView.webview, this._extensionUri).then((html: string) => {
 			webviewView.webview.html = html;
 		});
+	}
+
+	private _setJsonRootValues(values: Record<string, unknown>): void {
+		const doc = this._evolutionDocument;
+		if (!doc || Object.keys(values).length === 0) { return; }
+		for (const [key, value] of Object.entries(values)) {
+			doc.setRootValue(key, value);
+		}
+		try {
+			doc.persist();
+		} catch {
+			vscode.window.showWarningMessage(`Could not write ${EVOLUTION_JSON}.`);
+			return;
+		}
+		if (this._formState) {
+			this._formState = {
+				...this._formState,
+				extensionJson: { ...(this._formState.extensionJson ?? {}), ...values },
+			};
+		}
 	}
 
 	private async _dispatchVerify(req: {

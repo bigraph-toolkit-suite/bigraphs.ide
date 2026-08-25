@@ -25,6 +25,8 @@ import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.actions.PublishEvolutionStateAction;
+import org.eclipse.glsp.example.bigraph.extensions.ModelVariantRegistry;
+import org.eclipse.glsp.example.bigraph.extensions.VariantGate;
 import org.eclipse.glsp.example.bigraph.handler.BigraphChangeBoundsOperationHandler;
 import org.eclipse.glsp.example.bigraph.handler.PublishEvolutionStateActionHandler;
 import org.eclipse.glsp.example.bigraph.meta.BigraphMetaInformation;
@@ -96,6 +98,15 @@ public final class BigraphTestSupport {
         state.init();
         state.initializeBigraphModel(bigraph, metaInformation);
         return state;
+    }
+
+    /**
+     * Build a real {@link VariantGate} backed by the given test state and a
+     * fresh {@link ModelVariantRegistry}. Use {@link #inject(Object, String, Object)}
+     * to wire it into handlers that would otherwise pick it up via Guice.
+     */
+    public static VariantGate variantGateFor(final BigraphModelState state) {
+        return new VariantGate(state, new ModelVariantRegistry());
     }
 
     public static GPoint point(final double x, final double y) {

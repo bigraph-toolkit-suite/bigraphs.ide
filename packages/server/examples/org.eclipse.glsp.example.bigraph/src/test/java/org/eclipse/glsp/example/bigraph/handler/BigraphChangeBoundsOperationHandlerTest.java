@@ -6,15 +6,22 @@ import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.in
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.initializedState;
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.point;
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.size;
+import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.variantGateFor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import org.bigraphs.framework.core.impl.BigraphEntity.NodeEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.eclipse.glsp.example.bigraph.meta.BigraphMetaInformation;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
+import org.eclipse.glsp.example.bigraph.model.BigraphModelTypes;
+import org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.TestableBigraphChangeBoundsOperationHandler;
+import org.eclipse.glsp.graph.GModelElement;
+import org.eclipse.glsp.graph.GNode;
 import org.eclipse.glsp.graph.GPoint;
 import org.junit.jupiter.api.Test;
 
@@ -27,8 +34,9 @@ class BigraphChangeBoundsOperationHandlerTest {
         BigraphModelState state = initializedState(bigraph, meta);
         String gmodelId = findFirstNodeGModelId(state);
 
-        var handler = new org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.TestableBigraphChangeBoundsOperationHandler();
+        var handler = new TestableBigraphChangeBoundsOperationHandler();
         inject(handler, "modelState", state);
+        inject(handler, "variantGate", variantGateFor(state));
 
         GPoint newPos = point(100, 200);
         handler.changeBoundsForTest(gmodelId, newPos, size(80, 40));
@@ -46,8 +54,9 @@ class BigraphChangeBoundsOperationHandlerTest {
         BigraphModelState state = initializedState(bigraph, meta);
         String gmodelId = findFirstNodeGModelId(state);
 
-        var handler = new org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.TestableBigraphChangeBoundsOperationHandler();
+        var handler = new TestableBigraphChangeBoundsOperationHandler();
         inject(handler, "modelState", state);
+        inject(handler, "variantGate", variantGateFor(state));
 
         GPoint newPos = point(50, 60);
         handler.changeBoundsForTest(gmodelId, newPos, size(80, 40));
@@ -58,16 +67,17 @@ class BigraphChangeBoundsOperationHandlerTest {
         assertEquals(60, stored.getY());
     }
 
+
     private String findFirstNodeGModelId(BigraphModelState state) {
         return findNodeIdsRecursive(state.getRoot()).stream()
             .findFirst()
             .orElseThrow();
     }
 
-    private java.util.List<String> findNodeIdsRecursive(org.eclipse.glsp.graph.GModelElement el) {
-        java.util.List<String> result = new java.util.ArrayList<>();
-        if (el instanceof org.eclipse.glsp.graph.GNode gn
-                && org.eclipse.glsp.example.bigraph.model.BigraphModelTypes.BIGRAPH_NODE.equals(gn.getType())) {
+    private List<String> findNodeIdsRecursive(GModelElement el) {
+        List<String> result = new ArrayList<>();
+        if (el instanceof GNode gn
+                && BigraphModelTypes.BIGRAPH_NODE.equals(gn.getType())) {
             result.add(gn.getId());
         }
         for (var child : el.getChildren()) {

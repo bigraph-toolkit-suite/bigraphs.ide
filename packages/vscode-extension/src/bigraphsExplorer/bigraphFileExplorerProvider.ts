@@ -10,9 +10,9 @@ function logDnd(_scope: string, _event: string, _details?: unknown): void {
 // Mime type for Bigraph Explorer drag and drop
 const BIGRAPH_EXPLORER_MIME_TYPE = 'application/vnd.code.tree.bigraphexplorer';
 
-type BigraphExplorerItem = BigraphFolderItem | BigraphFileItem;
+export type BigraphExplorerItem = BigraphFolderItem | BigraphFileItem;
 
-/** A node in the virtual filesystem tree built from all qualifying .xmi files. */
+/** A node in the filesystem tree: all folders (incl. empty) plus qualifying .xmi files. */
 interface TreeNode {
     folders: Map<string, TreeNode>;
     files: vscode.Uri[];
@@ -20,6 +20,41 @@ interface TreeNode {
 
 function makeNode(): TreeNode {
     return { folders: new Map(), files: [] };
+}
+
+function shouldSkipFolder(name: string): boolean {
+    if (name.startsWith('.')) {
+        return true;
+    }
+    if (name === 'node_modules') {
+        return true;
+    }
+    if (name.endsWith(EVOLUTION_FOLDER_SUFFIX)) {
+        return true;
+    }
+    return false;
+}
+
+function isBigraphXmiFile(name: string): boolean {
+    const lower = name.toLowerCase();
+    return lower.endsWith('.xmi') && !lower.endsWith('.signature.xmi');
+}
+
+/**
+ * Folder to create a new bigraph in: selected folder, parent of selected file, or workspace root.
+ */
+export function resolveCreateTargetFolder(
+    selection: readonly BigraphExplorerItem[] | undefined,
+    workspaceRoot: vscode.Uri
+): vscode.Uri {
+    const item = selection?.[0];
+    if (item instanceof BigraphFolderItem) {
+        return item.uri;
+    }
+    if (item instanceof BigraphFileItem) {
+        return vscode.Uri.joinPath(item.uri, '..');
+    }
+    return workspaceRoot;
 }
 
 export class BigraphExplorerProvider implements vscode.TreeDataProvider<BigraphExplorerItem> {
@@ -33,6 +68,20 @@ export class BigraphExplorerProvider implements vscode.TreeDataProvider<BigraphE
         vscode.workspace.onDidCreateFiles(() => this.refresh());
         vscode.workspace.onDidDeleteFiles(() => this.refresh());
         vscode.workspace.onDidRenameFiles(() => this.refresh());
+
+        // File create/delete events miss empty-folder mkdir/rmdir; watch the FS too.
+        const watcher = vscode.workspace.createFileSystemWatcher('**/*');
+        watcher.onDidCreate(async uri => {
+            try {
+                const stat = await vscode.workspace.fs.stat(uri);
+                if ((stat.type & vscode.FileType.Directory) !== 0) {
+                    this.refresh();
+                }
+            } catch {
+                // Created then removed before we could stat — ignore.
+            }
+        });
+        watcher.onDidDelete(() => this.refresh());
     }
 
     refresh(): void {
@@ -49,15 +98,31 @@ export class BigraphExplorerProvider implements vscode.TreeDataProvider<BigraphE
             return [];
         }
 
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+        if (!workspaceRoot) {
+            return [];
+        }
+
         const root = await this.getTree();
         const node = element instanceof BigraphFolderItem ? element.node : root;
-        return this.nodeToItems(node);
+        const parentUri = element instanceof BigraphFolderItem ? element.uri : workspaceRoot;
+        return this.nodeToItems(node, parentUri);
     }
 
-    private nodeToItems(node: TreeNode): BigraphExplorerItem[] {
+    private nodeToItems(node: TreeNode, parentUri: vscode.Uri): BigraphExplorerItem[] {
         const folders: BigraphFolderItem[] = [...node.folders.entries()]
-            .filter(([, child]) => this.nodeHasBigraphs(child))
-            .map(([name, child]) => new BigraphFolderItem(name, child))
+            .map(([name, child]) => {
+                const uri = vscode.Uri.joinPath(parentUri, name);
+                const hasChildren = child.folders.size > 0 || child.files.length > 0;
+                return new BigraphFolderItem(
+                    name,
+                    child,
+                    uri,
+                    hasChildren
+                        ? vscode.TreeItemCollapsibleState.Expanded
+                        : vscode.TreeItemCollapsibleState.Collapsed
+                );
+            })
             .sort((a, b) => a.name.localeCompare(b.name));
 
         const files: BigraphFileItem[] = node.files
@@ -68,41 +133,35 @@ export class BigraphExplorerProvider implements vscode.TreeDataProvider<BigraphE
         return [...folders, ...files];
     }
 
-    private nodeHasBigraphs(node: TreeNode): boolean {
-        if (node.files.length > 0) {
-            return true;
-        }
-        return [...node.folders.values()].some((child) => this.nodeHasBigraphs(child));
-    }
-
     private async getTree(): Promise<TreeNode> {
         if (this.tree) { return this.tree; }
 
-        const wsRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
-        const uris = await vscode.workspace.findFiles('**/*.xmi');
-        const filtered = uris
-            .filter(uri => !uri.fsPath.endsWith('.signature.xmi'))
-            .filter(uri => !uri.fsPath.split(path.sep).some(seg => seg.endsWith(EVOLUTION_FOLDER_SUFFIX)));
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+        this.tree = workspaceRoot ? await this.buildTreeFromFs(workspaceRoot) : makeNode();
+        return this.tree;
+    }
 
-        const root = makeNode();
-
-        for (const uri of filtered) {
-            const rel = path.relative(wsRoot, uri.fsPath);
-            const parts = rel.split(path.sep);
-            let cur = root;
-            // Walk all directory segments, creating nodes as needed
-            for (let i = 0; i < parts.length - 1; i++) {
-                const seg = parts[i];
-                if (!cur.folders.has(seg)) {
-                    cur.folders.set(seg, makeNode());
-                }
-                cur = cur.folders.get(seg)!;
-            }
-            cur.files.push(uri);
+    private async buildTreeFromFs(dirUri: vscode.Uri): Promise<TreeNode> {
+        const node = makeNode();
+        let entries: [string, vscode.FileType][];
+        try {
+            entries = await vscode.workspace.fs.readDirectory(dirUri);
+        } catch {
+            return node;
         }
 
-        this.tree = root;
-        return root;
+        for (const [name, type] of entries) {
+            if ((type & vscode.FileType.Directory) !== 0) {
+                if (shouldSkipFolder(name)) {
+                    continue;
+                }
+                node.folders.set(name, await this.buildTreeFromFs(vscode.Uri.joinPath(dirUri, name)));
+            } else if ((type & vscode.FileType.File) !== 0 && isBigraphXmiFile(name)) {
+                node.files.push(vscode.Uri.joinPath(dirUri, name));
+            }
+        }
+
+        return node;
     }
 }
 
@@ -143,24 +202,29 @@ export class BigraphExplorerDragAndDropController implements vscode.TreeDragAndD
     }
 }
 
-class BigraphFolderItem extends vscode.TreeItem {
+export class BigraphFolderItem extends vscode.TreeItem {
     constructor(
         public readonly name: string,
-        public readonly node: TreeNode
+        public readonly node: TreeNode,
+        public readonly uri: vscode.Uri,
+        collapsibleState: vscode.TreeItemCollapsibleState = vscode.TreeItemCollapsibleState.Expanded
     ) {
-        super(name, vscode.TreeItemCollapsibleState.Expanded);
+        super(name, collapsibleState);
         this.iconPath = vscode.ThemeIcon.Folder;
         this.contextValue = 'bigraphFolder';
+        this.tooltip = this.uri.fsPath;
+        this.resourceUri = this.uri;
     }
 }
 
-class BigraphFileItem extends vscode.TreeItem {
+export class BigraphFileItem extends vscode.TreeItem {
     constructor(
         public readonly label: string,
         public readonly uri: vscode.Uri
     ) {
         super(label, vscode.TreeItemCollapsibleState.None);
         this.tooltip = this.uri.fsPath;
+        this.resourceUri = this.uri;
         this.command = {
             command: 'vscode.open',
             title: 'Open Bigraph',

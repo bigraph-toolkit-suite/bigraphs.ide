@@ -24,12 +24,19 @@ import {
     configureActionHandler,
 } from '@eclipse-glsp/client';
 import { RequestRenameNodeAction } from './rename-action';
-import { Container, ContainerModule, injectable } from 'inversify';
+import { Container, ContainerModule, inject, injectable } from 'inversify';
 import { VNode } from 'snabbdom';
 import { svg } from '@eclipse-glsp/client';
-import { BigraphContextMenuProvider } from './context-menu';
 import { BigraphContextMenuService } from './bigraph-context-menu-service';
+import { ExtensionContextMenuProvider } from './extension/context-menu/extension-context-menu-provider';
+import { ActiveVariantTracker } from './extension/context-menu/active-variant-tracker';
+import { ExtensionAwareContainerManager } from './extension/extension-aware-container-manager';
 import { BigraphPlaceEdgeView } from './bigraph-place-edge-view';
+import { BigraphDisplaySettings } from './extension/core/display/bigraph-display-settings';
+import { BigraphDisplayRefreshBridge } from './extension/core/display/bigraph-display-refresh';
+import { loadExtensions } from './extension/extensions';
+import { SetActiveVariantAction, SET_ACTIVE_VARIANT_KIND } from './extension/set-active-variant-action';
+import { VariantChangeEvent } from './extension/palette-events';
 import { setClass } from 'sprotty';
 
 /** Class for diagram labels; fill is set in CSS using body.vscode-light / vscode-dark (see bigraph-styles.css). */
@@ -37,6 +44,33 @@ const DIAGRAM_LABEL_CLASS = 'bigraph-svg-label';
 
 function labelClass(text: VNode): void {
     setClass(text, DIAGRAM_LABEL_CLASS, true);
+}
+
+function bigraphNodeLabel(
+    node: Readonly<GNode & ArgsAware>,
+    textAttrs: Record<string, string>,
+    color?: string
+): VNode {
+    const label = typeof node.args?.label === 'string' ? node.args.label : 'Node';
+    const controlType = typeof node.args?.controlType === 'string' ? node.args.controlType : undefined;
+    const nodeName = typeof node.args?.name === 'string' ? node.args.name : undefined;
+
+    let text: VNode;
+    if (controlType && nodeName) {
+        const nameSpan = svg('tspan', {}, `${nodeName}:`);
+        setClass(nameSpan, 'bigraph-label-name', true);
+        const controlSpan = svg('tspan', {}, controlType);
+        setClass(controlSpan, 'bigraph-label-control', true);
+        text = svg('text', textAttrs);
+        text.children = [nameSpan, controlSpan];
+    } else {
+        text = svg('text', textAttrs, label);
+    }
+
+    if (!color) {
+        labelClass(text);
+    }
+    return text;
 }
 
 /**
@@ -301,7 +335,6 @@ export class BigraphCustomNodeView extends ShapeView {
 
         // Get color/label from node arguments
         const color = typeof node.args?.color === 'string' ? node.args.color : undefined;
-        const label = typeof node.args?.label === 'string' ? node.args.label : 'Node';
 
         const rectAttrs: any = {
             x: '0',
@@ -331,12 +364,7 @@ export class BigraphCustomNodeView extends ShapeView {
 
         // Create the main rectangle
         const rect = svg('rect', rectAttrs);
-
-        // Create label text
-        const text = svg('text', textAttrs, label);
-        if (!color) {
-            labelClass(text);
-        }
+        const text = bigraphNodeLabel(node, textAttrs, color);
 
         // Render children
         const children = context.renderChildren(node);
@@ -626,6 +654,32 @@ class PaletteShakeHandler implements IActionHandler {
 }
 
 /**
+ * Translates the server's {@link SetActiveVariantAction} into a typed
+ * {@link VariantChangeEvent}. The palette host and any other variant-
+ * aware UI module subscribes to the event — keeping the protocol-side
+ * Action distinct from the in-webview pub-sub channel.
+ */
+@injectable()
+class SetActiveVariantHandler implements IActionHandler {
+    @inject(ActiveVariantTracker)
+    protected readonly variantTracker!: ActiveVariantTracker;
+
+    handle(action: Action): void {
+        if (!SetActiveVariantAction.is(action)) {
+            return;
+        }
+        const available = action.availableVariantIds ?? [action.variantId];
+        console.log('[SetActiveVariantHandler] active variant →', action.variantId,
+            '(available:', available, ')');
+        this.variantTracker.setActiveVariantId(action.variantId);
+        VariantChangeEvent.emit({
+            variantId: action.variantId,
+            availableVariantIds: available
+        });
+    }
+}
+
+/**
  * Bigraph diagram module that configures custom views
  */
 const bigraphDiagramModule = new ContainerModule((bind, unbind, isBound, rebind) => {
@@ -685,11 +739,17 @@ const bigraphDiagramModule = new ContainerModule((bind, unbind, isBound, rebind)
     configureActionHandler(context, SetModelAction.KIND, ModelUpdatePaletteRefreshHandler);
     configureActionHandler(context, UpdateModelAction.KIND, ModelUpdatePaletteRefreshHandler);
 
-    // Configure context menu provider
+    // Bridge server-side variant changes to the webview's typed pub-sub.
+    // The palette host (and any other variant-aware UI) listens via
+    // VariantChangeEvent.on(...) — no globals, no magic strings.
+    configureActionHandler(context, SET_ACTIVE_VARIANT_KIND, SetActiveVariantHandler);
+
+    // Configure context menu provider (variant-aware extension contributions)
+    bind(ActiveVariantTracker).toSelf().inSingletonScope();
     if (isBound(TYPES.IContextMenuItemProvider)) {
-        context.rebind(TYPES.IContextMenuItemProvider).to(BigraphContextMenuProvider).inSingletonScope();
+        context.rebind(TYPES.IContextMenuItemProvider).to(ExtensionContextMenuProvider).inSingletonScope();
     } else {
-        context.bind(TYPES.IContextMenuItemProvider).to(BigraphContextMenuProvider).inSingletonScope();
+        context.bind(TYPES.IContextMenuItemProvider).to(ExtensionContextMenuProvider).inSingletonScope();
     }
 
     // Configure context menu service (The UI part)
@@ -698,6 +758,18 @@ const bigraphDiagramModule = new ContainerModule((bind, unbind, isBound, rebind)
     } else {
         context.bind(TYPES.IContextMenuService).to(BigraphContextMenuService).inSingletonScope();
     }
+
+    // Single variant-aware container manager. Extensions contribute
+    // drop-container logic via IDiagramExtension.findDropContainer
+    // instead of rebinding TYPES.IContainerManager globally.
+    if (isBound(TYPES.IContainerManager)) {
+        context.rebind(TYPES.IContainerManager).to(ExtensionAwareContainerManager).inSingletonScope();
+    } else {
+        context.bind(TYPES.IContainerManager).to(ExtensionAwareContainerManager).inSingletonScope();
+    }
+
+    bind(BigraphDisplaySettings).toSelf().inSingletonScope();
+    bind(BigraphDisplayRefreshBridge).toSelf().inSingletonScope();
 });
 
 export function createBigraphDiagramContainer(...containerConfiguration: ContainerConfiguration): Container {
@@ -713,6 +785,10 @@ export function createBigraphDiagramContainer(...containerConfiguration: Contain
     
     // Then load our custom bigraph module
     container.load(bigraphDiagramModule);
+
+    // Load all registered extensions (BT, etc.)
+    loadExtensions(container);
+    container.get(BigraphDisplayRefreshBridge);
     
     console.log('✅ Bigraph container created with custom views');
     

@@ -1,0 +1,92 @@
+<!--
+  Bigraph variant palette markup. Injected into the palette shell's
+  <div data-slot="variant-content"> by BigraphVariantPalette.mount().
+
+  Owns the bigraph-specific sections: Place Graph (with search and
+  card grid), Link Graph (vertical list), and Layout (segmented
+  algorithm switcher). Everything else (mode bar, …) belongs to the
+  palette shell; export actions are contributed per extension inside
+  each variant palette.
+-->
+
+<!-- Place Graph section -->
+<div data-section="place-graph">
+    <div class="bp-section-hdr">
+        <span class="bp-section-title">Place Graph</span>
+        <div class="bp-section-actions">
+            <div class="bp-section-action-btn" data-action="add-control" title="Add Control">
+                <span class="codicon codicon-plus"></span>
+            </div>
+        </div>
+    </div>
+    <div class="bp-search-wrap bp-search-under-place">
+        <span class="codicon codicon-search bp-search-icon"></span>
+        <input type="text" class="bp-search-field" placeholder="Filter nodes…" />
+        <div class="bp-search-clear">
+            <span class="codicon codicon-close"></span>
+        </div>
+    </div>
+    <div class="bp-section-content" data-content="place-graph">
+        <div class="bp-card-grid">
+            <!-- cards injected at runtime -->
+        </div>
+    </div>
+</div>
+
+<!-- Link Graph section -->
+<div data-section="link-graph">
+    <div class="bp-section-hdr">
+        <span class="bp-section-title">Link Graph</span>
+        <div class="bp-section-actions">
+            <div class="bp-section-action-btn" data-action="connect" title="Connect">
+                <span class="codicon codicon-plug"></span>
+            </div>
+        </div>
+    </div>
+    <div class="bp-section-content" data-content="link-graph">
+        <div class="bp-link-list">
+            <!-- link items injected at runtime -->
+        </div>
+    </div>
+</div>
+
+<!-- View options -->
+<div data-section="view-options">
+    <div class="bp-section-hdr">
+        <span class="bp-section-title">View</span>
+    </div>
+    <div class="bp-section-content" data-content="view-options">
+        <div class="bp-section-inner bp-checkbox-list">
+            <label class="bp-checkbox-row">
+                <input type="checkbox" data-display-toggle="roots" checked />
+                <span>Show roots</span>
+            </label>
+            <label class="bp-checkbox-row">
+                <input type="checkbox" data-display-toggle="node-names" checked />
+                <span>Show node names</span>
+            </label>
+            <label class="bp-checkbox-row">
+                <input type="checkbox" data-display-toggle="place-arrows" checked />
+                <span>Show arrow edges</span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<!-- Layout section -->
+<div data-section="layout">
+    <div class="bp-section-hdr">
+        <span class="bp-section-title">Layout</span>
+    </div>
+    <div class="bp-section-content" data-content="layout">
+        <div class="bp-section-inner">
+            <div class="bp-segmented">
+                <div class="bp-seg" data-algorithm="layered" data-standard="true" title="Bigraph Standard Layout">Std</div>
+                <div class="bp-seg" data-algorithm="layered" title="Auto Layout: Layer">Layer</div>
+                <div class="bp-seg" data-algorithm="mrtree" title="Auto Layout: Tree">Tree</div>
+                <div class="bp-seg" data-algorithm="force" title="Auto Layout: Force">Force</div>
+                <div class="bp-seg" data-algorithm="stress" title="Auto Layout: Stress">Stress</div>
+            </div>
+        </div>
+    </div>
+</div>

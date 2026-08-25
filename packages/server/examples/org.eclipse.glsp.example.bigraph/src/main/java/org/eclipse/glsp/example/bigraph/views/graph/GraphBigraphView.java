@@ -213,7 +213,10 @@ public class GraphBigraphView extends BigraphView {
 
     public GraphBigraphView(IBigraphModelState modelState) {
         super(modelState);
-        this.linkRenderer = new LinkRenderer(modelState, entityToGModelId, portToNodeGModelId);
+        // The renderer reads its target container lazily so it picks
+        // up whichever GModelRoot this view is bound to via
+        // setOwnerRoot — including any later rebinding.
+        this.linkRenderer = new LinkRenderer(this::getOwnerRoot, entityToGModelId, portToNodeGModelId);
     }
 
     /**
@@ -270,7 +273,7 @@ public class GraphBigraphView extends BigraphView {
         gNode.getArgs().put("label", "R" + rootCounter);
 
         // Add to graph
-        modelState.getRoot().getChildren().add(gNode);
+        getOwnerRoot().getChildren().add(gNode);
 
         // Register mapping (bidirectional)
         entityToGModelId.put(root, nodeId);
@@ -293,7 +296,7 @@ public class GraphBigraphView extends BigraphView {
         gModelIdToGNode.remove(rootId);
         
         // 2. Remove the GNode from the GModel
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GNode && child.getId().equals(rootId)) {
                 LOGGER.info("  ✅ Removed root GNode: {}", rootId);
                 return true;
@@ -302,7 +305,7 @@ public class GraphBigraphView extends BigraphView {
         });
         
         // 3. Remove any edges connected to this root (place edges)
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GEdge) {
                 GEdge edge = (GEdge) child;
                 if (rootId.equals(edge.getSourceId()) || rootId.equals(edge.getTargetId())) {
@@ -348,7 +351,7 @@ public class GraphBigraphView extends BigraphView {
                 updateSiteFillState((SiteEntity) parent);
             } else {
                 // Fallback: site GNode not found, add flat
-                modelState.getRoot().getChildren().add(gNode);
+                getOwnerRoot().getChildren().add(gNode);
             }
         } else {
             if (parent != null) {
@@ -382,19 +385,19 @@ public class GraphBigraphView extends BigraphView {
                         BigraphEntity<?> siteEntity = gModelIdToEntity.get(siteId);
                         if (siteEntity instanceof SiteEntity) updateSiteFillState((SiteEntity) siteEntity);
                     } else {
-                        modelState.getRoot().getChildren().add(gNode);
+                        getOwnerRoot().getChildren().add(gNode);
                     }
                     GEdge placeEdge = createPlaceGraphEdge(parentId, nodeId);
-                    modelState.getRoot().getChildren().add(placeEdge);
+                    getOwnerRoot().getChildren().add(placeEdge);
                 } else {
-                    modelState.getRoot().getChildren().add(gNode);
+                    getOwnerRoot().getChildren().add(gNode);
                     if (parentId != null) {
                         GEdge placeEdge = createPlaceGraphEdge(parentId, nodeId);
-                        modelState.getRoot().getChildren().add(placeEdge);
+                        getOwnerRoot().getChildren().add(placeEdge);
                     }
                 }
             } else {
-                modelState.getRoot().getChildren().add(gNode);
+                getOwnerRoot().getChildren().add(gNode);
             }
         }
 
@@ -422,12 +425,12 @@ public class GraphBigraphView extends BigraphView {
         gModelIdToGNode.remove(nodeId);
 
         // 2. Remove the GNode — could be in root (normal node) or inside a site GNode (nested)
-        boolean removedFromRoot = modelState.getRoot().getChildren().removeIf(child ->
+        boolean removedFromRoot = getOwnerRoot().getChildren().removeIf(child ->
             child instanceof GNode && child.getId().equals(nodeId));
 
         if (!removedFromRoot) {
             // Recursively search inside nested GNode trees (site → node → node → ...)
-            for (var child : modelState.getRoot().getChildren()) {
+            for (var child : getOwnerRoot().getChildren()) {
                 if (child instanceof GNode && removeNestedGNode((GNode) child, nodeId)) {
                     break;
                 }
@@ -435,7 +438,7 @@ public class GraphBigraphView extends BigraphView {
         }
         
         // 3. Remove any edges connected to this node (place edges and link connections)
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GEdge) {
                 GEdge edge = (GEdge) child;
                 if (nodeId.equals(edge.getSourceId()) || nodeId.equals(edge.getTargetId())) {
@@ -507,7 +510,7 @@ public class GraphBigraphView extends BigraphView {
             gNode.getArgs().put("parentId", parentId);
         }
 
-        modelState.getRoot().getChildren().add(gNode);
+        getOwnerRoot().getChildren().add(gNode);
 
         entityToGModelId.put(site, nodeId);
         gModelIdToEntity.put(nodeId, site);
@@ -515,7 +518,7 @@ public class GraphBigraphView extends BigraphView {
 
         if (parentId != null) {
             GEdge placeEdge = createPlaceGraphEdge(parentId, nodeId);
-            modelState.getRoot().getChildren().add(placeEdge);
+            getOwnerRoot().getChildren().add(placeEdge);
         }
 
         LOGGER.info("✅ Created site GNode: {} under parent {}", nodeId, parentId);
@@ -530,7 +533,7 @@ public class GraphBigraphView extends BigraphView {
         if (fromRegistry != null) {
             return fromRegistry;
         }
-        for (var child : modelState.getRoot().getChildren()) {
+        for (var child : getOwnerRoot().getChildren()) {
             if (child instanceof GNode && ((GNode) child).getId().equals(parentId)) {
                 return (GNode) child;
             }
@@ -560,7 +563,7 @@ public class GraphBigraphView extends BigraphView {
         gModelIdToGNode.remove(siteId);
         
         // 2. Remove the GNode from the GModel
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GNode && child.getId().equals(siteId)) {
                 LOGGER.info("  ✅ Removed site GNode: {}", siteId);
                 return true;
@@ -569,7 +572,7 @@ public class GraphBigraphView extends BigraphView {
         });
         
         // 3. Remove any edges connected to this site (place edges)
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GEdge) {
                 GEdge edge = (GEdge) child;
                 if (siteId.equals(edge.getSourceId()) || siteId.equals(edge.getTargetId())) {
@@ -590,7 +593,7 @@ public class GraphBigraphView extends BigraphView {
         portToNodeGModelId.values().removeIf(nodeId::equals);
         siteChildNodes.values().forEach(childIds -> childIds.remove(nodeId));
 
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GEdge) {
                 GEdge edge = (GEdge) child;
                 return nodeId.equals(edge.getSourceId()) || nodeId.equals(edge.getTargetId());
@@ -708,7 +711,7 @@ public class GraphBigraphView extends BigraphView {
         gNode.getArgs().put("isHyperEdge", true);
 
         // Add to graph
-        modelState.getRoot().getChildren().add(gNode);
+        getOwnerRoot().getChildren().add(gNode);
 
         // Register mapping (bidirectional)
         entityToGModelId.put(edge, nodeId);
@@ -740,7 +743,7 @@ public class GraphBigraphView extends BigraphView {
         gModelIdToGNode.remove(edgeId);
         
         // 2. Remove the GNode (hyperedge visual) from the GModel
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GNode && child.getId().equals(edgeId)) {
                 LOGGER.info("  ✅ Removed edge GNode: {}", edgeId);
                 return true;
@@ -749,7 +752,7 @@ public class GraphBigraphView extends BigraphView {
         });
         
         // 3. Remove any link connections connected to this edge
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GEdge) {
                 GEdge gEdge = (GEdge) child;
                 if (edgeId.equals(gEdge.getSourceId()) || edgeId.equals(gEdge.getTargetId())) {
@@ -806,7 +809,7 @@ public class GraphBigraphView extends BigraphView {
         gNode.getArgs().put("name", outerName.getName());
 
         // Add to graph
-        modelState.getRoot().getChildren().add(gNode);
+        getOwnerRoot().getChildren().add(gNode);
 
         // Register mapping (bidirectional)
         entityToGModelId.put(outerName, nodeId);
@@ -838,7 +841,7 @@ public class GraphBigraphView extends BigraphView {
         gModelIdToGNode.remove(outerNameId);
         
         // 2. Remove the GNode from the GModel
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GNode && child.getId().equals(outerNameId)) {
                 LOGGER.info("  ✅ Removed outer name GNode: {}", outerNameId);
                 return true;
@@ -847,7 +850,7 @@ public class GraphBigraphView extends BigraphView {
         });
         
         // 3. Remove any link connections connected to this outer name
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GEdge) {
                 GEdge gEdge = (GEdge) child;
                 if (outerNameId.equals(gEdge.getSourceId()) || outerNameId.equals(gEdge.getTargetId())) {
@@ -904,7 +907,7 @@ public class GraphBigraphView extends BigraphView {
         gNode.getArgs().put("name", innerName.getName());
 
         // Add to graph
-        modelState.getRoot().getChildren().add(gNode);
+        getOwnerRoot().getChildren().add(gNode);
 
         // Register mapping (bidirectional)
         entityToGModelId.put(innerName, nodeId);
@@ -933,7 +936,7 @@ public class GraphBigraphView extends BigraphView {
         gModelIdToGNode.remove(innerNameId);
         
         // 2. Remove the GNode from the GModel
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GNode && child.getId().equals(innerNameId)) {
                 LOGGER.info("  ✅ Removed inner name GNode: {}", innerNameId);
                 return true;
@@ -942,7 +945,7 @@ public class GraphBigraphView extends BigraphView {
         });
         
         // 3. Remove any link connections connected to this inner name
-        modelState.getRoot().getChildren().removeIf(child -> {
+        getOwnerRoot().getChildren().removeIf(child -> {
             if (child instanceof GEdge) {
                 GEdge gEdge = (GEdge) child;
                 if (innerNameId.equals(gEdge.getSourceId()) || innerNameId.equals(gEdge.getTargetId())) {

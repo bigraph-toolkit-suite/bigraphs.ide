@@ -81,6 +81,10 @@ export interface OperationStartedMsg {
 export interface OperationFinishedMsg {
 	type: 'operationFinished';
 	operationId: string;
+	/** "completed", "paused" or "failed". */
+	reason?: string;
+	/** Results contributed by server extension run hooks, keyed by extension id. */
+	extensionResults?: Record<string, unknown> | null;
 }
 
 export interface EvolutionFolderSelectedMsg {
@@ -118,6 +122,8 @@ export interface FillEvolutionFormMsg {
 	checkpointCursor?: string | null;
 	evolutionConfigRelPath?: string | null;
 	ruleApplicationStrategy?: RuleApplicationStrategy;
+	/** Root-level evolution.json keys unknown to the core (mode extension data). */
+	extensionJson?: Record<string, unknown>;
 }
 
 export interface RestoreFormStateMsg {
@@ -130,7 +136,6 @@ export interface RestoreFormStateMsg {
 		maxOperationsEnabled?: boolean;
 		maxOperations?: number;
 		checkpointFileGeneration?: boolean;
-		visualizeIntermediateSteps?: boolean;
 		ruleApplicationStrategy?: RuleApplicationStrategy;
 		rewriteRules?: RewriteRule[];
 		verificationBigraphs?: VerificationBigraph[];
@@ -138,6 +143,7 @@ export interface RestoreFormStateMsg {
 		checkpointCursor?: string | null;
 		workspaceBigraph?: string;
 		evolutionConfigRelPath?: string | null;
+		extensionJson?: Record<string, unknown>;
 	};
 }
 

@@ -14,6 +14,9 @@
 
 package org.eclipse.glsp.example.bigraph.evolution;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -33,6 +36,12 @@ public class EvolutionOperation {
     private final String operationId;
     private final String actionType;
     private final AtomicReference<State> state = new AtomicReference<>(State.RUNNING);
+    /**
+     * Results contributed by extension run hooks, keyed by extension id.
+     * Published to the client via {@code EvolutionFinishedAction.extensionResults}
+     * when the run ends. {@code null} until the first result is stored.
+     */
+    private volatile Map<String, Object> extensionResults;
 
     public EvolutionOperation(final String operationId, final String actionType) {
         this.operationId = operationId;
@@ -62,5 +71,18 @@ public class EvolutionOperation {
     /** Request the operation to pause at the next safe checkpoint. */
     public void requestPause() {
         state.compareAndSet(State.RUNNING, State.PAUSE_REQUESTED);
+    }
+
+    /** Stores a result payload for the given extension id (insertion-ordered). */
+    public synchronized void putExtensionResult(final String extensionId, final Object result) {
+        if (extensionResults == null) {
+            extensionResults = Collections.synchronizedMap(new LinkedHashMap<>());
+        }
+        extensionResults.put(extensionId, result);
+    }
+
+    /** @return results keyed by extension id, or {@code null} when no hook stored any. */
+    public Map<String, Object> getExtensionResults() {
+        return extensionResults;
     }
 }

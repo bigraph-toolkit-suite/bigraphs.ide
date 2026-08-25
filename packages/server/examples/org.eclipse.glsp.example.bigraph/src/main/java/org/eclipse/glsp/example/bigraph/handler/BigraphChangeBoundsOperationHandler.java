@@ -20,6 +20,8 @@ import java.util.Optional;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bigraphs.framework.core.impl.BigraphEntity;
+import org.eclipse.glsp.example.bigraph.extensions.ExtensionList;
+import org.eclipse.glsp.example.bigraph.extensions.VariantGate;
 import org.eclipse.glsp.example.bigraph.meta.BigraphMetaInformation;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
 import org.eclipse.glsp.example.bigraph.model.BigraphNodeIdentity;
@@ -30,6 +32,7 @@ import org.eclipse.glsp.server.operations.ChangeBoundsOperation;
 import org.eclipse.glsp.server.types.GLSPServerException;
 
 import com.google.inject.Inject;
+import com.google.inject.Injector;
 
 /**
  * Handles node move operations and synchronizes the position to the Bigraph model immediately.
@@ -41,8 +44,30 @@ public class BigraphChangeBoundsOperationHandler extends GModelChangeBoundsOpera
     @Inject
     protected BigraphModelState modelState;
 
+    @Inject
+    protected VariantGate variantGate;
+
+    @Inject
+    protected Injector injector;
+
     @Override
     protected void changeElementBounds(final String elementId, final GPoint newPosition, final GDimension newSize) {
+        if (variantGate.activeVariantVetoesBoundsChange(elementId)) {
+            LOGGER.debug("Change-bounds ignored for '{}' — vetoed by active variant '{}'.",
+                    elementId, variantGate.activeVariantId());
+            return;
+        }
+        if (!variantGate.isBigraphActive()) {
+            boolean handled = variantGate.activeOwner()
+                    .map(ext -> ext.applyGModelBoundsChange(
+                            elementId, newPosition, newSize, modelState, injector))
+                    .orElse(false);
+            if (!handled) {
+                LOGGER.debug("Change-bounds ignored — active variant '{}' did not handle '{}'.",
+                        variantGate.activeVariantId(), elementId);
+            }
+            return;
+        }
         try {
             super.changeElementBounds(elementId, newPosition, newSize);
         } catch (GLSPServerException e) {

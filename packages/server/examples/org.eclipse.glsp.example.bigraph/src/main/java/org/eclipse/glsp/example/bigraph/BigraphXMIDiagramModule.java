@@ -22,6 +22,7 @@ import org.eclipse.glsp.example.bigraph.handler.CreateInnerNameOperationHandler;
 import org.eclipse.glsp.example.bigraph.handler.CreateOuterNameOperationHandler;
 import org.eclipse.glsp.example.bigraph.handler.DeleteBigraphElementOperationHandler;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
+import org.eclipse.glsp.example.bigraph.model.IBigraphModelState;
 import org.eclipse.glsp.example.bigraph.model.BigraphXMIModelStorage;
 import org.eclipse.glsp.example.bigraph.provider.BigraphToolPaletteItemProvider;
 import org.eclipse.glsp.server.diagram.DiagramConfiguration;
@@ -35,6 +36,7 @@ import org.eclipse.glsp.example.bigraph.handler.CreateBigraphActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.CreateBigraphControlActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.TestRewriteRuleActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.RenameNodeActionHandler;
+import org.eclipse.glsp.example.bigraph.handler.RequestVariantSwitchActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.ConvertNameRoleActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.BigraphChangeBoundsOperationHandler;
 import org.eclipse.glsp.example.bigraph.handler.FileDroppedActionHandler;
@@ -52,6 +54,12 @@ import org.eclipse.glsp.example.bigraph.handler.agent.BigraphSignatureActionHand
 import org.eclipse.glsp.example.bigraph.handler.agent.BigraphLinksActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.agent.BigraphNeighborsActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.PublishEvolutionStateActionHandler;
+import org.eclipse.glsp.example.bigraph.extensions.ExtensionAwareEdgeCreationChecker;
+import org.eclipse.glsp.example.bigraph.extensions.ExtensionList;
+import org.eclipse.glsp.example.bigraph.extensions.ExtensionStateRepository;
+import org.eclipse.glsp.example.bigraph.extensions.IdeExtension;
+import org.eclipse.glsp.example.bigraph.extensions.ModelVariantRegistry;
+import org.eclipse.glsp.example.bigraph.extensions.VariantGate;
 import org.eclipse.glsp.layout.ElkLayoutEngine;
 
 import com.google.inject.Singleton;
@@ -67,6 +75,17 @@ public class BigraphXMIDiagramModule extends GModelDiagramModule {
     protected void configure() {
         super.configure();
         bind(BigraphQueryHelper.class).in(Singleton.class);
+        bind(ExtensionStateRepository.class).in(Singleton.class);
+        // Extensions inject IBigraphModelState; GModelState is already bound to
+        // BigraphModelState by the parent module — this alias shares the same instance.
+        bind(IBigraphModelState.class).to(BigraphModelState.class);
+        // Variant discovery + runtime gating. Both are diagram-scoped singletons
+        // so they live for the lifetime of one diagram session.
+        bind(ModelVariantRegistry.class).in(Singleton.class);
+        bind(VariantGate.class).in(Singleton.class);
+        for (IdeExtension ext : ExtensionList.getInstance().getExtensions()) {
+            ext.configure(binder());
+        }
     }
 
     @Override
@@ -89,12 +108,24 @@ public class BigraphXMIDiagramModule extends GModelDiagramModule {
         return BigraphToolPaletteItemProvider.class;
     }
 
+    /**
+     * Single {@link org.eclipse.glsp.server.features.typehints.EdgeCreationChecker}
+     * binding for the whole diagram. Routes to the checker contributed by the
+     * active variant's extension (see {@link IdeExtension#getEdgeCreationChecker()});
+     * extensions must not bind the checker themselves.
+     */
+    @Override
+    protected Class<? extends org.eclipse.glsp.server.features.typehints.EdgeCreationChecker> bindEdgeCreationChecker() {
+        return ExtensionAwareEdgeCreationChecker.class;
+    }
+
     @Override
     protected void configureActionHandlers(final MultiBinding<org.eclipse.glsp.server.actions.ActionHandler> binding) {
         super.configureActionHandlers(binding);
         
         binding.add(CreateBigraphActionHandler.class);
         binding.add(RenameNodeActionHandler.class);
+        binding.add(RequestVariantSwitchActionHandler.class);
         binding.add(ConvertNameRoleActionHandler.class);
         binding.add(CreateBigraphControlActionHandler.class);
         binding.add(TestRewriteRuleActionHandler.class);
@@ -113,6 +144,10 @@ public class BigraphXMIDiagramModule extends GModelDiagramModule {
         binding.add(BigraphSignatureActionHandler.class);
         binding.add(BigraphLinksActionHandler.class);
         binding.add(BigraphNeighborsActionHandler.class);
+
+        for (IdeExtension ext : ExtensionList.getInstance().getExtensions()) {
+            ext.getActionHandlers().forEach(binding::add);
+        }
     }
 
     @Override
@@ -142,6 +177,10 @@ public class BigraphXMIDiagramModule extends GModelDiagramModule {
         // Rebind default change bounds handler with our custom bigraph-aware handler
         binding.rebind(org.eclipse.glsp.server.gmodel.GModelChangeBoundsOperationHandler.class,
                        BigraphChangeBoundsOperationHandler.class);
+
+        for (IdeExtension ext : ExtensionList.getInstance().getExtensions()) {
+            ext.getOperationHandlers().forEach(binding::add);
+        }
     }
 
     @Override

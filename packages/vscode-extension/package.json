@@ -44,6 +44,11 @@
         "icon": "$(plus)"
       },
       {
+        "command": "bigraph.createFolder",
+        "title": "New Folder",
+        "icon": "$(new-folder)"
+      },
+      {
         "command": "bigraph.testRewriteRule",
         "title": "Test Rewrite Rule",
         "icon": "$(wand)"
@@ -145,7 +150,7 @@
         },
         {
           "id": "evolutionManagerView",
-          "name": "Evolution Manager",
+          "name": "Rewriting",
           "type": "webview"
         }
       ]
@@ -166,7 +171,12 @@
         {
           "command": "bigraph.create",
           "when": "view == bigraphExplorer",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "bigraph.createFolder",
+          "when": "view == bigraphExplorer",
+          "group": "navigation@2"
         },
         {
           "command": "bigraph.addRewriteRuleSet",

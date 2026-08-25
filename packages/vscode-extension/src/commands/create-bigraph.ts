@@ -1,21 +1,31 @@
 import * as vscode from 'vscode';
-import { getBigraphExplorerProvider } from '../bigraphsExplorer/init';
+import { getBigraphExplorerCreateTargetFolder, getBigraphExplorerProvider } from '../bigraphsExplorer/init';
+import { getModelVariants, ModelVariantDescriptor } from '../extension/extensions';
+import { META_EXTENSION } from '../workspaceBigraph/bigraphArtifacts';
 
 function delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function getCreatedBigraphArtifacts(bigraphUri: vscode.Uri): vscode.Uri[] {
+function getCreatedBigraphArtifacts(bigraphUri: vscode.Uri, variant: ModelVariantDescriptor): vscode.Uri[] {
     const bigraphPath = bigraphUri.fsPath;
-    return [
+    const artifacts: vscode.Uri[] = [
         bigraphUri,
         vscode.Uri.file(bigraphPath.replace(/\.xmi$/i, '.signature.xmi')),
         vscode.Uri.file(bigraphPath.replace(/\.xmi$/i, '.signature.ecore'))
     ];
+    if (variant.writesMetaFile) {
+        artifacts.push(vscode.Uri.file(bigraphPath.replace(/\.xmi$/i, META_EXTENSION)));
+    }
+    return artifacts;
 }
 
-async function waitForBackendCreatedBigraph(bigraphUri: vscode.Uri, timeoutMs = 5000): Promise<boolean> {
-    const artifacts = getCreatedBigraphArtifacts(bigraphUri);
+async function waitForBackendCreatedBigraph(
+    bigraphUri: vscode.Uri,
+    variant: ModelVariantDescriptor,
+    timeoutMs = 5000
+): Promise<boolean> {
+    const artifacts = getCreatedBigraphArtifacts(bigraphUri, variant);
     const deadline = Date.now() + timeoutMs;
 
     while (Date.now() <= deadline) {
@@ -46,24 +56,49 @@ async function fileExists(uri: vscode.Uri): Promise<boolean> {
     }
 }
 
-async function getSuggestedBigraphName(rootUri: vscode.Uri): Promise<string> {
+async function getSuggestedName(rootUri: vscode.Uri, variant: ModelVariantDescriptor): Promise<string> {
     let counter = 0;
-    const baseName = 'new-bigraph';
-    let name = baseName;
-
+    let name = variant.fileNameBase;
     while (await fileExists(vscode.Uri.joinPath(rootUri, `${name}.xmi`))) {
         counter++;
-        name = `${baseName}${counter}`;
+        name = `${variant.fileNameBase}${counter}`;
     }
-
     return name;
 }
 
-async function getNewBigraphUri(rootUri: vscode.Uri): Promise<vscode.Uri | undefined> {
-    const suggestedName = await getSuggestedBigraphName(rootUri);
+async function pickModelVariant(): Promise<ModelVariantDescriptor | undefined> {
+    const variants = getModelVariants();
+    if (variants.length === 0) {
+        vscode.window.showErrorMessage('No model variants are registered.');
+        return undefined;
+    }
+    // Skip the picker when only a single variant is available — no
+    // value in asking the user to "choose" between one option.
+    if (variants.length === 1) {
+        return variants[0];
+    }
+    const choice = await vscode.window.showQuickPick(
+        variants.map(variant => ({
+            label: `$(${variant.iconCodicon}) ${variant.label}`,
+            description: variant.description,
+            variant,
+        })),
+        {
+            title: 'Create new model',
+            placeHolder: 'Choose model variant',
+        }
+    );
+    return choice?.variant;
+}
+
+async function getNewBigraphUri(
+    rootUri: vscode.Uri,
+    variant: ModelVariantDescriptor
+): Promise<vscode.Uri | undefined> {
+    const suggestedName = await getSuggestedName(rootUri, variant);
     const newName = await vscode.window.showInputBox({
         value: suggestedName,
-        prompt: 'Enter name for new bigraph',
+        prompt: `Enter name for new ${variant.label.toLowerCase()}`,
         placeHolder: 'Name',
         valueSelection: [0, suggestedName.length]
     });
@@ -90,8 +125,13 @@ export function registerCreateBigraphCommand(editorReady: Promise<void>): vscode
             return;
         }
 
-        const rootUri = workspaceFolders[0].uri;
-        const newFileUri = await getNewBigraphUri(rootUri);
+        const variant = await pickModelVariant();
+        if (!variant) {
+            return;
+        }
+
+        const rootUri = getBigraphExplorerCreateTargetFolder(workspaceFolders[0].uri);
+        const newFileUri = await getNewBigraphUri(rootUri, variant);
         if (!newFileUri) {
             return;
         }
@@ -103,9 +143,16 @@ export function registerCreateBigraphCommand(editorReady: Promise<void>): vscode
 
             const { dispatchActionInUtilitySession } = await import('../editor/init.js');
             const created = await dispatchActionInUtilitySession(
-                { kind: 'bigraph.create', path: newFileUri.toString() },
+                {
+                    kind: 'bigraph.create',
+                    path: newFileUri.toString(),
+                    // Canonical variant id — backend resolves it via
+                    // ModelVariantRegistry. Unknown ids fall back to
+                    // the built-in "bigraph" variant on the server.
+                    modelType: variant.id
+                },
                 async () => {
-                    const ready = await waitForBackendCreatedBigraph(newFileUri);
+                    const ready = await waitForBackendCreatedBigraph(newFileUri, variant);
                     if (!ready) {
                         vscode.window.showErrorMessage(`Timed out waiting for backend to create '${finalName}'.`);
                     }

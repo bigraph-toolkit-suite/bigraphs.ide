@@ -20,6 +20,7 @@ import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.eclipse.glsp.example.bigraph.extensions.VariantGate;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelTypes;
 import org.eclipse.glsp.server.actions.TriggerNodeCreationAction;
@@ -31,43 +32,59 @@ import org.eclipse.glsp.server.model.GModelState;
 import com.google.inject.Inject;
 
 /**
- * Provides tool palette items dynamically based on the loaded signature.
- * All controls from the signature are displayed in the "Nodes" section.
+ * Provides the bigraph variant's tool palette items (Place Graph
+ * controls + Link Graph tools).
+ *
+ * <p>Variant-aware: when the active variant is not the bigraph itself
+ * (e.g. the user is viewing a Behavior Tree), this provider returns
+ * an empty list. The frontend palette host detects the active variant
+ * via {@code SetActiveVariantAction} and mounts the matching
+ * variant-specific palette implementation on the client side; the
+ * server no longer needs to ship per-extension palette items.</p>
  */
 public class BigraphToolPaletteItemProvider implements ToolPaletteItemProvider {
 
     private static final Logger LOGGER = LogManager.getLogger(BigraphToolPaletteItemProvider.class);
-    
+
     @Inject
     protected GModelState modelState;
 
+    @Inject
+    protected VariantGate variantGate;
+
     @Override
     public List<PaletteItem> getItems(final Map<String, String> args) {
-        LOGGER.info("🎨 Building tool palette");
-        
+        String activeVariant = variantGate.activeVariantId();
+        LOGGER.info("🎨 Building tool palette for variant '{}'", activeVariant);
+
+        // Other variants build their palette entirely in the webview now —
+        // see IClientExtension.createPalette in extensions.ts. The server
+        // only provides palette items for the classic bigraph variant.
+        if (!variantGate.isBigraphEditingPermitted()) {
+            return List.of();
+        }
+
         List<PaletteItem> items = new ArrayList<>();
-        
-        // === Place Graph Category ===
+
         List<PaletteItem> nodeItems = createNodePaletteItems();
         items.add(PaletteItem.createPaletteGroup(
-            "bigraph-nodes", 
-            "Place Graph", 
-            nodeItems, 
-            "symbol-property", 
+            "bigraph-nodes",
+            "Place Graph",
+            nodeItems,
+            "symbol-property",
             "A"
         ));
-        
-        // === Link Graph Category ===
+
         List<PaletteItem> linkItems = createLinkPaletteItems();
         items.add(PaletteItem.createPaletteGroup(
-            "bigraph-links", 
-            "Link Graph", 
-            linkItems, 
-            "symbol-misc", 
+            "bigraph-links",
+            "Link Graph",
+            linkItems,
+            "symbol-misc",
             "B"
         ));
-        
-        LOGGER.info("✅ Tool palette created with {} node types and {} link types", 
+
+        LOGGER.info("✅ Tool palette created with {} node types and {} link types",
             nodeItems.size(), linkItems.size());
         return items;
     }

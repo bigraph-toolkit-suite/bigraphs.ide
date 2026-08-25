@@ -1,5 +1,15 @@
-<!-- Bigraph Custom Palette — static skeleton.
-     Dynamic content (cards, chips) is injected by bigraph-custom-palette.ts -->
+<!--
+  Bigraph Custom Palette — generic SHELL skeleton.
+
+  Only invariant elements live here: collapse strip, collapse toggle,
+  hero, and mode bar. The variant-specific content (Place/Link Graph +
+  Layout for bigraphs, Composites/Leaves/Export for behavior trees, etc.)
+  is injected by the active variant palette module into
+  <div data-slot="variant-content">.
+
+  Dynamic shell content (cards, chips) is wired up by
+  bigraph-custom-palette.ts.
+-->
 
 <!-- Collapse strip (icon-only view when palette is collapsed) -->
 <div class="bp-collapse-strip">
@@ -22,7 +32,7 @@
     <span class="codicon codicon-chevron-left" style="font-size:12px"></span>
 </div>
 
-<!-- Header: hero + mode bar -->
+<!-- Header: hero + mode bar (always visible, variant-agnostic) -->
 <div class="bp-header">
     <div class="bp-toolbar-hero" aria-label="Bigraph palette hero">
         <div class="bp-toolbar-hero-svg" aria-hidden="true"></div>
@@ -48,80 +58,12 @@
     </div>
 </div>
 
-<!-- Body: all sections in a single scrollable area -->
+<!-- Body: variant-supplied content -->
 <div class="bp-body">
 
-    <!-- Place Graph section -->
-    <div data-section="place-graph">
-        <div class="bp-section-hdr">
-            <span class="bp-section-title">Place Graph</span>
-            <div class="bp-section-actions">
-                <div class="bp-section-action-btn" data-action="add-control" title="Add Control">
-                    <span class="codicon codicon-plus"></span>
-                </div>
-            </div>
-        </div>
-        <div class="bp-search-wrap bp-search-under-place">
-            <span class="codicon codicon-search bp-search-icon"></span>
-            <input type="text" class="bp-search-field" placeholder="Filter nodes…" />
-            <div class="bp-search-clear">
-                <span class="codicon codicon-close"></span>
-            </div>
-        </div>
-        <div class="bp-section-content" data-content="place-graph">
-            <div class="bp-card-grid">
-                <!-- cards injected here -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Link Graph section -->
-    <div data-section="link-graph">
-        <div class="bp-section-hdr">
-            <span class="bp-section-title">Link Graph</span>
-            <div class="bp-section-actions">
-                <div class="bp-section-action-btn" data-action="connect" title="Connect">
-                    <span class="codicon codicon-plug"></span>
-                </div>
-            </div>
-        </div>
-        <div class="bp-section-content" data-content="link-graph">
-            <div class="bp-link-list">
-                <!-- link items injected here -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Layout section -->
-    <div data-section="layout">
-        <div class="bp-section-hdr">
-            <span class="bp-section-title">Layout</span>
-        </div>
-        <div class="bp-section-content" data-content="layout">
-            <div class="bp-section-inner">
-                <div class="bp-segmented">
-                    <div class="bp-seg" data-algorithm="layered" data-standard="true" title="Bigraph Standard Layout">Std</div>
-                    <div class="bp-seg" data-algorithm="layered" title="Auto Layout: Layer">Layer</div>
-                    <div class="bp-seg" data-algorithm="mrtree" title="Auto Layout: Tree">Tree</div>
-                    <div class="bp-seg" data-algorithm="force" title="Auto Layout: Force">Force</div>
-                    <div class="bp-seg" data-algorithm="stress" title="Auto Layout: Stress">Stress</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Export section -->
-    <div data-section="export">
-        <div class="bp-section-hdr">
-            <span class="bp-section-title">Export</span>
-        </div>
-        <div class="bp-section-content" data-content="export">
-            <div class="bp-section-inner">
-                <div class="bp-action-row">
-                    <button class="bp-action-btn" data-action="export-svg" title="Export diagram as SVG">SVG</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- VARIANT SLOT — populated by IVariantPalette.mount(container).
+         The host clears this slot whenever the active variant changes
+         and re-mounts the next variant palette here. -->
+    <div class="bp-variant-slot" data-slot="variant-content"></div>
 
 </div>

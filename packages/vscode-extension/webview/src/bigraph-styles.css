@@ -38,6 +38,22 @@
     stroke-width: 2px;
 }
 
+/* Palette display toggles */
+.bigraph-hide-roots .bigraph-root,
+.bigraph-hide-roots .bigraph-root-edge {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.bigraph-hide-node-names .bigraph-label-name {
+    display: none;
+}
+
+.bigraph-hide-place-arrows .bigraph-place-edge,
+.bigraph-hide-place-arrows .bigraph-place-edge path {
+    marker-start: none !important;
+}
+
 .bigraph-atomic-node {
     fill: #e8f5e9;
     stroke: #4caf50;

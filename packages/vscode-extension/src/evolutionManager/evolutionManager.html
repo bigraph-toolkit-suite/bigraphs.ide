@@ -8,6 +8,19 @@
 		input, textarea, select, [contenteditable="true"] { user-select: text; -webkit-user-select: text; }
 		* { box-sizing: border-box; }
 		#placeholder { color: var(--vscode-descriptionForeground); padding: 0.5rem 0; }
+		/* ── Mode tab bar ─────────────────────────────────────────────────── */
+		#mode-tabs { display: none; gap: 0.15rem; margin: 0 -0.75rem; padding: 0 0.75rem; border-bottom: 1px solid var(--vscode-widget-border); flex-shrink: 0; }
+		#mode-tabs.visible { display: flex; }
+		.mode-tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--vscode-descriptionForeground); cursor: pointer; padding: 0.35rem 0.6rem 0.3rem; font-family: inherit; font-size: 0.85em; letter-spacing: 0.03em; }
+		.mode-tab:hover { color: var(--vscode-foreground); }
+		.mode-tab.active { color: var(--vscode-foreground); border-bottom-color: var(--vscode-focusBorder, var(--vscode-foreground)); font-weight: 600; }
+		#mode-header:empty, #mode-form-extras:empty { display: none; }
+		#mode-header { padding-top: 0.5rem; }
+		#mode-header .field input[type="text"] { width: 100%; padding: 0.25rem 0.4rem; font-family: inherit; font-size: inherit; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
+		#mode-header .field label, #mode-form-extras .field label { display: block; font-size: 0.85em; color: var(--vscode-descriptionForeground); margin-bottom: 0.2rem; }
+		/* generic per-item extras contributed by modes (e.g. route textboxes) */
+		.rule-extra-input { width: 100%; margin-top: 0.15rem; padding: 0.15rem 0.3rem; font-family: inherit; font-size: 0.85em; background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border); }
+		.mode-note { font-size: 0.8em; color: var(--vscode-descriptionForeground); padding: 0.2rem 0 0.4rem; }
 		#form-area { flex: 1; overflow-y: auto; padding-bottom: 0.5rem; }
 		#form { display: none; }
 		#form.visible { display: block; }
@@ -72,28 +85,25 @@
 		.action-btn svg { width: 32px; height: 32px; fill: currentColor; }
 		.action-btn:disabled { opacity: 0.35; cursor: default; }
 		.action-btn:disabled:hover { background: none; }
-		details.history { margin-top: 0.75rem; border-top: 1px solid var(--vscode-widget-border); padding-top: 0.5rem; }
-		details.history summary { cursor: pointer; font-size: 0.85em; color: var(--vscode-descriptionForeground); user-select: none; list-style: none; display: flex; align-items: center; gap: 0.3rem; }
-		details.history summary::before { content: '▶'; font-size: 0.65em; transition: transform 0.15s; }
-		details.history[open] summary::before { transform: rotate(90deg); }
-		details.history summary::-webkit-details-marker { display: none; }
-		.history-list { margin-top: 0.4rem; font-size: 0.85em; color: var(--vscode-foreground); }
-		.history-list .history-item { display: flex; justify-content: space-between; align-items: center; padding: 0.2rem 0.25rem; border-bottom: 1px solid var(--vscode-widget-border); }
-		.history-list .history-item:last-child { border-bottom: none; }
-		.history-list .history-label { color: var(--vscode-foreground); }
-		.history-list .history-date { color: var(--vscode-descriptionForeground); font-size: 0.8em; margin-left: 0.5rem; flex-shrink: 0; }
-		.history-list .empty-hint { color: var(--vscode-descriptionForeground); font-style: italic; padding: 0.2rem 0.25rem; }
 		#config-path-bar { display: none; font-size: 0.78em; color: var(--vscode-descriptionForeground); padding: 0.3rem 0 0.4rem 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		#config-path-bar.visible { display: block; }
 		/* ── Evolution Tree ─────────────────────────────────────────────── */
-		#tree-section { display: none; border-top: 1px solid var(--vscode-widget-border); margin: 0 -0.75rem; padding: 0 0.75rem; }
-		#tree-section.visible { display: block; }
-		#tree-header { display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0 0.3rem; }
+		details#tree-section { display: none; border-top: 1px solid var(--vscode-widget-border); margin: 0 -0.75rem; padding: 0 0.75rem; }
+		details#tree-section.visible { display: block; }
+		details#tree-section summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; padding: 0.45rem 0 0.3rem; user-select: none; }
+		details#tree-section summary::-webkit-details-marker { display: none; }
+		details#tree-section summary::before { content: '▶'; font-size: 0.65em; margin-right: 0.35rem; transition: transform 0.15s; flex-shrink: 0; color: var(--vscode-descriptionForeground); }
+		details#tree-section[open] summary::before { transform: rotate(90deg); }
+		#tree-title-wrap { display: flex; align-items: center; min-width: 0; }
 		#tree-title { font-size: 0.85em; font-weight: 600; color: var(--vscode-foreground); letter-spacing: 0.03em; text-transform: uppercase; }
-		#tree-controls { display: flex; gap: 0.3rem; }
+		#tree-body { padding-bottom: 0.6rem; }
+		#tree-controls { display: flex; align-items: center; gap: 0.3rem; justify-content: flex-end; margin-bottom: 0.25rem; }
+		#tree-lock-row { display: flex; align-items: center; gap: 0.25rem; margin-right: auto; font-size: 0.78em; color: var(--vscode-descriptionForeground); }
+		#tree-lock-row input { margin: 0; }
+		#tree-lock-row label { margin: 0; cursor: pointer; user-select: none; }
 		.tree-ctrl-btn { background: none; border: 1px solid var(--vscode-input-border); color: var(--vscode-foreground); cursor: pointer; padding: 0.1rem 0.45rem; border-radius: 3px; font-size: 0.78em; opacity: 0.75; }
 		.tree-ctrl-btn:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground); }
-		#tree-canvas-wrap { position: relative; width: 100%; height: 220px; overflow: hidden; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 4px; cursor: grab; margin-bottom: 0.6rem; }
+		#tree-canvas-wrap { position: relative; width: 100%; height: 220px; overflow: hidden; background: var(--vscode-input-background); border: 1px solid var(--vscode-input-border); border-radius: 4px; cursor: grab; }
 		#tree-canvas-wrap:active { cursor: grabbing; }
 		#tree-svg { position: absolute; top: 0; left: 0; }
 		/* node circles */
@@ -115,12 +125,14 @@
 	</style>
 </head>
 <body>
+	<div id="mode-tabs"></div>
+	<div id="mode-header"></div>
 	<div id="config-path-bar" title=""></div>
 	<div id="form-area">
 		<div id="placeholder">No evolution selected. Click an entry in the Evolutions list above.</div>
 		<form id="form" class="">
 			<div class="field">
-				<label for="evolutionLabel">Evolution label</label>
+				<label for="evolutionLabel">Label</label>
 				<div class="evolution-label-row">
 					<input type="text" id="evolutionLabel" placeholder="e.g. my-evolution" />
 					<button type="button" id="btnCloseProject" class="close-project-btn" title="Close the current evolution project">Close Project</button>
@@ -130,7 +142,7 @@
 				<label for="bigraphPath">Bigraph</label>
 				<input type="text" id="bigraphPath" placeholder="Open an .xmi tab to auto-fill" readonly />
 			</div>
-			<div class="field">
+			<div class="field" id="rulesField">
 				<label>Rewrite rules</label>
 				<div class="rewrite-rules-list" id="rewriteRulesList">
 					<div class="item">(mock) rule-set-a / rule-1</div>
@@ -138,38 +150,29 @@
 					<div class="item">(mock) rule-set-b / rule-1</div>
 				</div>
 			</div>
-			<div class="field">
-				<label>Verification</label>
+			<div class="field" id="verificationField">
+				<label id="verificationSectionLabel">Verification</label>
 				<div class="verification-list" id="verificationList">
 					<div class="verification-drop-hint">Drop bigraphs from the explorer here…</div>
 				</div>
 			</div>
-			<div class="field">
-				<label for="ruleApplicationStrategy">Rule application strategy</label>
-				<select id="ruleApplicationStrategy" title="How rewrite rules are tried on each step"></select>
-			</div>
-			<div class="field">
+			<div class="field" id="maxOpsField">
 				<div class="max-ops-row">
 					<input type="checkbox" id="maxOperationsEnabled" checked />
 					<label for="maxOperationsEnabled">Max operations</label>
 					<input type="number" id="maxOperations" min="1" value="10" />
 				</div>
 			</div>
-			<div class="checkbox-row">
+			<div class="checkbox-row" id="checkpointFileGenRow">
 				<input type="checkbox" id="checkpointFileGeneration" checked />
 				<label for="checkpointFileGeneration">Checkpoint file generation</label>
 			</div>
-			<div class="checkbox-row">
-				<input type="checkbox" id="visualizeIntermediateSteps" />
-				<label for="visualizeIntermediateSteps">Visualize intermediate steps</label>
+			<div id="mode-form-extras"></div>
+			<div class="field" id="strategyField">
+				<label for="ruleApplicationStrategy">Strategy</label>
+				<select id="ruleApplicationStrategy" title="How rewrite rules are tried on each step"></select>
 			</div>
 		</form>
-		<details class="history" id="historySection">
-			<summary>Evolution History</summary>
-			<div class="history-list" id="historyList">
-				<div class="empty-hint">No history yet.</div>
-			</div>
-		</details>
 	</div>
 	<div id="action-bar">
 		<!-- Play -->
@@ -182,20 +185,26 @@
 		</button>
 	</div>
 	<!-- Evolution Tree -->
-	<div id="tree-section">
-		<div id="tree-header">
-			<span id="tree-title">Evolution Tree</span>
+	<details id="tree-section">
+		<summary id="tree-header">
+			<span id="tree-title-wrap"><span id="tree-title">Evolution Tree</span></span>
+		</summary>
+		<div id="tree-body">
 			<div id="tree-controls">
+				<div id="tree-lock-row">
+					<input type="checkbox" id="treeLockPosition" />
+					<label for="treeLockPosition" title="Keep the current zoom and pan; do not follow new checkpoints">Lock position</label>
+				</div>
 				<button class="tree-ctrl-btn" id="treeBtnZoomIn"  title="Zoom in">+</button>
 				<button class="tree-ctrl-btn" id="treeBtnZoomOut" title="Zoom out">−</button>
 				<button class="tree-ctrl-btn" id="treeBtnReset"   title="Reset view">⟲</button>
 			</div>
+			<div id="tree-canvas-wrap">
+				<svg id="tree-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+				<div id="tree-tooltip"></div>
+			</div>
 		</div>
-		<div id="tree-canvas-wrap">
-			<svg id="tree-svg" xmlns="http://www.w3.org/2000/svg"></svg>
-			<div id="tree-tooltip"></div>
-		</div>
-	</div>
+	</details>
 	<script>{{SCRIPT_CONTENT}}</script>
 </body>
 </html>

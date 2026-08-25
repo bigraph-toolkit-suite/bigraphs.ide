@@ -1,10 +1,11 @@
 import { EvoState }        from './EvoState.js';
-import { EvoHistory }       from './EvoHistory.js';
 import { EvoRules }         from './EvoRules.js';
 import { EvoVerification }  from './EvoVerification.js';
 import { EvoTree }          from './EvoTree.js';
 import { EvoForm }          from './EvoForm.js';
 import { EvoMessages }      from './EvoMessages.js';
+import { ModeController }   from './modes/ModeController.js';
+import { getRewritingModes } from './modes/index.js';
 import type { VsCodeApi }   from './types.js';
 import { WebviewDndBridge } from './dnd/WebviewDndBridge.js';
 
@@ -13,12 +14,12 @@ declare function acquireVsCodeApi(): VsCodeApi;
 (function boot(): void {
 	const vscode   = (typeof acquireVsCodeApi !== 'undefined' ? acquireVsCodeApi() : null) as VsCodeApi;
 	const state    = new EvoState();
-	const history  = new EvoHistory();
-	const rules    = new EvoRules(state, vscode);
-	const verif    = new EvoVerification(state, vscode);
+	const modes    = new ModeController(getRewritingModes(), state, vscode);
+	const rules    = new EvoRules(state, vscode, modes);
+	const verif    = new EvoVerification(state, vscode, modes);
 	const tree     = new EvoTree(vscode, state);
-	const form     = new EvoForm(state, history, vscode);
-	const msgs     = new EvoMessages(state, history, rules, verif, tree, form, vscode);
+	const form     = new EvoForm(state, vscode, modes);
+	const msgs     = new EvoMessages(state, rules, verif, tree, form, modes, vscode);
 	const dndBridge = new WebviewDndBridge(vscode);
 
 	// Wire rules back to form-state reporting after active-tag changes
@@ -27,6 +28,13 @@ declare function acquireVsCodeApi(): VsCodeApi;
 		if (vscode) {
 			vscode.postMessage(form.collectPlayRulePayload(ruleId));
 		}
+	});
+
+	// Mode switches re-apply the declarative UI and re-render the shared lists.
+	modes.init(() => {
+		form.applyModeUi();
+		rules.render(state.lastRewriteRules);
+		verif.render(state.lastVerificationBigraphs);
 	});
 
 	msgs.init();

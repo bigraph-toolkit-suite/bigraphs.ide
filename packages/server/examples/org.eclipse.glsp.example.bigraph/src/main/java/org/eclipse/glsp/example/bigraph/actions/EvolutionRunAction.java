@@ -14,7 +14,10 @@
 
 package org.eclipse.glsp.example.bigraph.actions;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+
 import org.eclipse.glsp.server.actions.Action;
 
 public class EvolutionRunAction extends Action {
@@ -55,7 +58,14 @@ public class EvolutionRunAction extends Action {
     private boolean maxOperationsEnabled;
     private int maxOperations;
     private boolean checkpointFileGeneration;
-    private boolean visualizeIntermediateSteps;
+    /**
+     * Options contributed by IDE extensions, keyed by extension id
+     * (e.g. {@code "exploration" -> { "enabled": true, ... }}). Extensions use
+     * these to decide whether their
+     * {@link org.eclipse.glsp.example.bigraph.extensions.EvolutionRunHook}
+     * claims the run and to read their private settings. Never {@code null}.
+     */
+    private Map<String, Object> extensionOptions;
     /**
      * How rewrite rules are scheduled — wire values match
      * {@link org.eclipse.glsp.example.bigraph.evolution.RuleApplicationStrategy#getWireValue()}.
@@ -73,7 +83,9 @@ public class EvolutionRunAction extends Action {
     public boolean isMaxOperationsEnabled()                { return maxOperationsEnabled; }
     public int getMaxOperations()                          { return maxOperations; }
     public boolean isCheckpointFileGeneration()            { return checkpointFileGeneration; }
-    public boolean isVisualizeIntermediateSteps()          { return visualizeIntermediateSteps; }
+    public Map<String, Object> getExtensionOptions() {
+        return extensionOptions == null ? Collections.emptyMap() : extensionOptions;
+    }
     /** @return Wire value for {@link org.eclipse.glsp.example.bigraph.evolution.RuleApplicationStrategy}, or null. */
     public String getRuleApplicationStrategy()             { return ruleApplicationStrategy; }
 }

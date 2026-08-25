@@ -11,7 +11,7 @@
                 "${workspaceFolder}/examples/org.eclipse.glsp.example.bigraph/src/main/java"
             ],
             "projectName": "org.eclipse.glsp.example.bigraph",
-            "preLaunchTask": "Build and Launch JAR with Debug"
+            "preLaunchTask": "Build and Launch JAR"
         },
         {
             "name": "Attach to Bigraph GLSP Server",

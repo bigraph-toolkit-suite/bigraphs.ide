@@ -47,6 +47,24 @@ export class EvolutionDocument {
 		return this.data;
 	}
 
+	/**
+	 * Generic accessor for root-level keys, used by mode extensions to read
+	 * their private data (e.g. goalPaths, operationHost) without the core
+	 * having to know each key.
+	 */
+	getRootValue<T = unknown>(key: string): T | undefined {
+		return this.data[key] as T | undefined;
+	}
+
+	/** Generic setter for root-level keys. `undefined` removes the key. */
+	setRootValue(key: string, value: unknown): void {
+		if (value === undefined) {
+			delete this.data[key];
+		} else {
+			this.data[key] = value;
+		}
+	}
+
 	getCheckpointCursor(): string | null {
 		const cursor = this.data[EvolutionJsonKey.CheckpointCursor];
 		return typeof cursor === 'string' ? cursor : null;
@@ -158,6 +176,13 @@ export function buildFormStateFromDocument(
 	const workspaceBigraph = wsRel ? path.join(folderPath, wsRel) : '';
 	const operations = doc.getOperations();
 
+	// Root-level keys the core does not know (e.g. goalPaths, operationHost)
+	// are forwarded opaquely so mode extensions in the webview can read them.
+	const coreKeys = new Set<string>(Object.values(EvolutionJsonKey));
+	const extensionJson = Object.fromEntries(
+		Object.entries(config).filter(([key]) => !coreKeys.has(key))
+	);
+
 	return {
 		evolutionLabel: String(config[EvolutionJsonKey.Label] ?? ''),
 		bigraphFsPath: bigraphAbsPath,
@@ -169,7 +194,6 @@ export function buildFormStateFromDocument(
 			? (config[EvolutionJsonKey.MaxOperations] as number)
 			: 10,
 		checkpointFileGeneration: config[EvolutionJsonKey.CheckpointFileGeneration] !== false,
-		visualizeIntermediateSteps: !!config[EvolutionJsonKey.VisualizeIntermediateSteps],
 		ruleApplicationStrategy: normalizeRuleApplicationStrategy(
 			config[EvolutionJsonKey.RuleApplicationStrategy]
 		),
@@ -177,6 +201,7 @@ export function buildFormStateFromDocument(
 		operations,
 		evolutionConfigRelPath: configRelPath,
 		checkpointCursor: doc.getCheckpointCursor(),
+		extensionJson,
 	};
 }
 

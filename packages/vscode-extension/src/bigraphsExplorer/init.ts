@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { BigraphExplorerProvider, BigraphExplorerDragAndDropController } from './bigraphFileExplorerProvider';
+import {
+    BigraphExplorerProvider,
+    BigraphExplorerDragAndDropController,
+    BigraphExplorerItem,
+    resolveCreateTargetFolder
+} from './bigraphFileExplorerProvider';
 import {
     RewriteRuleExplorerProvider,
     RewriteRuleDragAndDropController,
@@ -19,6 +24,7 @@ import { dispatchActionToActiveEditor } from '../editor/init';
 import { duplicateBigraphArtifacts, renameBigraphArtifacts } from '../commands/duplicate-bigraph';
 
 let bigraphExplorerProvider: BigraphExplorerProvider;
+let bigraphTreeView: vscode.TreeView<BigraphExplorerItem>;
 let dragAndDropController: BigraphExplorerDragAndDropController;
 let rewriteRuleExplorerProvider: RewriteRuleExplorerProvider;
 let rewriteRuleDragController: RewriteRuleDragAndDropController;
@@ -44,7 +50,7 @@ export function initExplorerSidebar(): vscode.Disposable[] {
     bigraphExplorerProvider = new BigraphExplorerProvider();
     dragAndDropController = new BigraphExplorerDragAndDropController();
 
-    const bigraphTreeView = vscode.window.createTreeView('bigraphExplorer', {
+    bigraphTreeView = vscode.window.createTreeView('bigraphExplorer', {
         treeDataProvider: bigraphExplorerProvider,
         dragAndDropController: dragAndDropController
     });
@@ -497,4 +503,9 @@ export function initExplorerSidebar(): vscode.Disposable[] {
 
 export function getBigraphExplorerProvider(): BigraphExplorerProvider {
     return bigraphExplorerProvider;
+}
+
+/** Target folder for "create bigraph" based on the explorer selection (folder, or parent of file). */
+export function getBigraphExplorerCreateTargetFolder(workspaceRoot: vscode.Uri): vscode.Uri {
+    return resolveCreateTargetFolder(bigraphTreeView?.selection, workspaceRoot);
 }

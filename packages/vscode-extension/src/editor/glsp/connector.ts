@@ -28,6 +28,7 @@ import {
     setPendingRunFolder,
     waitForClientSession,
 } from '../glspServerBridge.js';
+import { dispatchGlspServerAction } from '../../extension/extensions.js';
 
 export {
     assumeSessionReady,
@@ -62,7 +63,7 @@ export async function connect(_context: vscode.ExtensionContext): Promise<GlspCo
         server: server,
         logging: true,
         onBeforeReceiveMessageFromServer: (message, callback) => {
-            const msg = message as { clientId?: string; action?: { kind?: string; severity?: string; operationId?: string; actionType?: string; reason?: string } };
+            const msg = message as { clientId?: string; action?: { kind?: string; severity?: string; operationId?: string; actionType?: string; reason?: string; extensionResults?: Record<string, unknown> | null } };
 
             if (msg?.action?.kind === 'setModel' && msg.clientId) {
                 markSessionReady(msg.clientId);
@@ -104,12 +105,13 @@ export async function connect(_context: vscode.ExtensionContext): Promise<GlspCo
                 setEvolutionRunningForFolder(folder, true);
                 postWorkspaceBarStateToAllPanels();
             } else if (msg?.action?.kind === 'bigraph.evolutionFinished') {
-                const { operationId, reason } = msg.action;
+                const { operationId, reason, extensionResults } = msg.action;
                 const provider = getEvolutionManagerViewProvider();
                 provider?.postMessage({
                     type: 'operationFinished',
                     operationId: operationId ?? null,
-                    reason: reason ?? 'completed'
+                    reason: reason ?? 'completed',
+                    extensionResults: extensionResults ?? null
                 });
                 if (provider) {
                     reloadEvolutionDocumentFromDisk(provider);
@@ -124,6 +126,12 @@ export async function connect(_context: vscode.ExtensionContext): Promise<GlspCo
                     action.message ?? ''
                 );
                 return;
+            } else if (msg?.action?.kind && msg.clientId) {
+                void dispatchGlspServerAction(
+                    msg.clientId,
+                    msg.action as Record<string, unknown>,
+                    (action) => sendActionToServer(action, msg.clientId!)
+                );
             }
             callback(message);
         },

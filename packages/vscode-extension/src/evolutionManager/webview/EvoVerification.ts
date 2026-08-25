@@ -1,5 +1,6 @@
 import { EvoState } from './EvoState.js';
 import type { EvolutionOperation, VerificationBigraph, VsCodeApi } from './types.js';
+import type { ModeController } from './modes/ModeController.js';
 
 const CHECK_SVG = `<svg viewBox="0 0 16 16"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/></svg>`;
 const CROSS_SVG = `<svg viewBox="0 0 16 16"><path d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.75.75 0 1 1 1.06 1.06L9.06 8l3.22 3.22a.75.75 0 1 1-1.06 1.06L8 9.06l-3.22 3.22a.75.75 0 0 1-1.06-1.06L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06z"/></svg>`;
@@ -10,11 +11,18 @@ export class EvoVerification {
 	private readonly listEl: HTMLElement;
 	private readonly state: EvoState;
 	private readonly vscode: VsCodeApi;
+	private readonly modes: ModeController;
+	private onChanged: (() => void) | null = null;
 
-	constructor(state: EvoState, vscode: VsCodeApi) {
+	constructor(state: EvoState, vscode: VsCodeApi, modes: ModeController) {
 		this.state  = state;
 		this.vscode = vscode;
+		this.modes  = modes;
 		this.listEl = document.getElementById('verificationList')!;
+	}
+
+	setOnChanged(cb: () => void): void {
+		this.onChanged = cb;
 	}
 
 	// ── Public API ──────────────────────────────────────────────────────────
@@ -22,10 +30,13 @@ export class EvoVerification {
 	render(items: VerificationBigraph[]): void {
 		if (items.length === 0) {
 			this.listEl.innerHTML = DROP_HINT;
+			this.onChanged?.();
 			return;
 		}
 		this.listEl.innerHTML = items.map((v, i) => this.renderItem(v, i)).join('');
 		this.bindItemEvents();
+		this.modes.activeMode.bindVerificationExtras?.(this.listEl, this.modes.ctx);
+		this.onChanged?.();
 	}
 
 	applyStatesFromOp(op: EvolutionOperation | null): void {
@@ -39,6 +50,7 @@ export class EvoVerification {
 		const label      = v.label ?? '';
 		const isStop     = v.stop !== false;
 		const tagClass   = `rule-tag${isStop ? ' active' : ''}`;
+		const tagText    = this.modes.ui.verificationTagText;
 		const checkState = (v.id && v.id in this.state.verificationCheckStates)
 			? this.state.verificationCheckStates[v.id]
 			: null;
@@ -52,13 +64,16 @@ export class EvoVerification {
 			? `<button class="vb-check-btn" data-vb-idx="${i}" title="Check if current bigraph matches this verification bigraph">Check</button>`
 			: stateIcon;
 
+		const modeExtra = this.modes.activeMode.renderVerificationExtra?.(v, i, this.modes.ctx) ?? '';
+
 		return `<div class="item" data-vb-idx="${i}">`
 			+ `<span class="verification-item-name">`
 			+   `<span class="verification-label" data-vb-idx="${i}">${EvoState.escapeHtml(label)}</span>`
 			+   `<button class="verification-del-btn" title="Delete" data-vb-idx="${i}">${TRASH_SVG}</button>`
 			+ `</span>`
+			+ modeExtra
 			+ checkOrIcon
-			+ `<span class="${tagClass}" data-vb-idx="${i}">stop</span>`
+			+ `<span class="${tagClass}" data-vb-idx="${i}">${tagText}</span>`
 			+ `</div>`;
 	}
 
@@ -73,6 +88,7 @@ export class EvoVerification {
 				this.state.lastVerificationBigraphs[idx] = { ...vb, stop: vb.stop === false };
 				tag.classList.toggle('active', this.state.lastVerificationBigraphs[idx].stop !== false);
 				this.reportVerificationBigraphs();
+				this.onChanged?.();
 			});
 		});
 

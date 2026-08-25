@@ -27,6 +27,8 @@ import org.eclipse.glsp.graph.DefaultTypes;
 import org.eclipse.glsp.graph.GraphPackage;
 import org.eclipse.glsp.server.diagram.BaseDiagramConfiguration;
 import org.eclipse.glsp.server.layout.ServerLayoutKind;
+import org.eclipse.glsp.example.bigraph.extensions.ExtensionList;
+import org.eclipse.glsp.example.bigraph.extensions.IdeExtension;
 import org.eclipse.glsp.server.types.EdgeTypeHint;
 import org.eclipse.glsp.server.types.ShapeTypeHint;
 import org.apache.logging.log4j.LogManager;
@@ -130,7 +132,11 @@ public class BigraphDiagramConfiguration extends BaseDiagramConfiguration {
             BIGRAPH_NODE, ATOMIC_NODE, CONTAINER_NODE, CUSTOM_NODE, SITE
         ));
         nodeHints.add(regionHint);
-        
+
+        for (IdeExtension ext : ExtensionList.getInstance().getExtensions()) {
+            nodeHints.addAll(ext.contributeShapeTypeHints(this::createDefaultShapeTypeHint));
+        }
+
         return nodeHints;
     }
 
@@ -174,6 +180,10 @@ public class BigraphDiagramConfiguration extends BaseDiagramConfiguration {
         outerConnectionHint.addTargetElementTypeId(BIGRAPH_NODE, ATOMIC_NODE, CONTAINER_NODE, CUSTOM_NODE);
         outerConnectionHint.setDynamic(true);
         edgeHints.add(outerConnectionHint);
+
+        for (IdeExtension ext : ExtensionList.getInstance().getExtensions()) {
+            edgeHints.addAll(ext.contributeEdgeTypeHints(this::createDefaultEdgeTypeHint));
+        }
 
         return edgeHints;
     }

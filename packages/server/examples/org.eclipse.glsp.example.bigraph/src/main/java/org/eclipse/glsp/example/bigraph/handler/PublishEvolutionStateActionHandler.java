@@ -25,6 +25,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.eclipse.glsp.example.bigraph.actions.PublishEvolutionStateAction;
+import org.eclipse.glsp.example.bigraph.evolution.EvolutionSignatures;
 import org.eclipse.glsp.example.bigraph.model.BigraphIO;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
 import org.eclipse.glsp.server.actions.AbstractActionHandler;
@@ -69,6 +70,16 @@ public class PublishEvolutionStateActionHandler extends AbstractActionHandler<Pu
 
         try {
             BigraphIO.writeToFile(mutableBigraph, new File(sourceFilePath));
+            if (mutableBigraph.getSignature() != null) {
+                // Union with the signature already on disk so user-declared controls
+                // that currently have no instances are never dropped; used controls
+                // take precedence so their arities stay consistent with the nodes.
+                BigraphIO.writeSignatureToFile(
+                    EvolutionSignatures.unionLeft(List.of(
+                        EvolutionSignatures.usedControls(mutableBigraph),
+                        BigraphIO.readSignatureFromFile(sourceFilePath))),
+                    sourceFilePath);
+            }
             LOGGER.info("Wrote final evolution result to {}", sourceFilePath);
 
             if (checkpointCursorId != null && !checkpointCursorId.isBlank()
@@ -92,8 +103,9 @@ public class PublishEvolutionStateActionHandler extends AbstractActionHandler<Pu
         final int idx = json.indexOf(cursorKey);
         if (idx >= 0) {
             final int colon = json.indexOf(":", idx);
-            final int lineEnd = json.indexOf("\n", colon);
-            final int end = lineEnd >= 0 ? lineEnd : json.length();
+            // Replace only the JSON value, not the rest of the line — a trailing
+            // comma must survive when further root keys follow the cursor.
+            final int end = findCursorValueEnd(json, colon + 1);
             return json.substring(0, colon + 1) + " \"" + id + "\"" + json.substring(end);
         }
 
@@ -105,5 +117,28 @@ public class PublishEvolutionStateActionHandler extends AbstractActionHandler<Pu
         final String before = json.substring(0, closingBrace);
         final String trimmedBefore = before.stripTrailing();
         return trimmedBefore + ",\n    " + cursorKey + " : \"" + id + "\"\n}";
+    }
+
+    /**
+     * Exclusive end index of the cursor value starting after the colon:
+     * a quoted string (escape-aware) or a bare literal such as {@code null}.
+     */
+    private int findCursorValueEnd(final String json, final int afterColon) {
+        int i = afterColon;
+        while (i < json.length() && Character.isWhitespace(json.charAt(i))) {
+            i++;
+        }
+        if (i < json.length() && json.charAt(i) == '"') {
+            for (int j = i + 1; j < json.length(); j++) {
+                final char c = json.charAt(j);
+                if (c == '\\') { j++; } else if (c == '"') { return j + 1; }
+            }
+            return json.length();
+        }
+        while (i < json.length() && ",}]".indexOf(json.charAt(i)) < 0
+            && !Character.isWhitespace(json.charAt(i))) {
+            i++;
+        }
+        return i;
     }
 }

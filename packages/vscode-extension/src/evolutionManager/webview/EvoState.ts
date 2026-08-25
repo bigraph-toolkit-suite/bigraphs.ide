@@ -32,6 +32,13 @@ export class EvoState {
 	/** Maps verificationId → true (matched) | false (not matched). Absent key means unchecked. */
 	verificationCheckStates: Record<string, boolean> = {};
 
+	/**
+	 * Root-level evolution.json keys the core does not know (e.g. goalPaths,
+	 * operationHost). Populated by fillEvolutionForm/restoreFormState and read
+	 * by mode extensions.
+	 */
+	extensionJson: Record<string, unknown> = {};
+
 	/** Global map: operationId → runFolder path. */
 	operationMap: Record<string, string> = {};
 

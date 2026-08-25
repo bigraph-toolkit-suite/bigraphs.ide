@@ -2,6 +2,7 @@
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import { registerCreateBigraphCommand } from './commands/create-bigraph';
+import { registerCreateFolderCommand } from './commands/create-folder';
 import { registerEditorCommands } from './commands/editor-commands';
 import { initExplorerSidebar } from './bigraphsExplorer/init';
 import { HtmlViewProvider } from './rewriteRuleEditor/htmlViewProvider';
@@ -31,6 +32,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	context.subscriptions.push(...registerEditorCommands());
 	context.subscriptions.push(registerCreateBigraphCommand(editorReady));
+	context.subscriptions.push(registerCreateFolderCommand());
 }
 
 // This method is called when your extension is deactivated

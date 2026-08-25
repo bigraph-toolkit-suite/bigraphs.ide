@@ -41,7 +41,6 @@ export interface EvolutionFormState {
 	maxOperationsEnabled: boolean;
 	maxOperations: number;
 	checkpointFileGeneration: boolean;
-	visualizeIntermediateSteps: boolean;
 	ruleApplicationStrategy: RuleApplicationStrategy;
 	/** `workspace-bigraph` from the JSON – the current working bigraph of this evolution. */
 	workspaceBigraph: string;
@@ -51,6 +50,11 @@ export interface EvolutionFormState {
 	evolutionConfigRelPath: string | null;
 	/** The id of the operation the checkpoint-cursor currently points to. */
 	checkpointCursor: string | null;
+	/**
+	 * Root-level evolution.json keys the core does not know (e.g. goalPaths,
+	 * operationHost). Forwarded opaquely to mode extensions in the webview.
+	 */
+	extensionJson?: Record<string, unknown>;
 }
 
 /**

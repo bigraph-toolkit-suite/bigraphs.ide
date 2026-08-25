@@ -27,6 +27,8 @@ interface TreeLayout {
 const NODE_R     = 14;
 const NODE_HIT_R = 20;
 const LEVEL_H = 70;
+/** Starting / reset scale — slightly pulled back so a typical run fits the canvas. */
+const DEFAULT_SCALE = 0.55;
 /** Minimum horizontal gap between sibling branch leaf centers. */
 const MIN_SEP = 72;
 /** Approximate px per character for edge labels at 8.5px font. */
@@ -48,7 +50,7 @@ function makePlaceholderOperation(): EvolutionOperation {
 }
 
 export class EvoTree {
-	private readonly sectionEl: HTMLElement;
+	private readonly sectionEl: HTMLDetailsElement;
 	private readonly svgEl: SVGSVGElement;
 	private readonly wrapEl: HTMLElement;
 	private readonly tooltipEl: HTMLElement;
@@ -60,7 +62,9 @@ export class EvoTree {
 	private cursor: string | null       = null;
 	/** When null the cursor checkpoint is not visually highlighted (e.g. workspace tab closed). */
 	private highlightCursorId: string | null = null;
-	private scale                       = 1;
+	private scale                       = DEFAULT_SCALE;
+	/** When true, automatic zoom/pan is skipped; the user still controls the view. */
+	private lockPosition                = false;
 	private offX                        = 0;
 	private offY                        = 0;
 	private dragging                    = false;
@@ -74,7 +78,7 @@ export class EvoTree {
 	constructor(vscode: VsCodeApi, state: EvoState) {
 		this.vscode     = vscode;
 		this.state      = state;
-		this.sectionEl  = document.getElementById('tree-section')!;
+		this.sectionEl  = document.getElementById('tree-section') as HTMLDetailsElement;
 		this.svgEl      = document.getElementById('tree-svg') as unknown as SVGSVGElement;
 		this.wrapEl     = document.getElementById('tree-canvas-wrap')!;
 		this.tooltipEl  = document.getElementById('tree-tooltip')!;
@@ -82,19 +86,35 @@ export class EvoTree {
 		this.initControls();
 	}
 
+	/** Expands the tree panel (e.g. after an evolution run finished). */
+	expand(): void {
+		if (!this.sectionEl.classList.contains('visible')) { return; }
+		this.sectionEl.open = true;
+		this.applyAutomaticView(this.cursor);
+		this.render();
+	}
+
+	/** Collapses the tree panel (default when loading an evolution). */
+	collapse(): void {
+		this.sectionEl.open = false;
+	}
+
 	// ── Public API ──────────────────────────────────────────────────────────
 
 	/**
 	 * @param hideSection When true (no evolution selected), the whole tree panel stays hidden.
 	 *   Otherwise empty `operations` renders a single placeholder node — the initial state before any run.
+	 * @param options.preserveView Keep the current zoom (used for live progress updates).
 	 */
-	update(ops: EvolutionOperation[], cursorId: string | null, hideSection?: boolean): void {
+	update(ops: EvolutionOperation[], cursorId: string | null, hideSection?: boolean,
+		options?: { preserveView?: boolean }): void {
 		if (hideSection) {
 			this.placeholderMode = false;
 			this.ops             = [];
 			this.cursor          = null;
 			this.highlightCursorId = null;
 			this.sectionEl.classList.remove('visible');
+			this.sectionEl.open = false;
 			(this.svgEl as unknown as Element).innerHTML = '';
 			return;
 		}
@@ -111,9 +131,13 @@ export class EvoTree {
 		}
 
 		this.sectionEl.classList.add('visible');
-		this.scale = 1;
-		this.centerOnCursor(this.cursor);
-		this.render();
+		if (!this.lockPosition) {
+			if (!options?.preserveView) {
+				this.scale = DEFAULT_SCALE;
+			}
+			this.centerOnCursor(this.cursor);
+		}
+		this.renderIfOpen();
 	}
 
 	setCursor(id: string | null): void {
@@ -122,13 +146,13 @@ export class EvoTree {
 		} else {
 			this.cursor = id ?? null;
 		}
-		this.render();
+		this.renderIfOpen();
 	}
 
 	/** Controls whether the cursor checkpoint is visually highlighted in the tree. */
 	setHighlightCursor(id: string | null): void {
 		this.highlightCursorId = id;
-		this.render();
+		this.renderIfOpen();
 	}
 
 	// ── Layout ───────────────────────────────────────────────────────────────
@@ -204,6 +228,12 @@ export class EvoTree {
 
 	// ── Rendering ─────────────────────────────────────────────────────────────
 
+	/** Camera move triggered by the app (load, live follow, expand) — not by the user. */
+	private applyAutomaticView(nodeId?: string | null): void {
+		if (this.lockPosition) { return; }
+		this.centerOnCursor(nodeId);
+	}
+
 	private centerOnCursor(nodeId?: string | null): void {
 		const lyt = this.layout(this.ops);
 		if (!lyt.nodes.length) { this.offX = 0; this.offY = 0; return; }
@@ -221,6 +251,12 @@ export class EvoTree {
 
 		this.offX = wrapW  / 2 - target.x * this.scale - centreX;
 		this.offY = wrapH  / 2 - target.y * this.scale - pad;
+	}
+
+	private renderIfOpen(): void {
+		if (this.sectionEl.open) {
+			this.render();
+		}
 	}
 
 	private render(): void {
@@ -365,6 +401,17 @@ export class EvoTree {
 	// ── Controls ──────────────────────────────────────────────────────────────
 
 	private initControls(): void {
+		this.sectionEl.addEventListener('toggle', () => {
+			if (this.sectionEl.open) {
+				this.applyAutomaticView(this.cursor);
+				this.render();
+			}
+		});
+
+		document.getElementById('treeLockPosition')!.addEventListener('change', (e) => {
+			this.lockPosition = (e.target as HTMLInputElement).checked;
+		});
+
 		document.getElementById('treeBtnZoomIn')!.addEventListener('click', () => {
 			this.scale = Math.min(3, this.scale * 1.3);
 			this.render();
@@ -374,7 +421,7 @@ export class EvoTree {
 			this.render();
 		});
 		document.getElementById('treeBtnReset')!.addEventListener('click', () => {
-			this.scale = 1;
+			this.scale = DEFAULT_SCALE;
 			this.centerOnCursor();
 			this.render();
 		});

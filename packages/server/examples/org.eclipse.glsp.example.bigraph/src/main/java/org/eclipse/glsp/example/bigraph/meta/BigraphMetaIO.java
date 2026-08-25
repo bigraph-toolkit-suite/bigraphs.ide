@@ -41,6 +41,7 @@ public class BigraphMetaIO {
     private final EClass controlPropertyClass;
     private final EClass pointEntryClass;
     private final EClass controlEntryClass;
+    private final EClass extensionSectionEntryClass;
 
     public BigraphMetaIO() {
         EcoreFactory factory = EcoreFactory.eINSTANCE;
@@ -74,6 +75,12 @@ public class BigraphMetaIO {
         addReference(controlEntryClass, "value", controlPropertyClass, true, 1);
         metaPackage.getEClassifiers().add(controlEntryClass);
 
+        extensionSectionEntryClass = factory.createEClass();
+        extensionSectionEntryClass.setName("ExtensionSectionEntry");
+        addAttribute(extensionSectionEntryClass, "key", EcorePackage.Literals.ESTRING);
+        addAttribute(extensionSectionEntryClass, "payload", EcorePackage.Literals.ESTRING);
+        metaPackage.getEClassifiers().add(extensionSectionEntryClass);
+
         // Define BigraphMetaInformation
         metaInfoClass = factory.createEClass();
         metaInfoClass.setName("BigraphMetaInformation");
@@ -85,6 +92,8 @@ public class BigraphMetaIO {
         addReference(metaInfoClass, "sitePositions", pointEntryClass, false, -1);
         addReference(metaInfoClass, "rootPositions", pointEntryClass, false, -1);
         addReference(metaInfoClass, "controlMeta", controlEntryClass, false, -1);
+        addReference(metaInfoClass, "extensionSections", extensionSectionEntryClass, false, -1);
+        addAttribute(metaInfoClass, "modelType", EcorePackage.Literals.ESTRING);
         metaPackage.getEClassifiers().add(metaInfoClass);
     }
 
@@ -127,7 +136,12 @@ public class BigraphMetaIO {
         fillPointMap(root, "rootPositions", info.getRootPositions());
         
         fillControlMap(root, info.getControlMeta());
-        
+        fillExtensionSectionMap(root, info.getExtensionSections());
+
+        if (info.getModelType() != null && !info.getModelType().isBlank()) {
+            root.eSet(metaInfoClass.getEStructuralFeature("modelType"), info.getModelType());
+        }
+
         resource.getContents().add(root);
         resource.save(Collections.emptyMap());
     }
@@ -163,6 +177,18 @@ public class BigraphMetaIO {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private void fillExtensionSectionMap(EObject root, Map<String, String> sourceMap) {
+        EReference ref = (EReference) metaInfoClass.getEStructuralFeature("extensionSections");
+        java.util.List<EObject> list = (java.util.List<EObject>) root.eGet(ref);
+        for (Map.Entry<String, String> entry : sourceMap.entrySet()) {
+            EObject item = metaPackage.getEFactoryInstance().create(extensionSectionEntryClass);
+            item.eSet(extensionSectionEntryClass.getEStructuralFeature("key"), entry.getKey());
+            item.eSet(extensionSectionEntryClass.getEStructuralFeature("payload"), entry.getValue());
+            list.add(item);
+        }
+    }
+
     public BigraphMetaInformation load(String path) throws IOException {
         ResourceSet resSet = new ResourceSetImpl();
         resSet.getPackageRegistry().put(metaPackage.getNsURI(), metaPackage);
@@ -182,7 +208,13 @@ public class BigraphMetaIO {
         readPointMap(root, "rootPositions", info.getRootPositions());
         
         readControlMap(root, info.getControlMeta());
-        
+        readExtensionSectionMap(root, info.getExtensionSections());
+
+        Object modelType = root.eGet(metaInfoClass.getEStructuralFeature("modelType"));
+        if (modelType instanceof String type && !type.isBlank()) {
+            info.setModelType(type);
+        }
+
         return info;
     }
 
@@ -215,6 +247,25 @@ public class BigraphMetaIO {
             prop.setColor((String) propItem.eGet(controlPropertyClass.getEStructuralFeature("color")));
             
             targetMap.put(key, prop);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void readExtensionSectionMap(EObject root, Map<String, String> targetMap) {
+        EReference ref = (EReference) metaInfoClass.getEStructuralFeature("extensionSections");
+        if (ref == null) {
+            return;
+        }
+        java.util.List<EObject> list = (java.util.List<EObject>) root.eGet(ref);
+        if (list == null) {
+            return;
+        }
+        for (EObject item : list) {
+            String key = (String) item.eGet(extensionSectionEntryClass.getEStructuralFeature("key"));
+            String payload = (String) item.eGet(extensionSectionEntryClass.getEStructuralFeature("payload"));
+            if (key != null && payload != null) {
+                targetMap.put(key, payload);
+            }
         }
     }
 }

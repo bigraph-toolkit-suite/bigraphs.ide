@@ -4,6 +4,21 @@
 	"version": "2.0.0",
 	"tasks": [
 		{
+			"label": "Install Dependencies",
+			"type": "shell",
+			"command": "npm install && npm install --legacy-peer-deps --prefix webview",
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"focus": false
+			},
+			"problemMatcher": []
+		},
+		{
             "label": "build:all",
             "type": "npm",
             "script": "compile:all",

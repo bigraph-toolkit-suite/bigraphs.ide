@@ -103,15 +103,37 @@ public class BigraphIO {
     }
 
     /**
-     * Explicit creation path for a new empty bigraph plus companion signature files.
+     * Explicit creation path for a new empty bigraph plus companion
+     * signature files. Uses an empty {@link DynamicSignature}; for
+     * variants that need controls up-front (e.g. behavior trees) call
+     * {@link #createEmptyBigraphFile(File, DynamicSignature)} instead.
      */
     public static void createEmptyBigraphFile(final File file) throws IOException {
-        final DynamicSignature emptySignature = BigraphFactory.pureSignatureBuilder().create();
-        final PureBigraph emptyBigraph = createEmptyImmutableBigraph(emptySignature);
+        createEmptyBigraphFile(file, null);
+    }
+
+    /**
+     * Creates a new empty bigraph file with the given {@code signature}
+     * (and matching companion signature files). When {@code signature}
+     * is {@code null}, falls back to an empty signature — the historical
+     * behaviour for plain bigraph files.
+     *
+     * <p>Used by {@code CreateBigraphActionHandler} for non-core variants:
+     * extensions provide their canonical signature via
+     * {@code IdeExtension.getInitialSignature(variantId)} so that the
+     * first user action (e.g. dragging a Sequence onto the canvas) finds
+     * its control already registered in the metamodel.</p>
+     */
+    public static void createEmptyBigraphFile(final File file, final DynamicSignature signature)
+            throws IOException {
+        final DynamicSignature effectiveSignature = signature != null
+                ? signature
+                : BigraphFactory.pureSignatureBuilder().create();
+        final PureBigraph emptyBigraph = createEmptyImmutableBigraph(effectiveSignature);
         try (FileOutputStream out = new FileOutputStream(file)) {
             BigraphFileModelManagement.Store.exportAsInstanceModel(emptyBigraph, out);
         }
-        writeSignatureToFile(emptySignature, file.getAbsolutePath());
+        writeSignatureToFile(effectiveSignature, file.getAbsolutePath());
     }
 
     /**
@@ -150,6 +172,21 @@ public class BigraphIO {
 
     public static boolean hasNoCompanionSignatureFiles(final File xmiFile) {
         return !signatureEcoreFileFor(xmiFile).exists() && !signatureXmiFileFor(xmiFile).exists();
+    }
+
+    /**
+     * Reads the signature persisted in the companion files of {@code xmiFilePath}.
+     * Unlike {@link #loadControls}, which is fatal when the companion files are
+     * inconsistent (correct when loading a bigraph), this degrades to an empty
+     * signature so callers that merely enrich a write never fail on read.
+     */
+    public static DynamicSignature readSignatureFromFile(final String xmiFilePath) {
+        try {
+            return createSignatureFromControls(loadControls(xmiFilePath));
+        } catch (Exception e) {
+            LOGGER.warn("Could not read persisted signature for {}: {}", xmiFilePath, e.getMessage());
+            return BigraphFactory.pureSignatureBuilder().create();
+        }
     }
 
     private static List<DynamicControl> loadControls(final String xmiFilePath) {

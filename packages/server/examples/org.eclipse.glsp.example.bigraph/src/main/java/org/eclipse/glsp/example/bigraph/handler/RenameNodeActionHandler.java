@@ -20,6 +20,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.eclipse.glsp.example.bigraph.actions.RenameNodeAction;
+import org.eclipse.glsp.example.bigraph.extensions.VariantGate;
 import org.eclipse.glsp.example.bigraph.handler.support.BigraphNotifications;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
 import org.eclipse.glsp.server.actions.AbstractActionHandler;
@@ -49,8 +50,15 @@ public class RenameNodeActionHandler extends AbstractActionHandler<RenameNodeAct
     @Inject
     protected ActionDispatcher actionDispatcher;
 
+    @Inject
+    protected VariantGate variantGate;
+
     @Override
     public List<Action> executeAction(RenameNodeAction action) {
+        if (!variantGate.isBigraphEditingPermitted()) {
+            LOGGER.debug("Bigraph rename ignored — active variant is '{}'.", variantGate.activeVariantId());
+            return List.of();
+        }
         LOGGER.info("✏️ Renaming element {} to {}", action.getElementId(), action.getNewName());
         
         if (!(modelState instanceof BigraphModelState)) {

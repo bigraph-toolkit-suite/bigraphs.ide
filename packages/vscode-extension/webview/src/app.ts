@@ -7,6 +7,7 @@ import './bigraph-styles.css';
 import { Container } from 'inversify';
 import { BigraphCustomPalette } from './palette/bigraph-custom-palette';
 import { BigraphBridge, VsCodeApi } from './bigraph-bridge';
+import { VariantSwitcherTabs } from './extension/variant-switcher/variant-switcher-tabs';
 
 declare function acquireVsCodeApi(): VsCodeApi;
 
@@ -31,12 +32,16 @@ class BigraphGLSPStarter extends GLSPStarter {
 export function launch(): void {
     const starter = new BigraphGLSPStarter();
     const customPalette = new BigraphCustomPalette();
+    // Variant tab bar lives for the entire webview lifetime — it
+    // self-hides for single-variant files via aria/hidden.
+    const variantSwitcher = new VariantSwitcherTabs();
     // Wire GLSP once DI container is ready.
     const wireUpGlsp = (): void => {
         if (starter.container) {
             try {
                 const dispatcher = starter.container.get<IActionDispatcher>(TYPES.IActionDispatcher);
                 customPalette.setDispatcher(dispatcher);
+                variantSwitcher.setDispatcher(dispatcher);
 
                 console.log('[BigraphBridge] Initializing BigraphBridge...');
                 new BigraphBridge(starter.container, vscodeApi);

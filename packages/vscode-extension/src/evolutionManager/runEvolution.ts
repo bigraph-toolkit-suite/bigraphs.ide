@@ -45,9 +45,16 @@ export interface EvolutionActionPayload {
 	maxOperationsEnabled: boolean;
 	maxOperations: number;
 	checkpointFileGeneration: boolean;
-	visualizeIntermediateSteps: boolean;
 	/** When omitted, resolved from evolution.json or defaults to first-first. */
 	ruleApplicationStrategy?: RuleApplicationStrategy;
+	/** Id of the rewriting mode that initiated this action (informational). */
+	modeId?: string;
+	/** Per-extension options forwarded verbatim to the server (key = extension id). */
+	extensionOptions?: Record<string, unknown>;
+	/** Root-level values written into evolution.json before the run is dispatched. */
+	jsonRootValues?: Record<string, unknown>;
+	/** When set, the checkpoint cursor is moved to this operation before the run starts. */
+	startFromOperationId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -209,7 +216,7 @@ export async function dispatchEvolutionRunForExisting(payload: EvolutionActionPa
 		maxOperationsEnabled,
 		maxOperations,
 		checkpointFileGeneration,
-		visualizeIntermediateSteps,
+		extensionOptions,
 		evolutionFolder,
 		workspaceBigraphPath
 	} = payload;
@@ -240,6 +247,30 @@ export async function dispatchEvolutionRunForExisting(payload: EvolutionActionPa
 			return;
 		}
 		evolutionDoc = doc;
+	}
+
+	// --- Mode contributions: persist root values / move the cursor before the run ---
+	if (payload.jsonRootValues && Object.keys(payload.jsonRootValues).length > 0) {
+		for (const [key, value] of Object.entries(payload.jsonRootValues)) {
+			evolutionDoc.setRootValue(key, value);
+		}
+		try {
+			evolutionDoc.persist();
+		} catch {
+			vscode.window.showWarningMessage(`Could not write mode data to ${EVOLUTION_JSON}.`);
+		}
+	}
+	if (payload.startFromOperationId
+		&& payload.startFromOperationId !== evolutionDoc.getCheckpointCursor()) {
+		evolutionDoc.setCheckpointCursor(payload.startFromOperationId);
+		try {
+			evolutionDoc.persist();
+		} catch {
+			vscode.window.showWarningMessage(`Could not update checkpoint-cursor in ${EVOLUTION_JSON}.`);
+			return;
+		}
+		provider?.patchFormState({ checkpointCursor: payload.startFromOperationId });
+		provider?.refreshTreeFromModel();
 	}
 
 	const cursorId = evolutionDoc.getCheckpointCursor();
@@ -309,7 +340,7 @@ export async function dispatchEvolutionRunForExisting(payload: EvolutionActionPa
 			maxOperationsEnabled,
 			maxOperations,
 			checkpointFileGeneration,
-			visualizeIntermediateSteps,
+			extensionOptions: extensionOptions ?? {},
 			ruleApplicationStrategy: strategy,
 			clientId: clientId ?? undefined
 		});
@@ -559,7 +590,7 @@ async function dispatchToGlsp(params: {
 	maxOperationsEnabled: boolean;
 	maxOperations: number;
 	checkpointFileGeneration: boolean;
-	visualizeIntermediateSteps: boolean;
+	extensionOptions: Record<string, unknown>;
 	ruleApplicationStrategy: RuleApplicationStrategy;
 	clientId: string | undefined;
 }): Promise<void> {
@@ -587,7 +618,7 @@ async function dispatchToGlsp(params: {
 		maxOperationsEnabled: params.maxOperationsEnabled,
 		maxOperations: params.maxOperations,
 		checkpointFileGeneration: params.checkpointFileGeneration,
-		visualizeIntermediateSteps: params.visualizeIntermediateSteps,
+		extensionOptions: params.extensionOptions,
 		ruleApplicationStrategy: params.ruleApplicationStrategy
 	}, params.clientId);
 
@@ -657,7 +688,7 @@ export async function prepareEvolutionRunFolder(payload: EvolutionActionPayload)
 			maxOperationsEnabled: payload.maxOperationsEnabled,
 			maxOperations: payload.maxOperations,
 			checkpointFileGeneration: payload.checkpointFileGeneration,
-			visualizeIntermediateSteps: payload.visualizeIntermediateSteps,
+			extensionOptions: payload.extensionOptions ?? {},
 			ruleApplicationStrategy: normalizeRuleApplicationStrategy(payload.ruleApplicationStrategy),
 			clientId: clientId ?? undefined
 		});

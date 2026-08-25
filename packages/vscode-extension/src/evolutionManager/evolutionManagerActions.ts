@@ -90,7 +90,16 @@ export function handleEvolutionAction(
 		maxOperationsEnabled: msg.maxOperationsEnabled !== false,
 		maxOperations: typeof msg.maxOperations === 'number' ? msg.maxOperations : 10,
 		checkpointFileGeneration: msg.checkpointFileGeneration !== false,
-		visualizeIntermediateSteps: !!msg.visualizeIntermediateSteps,
+		modeId: typeof msg.modeId === 'string' ? msg.modeId : undefined,
+		extensionOptions: msg.extensionOptions && typeof msg.extensionOptions === 'object'
+			? msg.extensionOptions
+			: {},
+		jsonRootValues: msg.jsonRootValues && typeof msg.jsonRootValues === 'object'
+			? msg.jsonRootValues
+			: undefined,
+		startFromOperationId: typeof msg.startFromOperationId === 'string' && msg.startFromOperationId
+			? msg.startFromOperationId
+			: undefined,
 		ruleApplicationStrategy: normalizeRuleApplicationStrategy(
 			msg.ruleApplicationStrategy ?? provider?.formState?.ruleApplicationStrategy
 		)

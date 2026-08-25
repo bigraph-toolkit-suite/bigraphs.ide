@@ -17,6 +17,7 @@ package org.eclipse.glsp.example.bigraph.views.graph;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,8 +27,8 @@ import org.bigraphs.framework.core.impl.BigraphEntity.Link;
 import org.bigraphs.framework.core.impl.BigraphEntity.NodeEntity;
 import org.bigraphs.framework.core.impl.BigraphEntity.Port;
 import org.bigraphs.framework.core.impl.BigraphEntity.OuterName;
-import org.eclipse.glsp.example.bigraph.model.IBigraphModelState;
 import org.eclipse.glsp.graph.GEdge;
+import org.eclipse.glsp.graph.GModelRoot;
 import org.eclipse.glsp.graph.GraphFactory;
 
 import org.bigraphs.framework.core.impl.BigraphEntity.Edge;
@@ -39,22 +40,26 @@ import java.util.Objects;
 /**
  * Rendering helper for place-edges and link-connection edges.
  *
- * Extracted to keep GraphBigraphView focused on containment + orchestration.
+ * <p>Extracted to keep GraphBigraphView focused on containment +
+ * orchestration. Reads its target container lazily through a
+ * {@link Supplier} so the renderer can be constructed before the
+ * owning view's GModel root has been bound — see
+ * {@link org.eclipse.glsp.example.bigraph.views.BigraphView#setOwnerRoot}.</p>
  */
 final class LinkRenderer {
     private static final Logger LOGGER = LogManager.getLogger(LinkRenderer.class);
 
-    private final IBigraphModelState modelState;
+    private final Supplier<GModelRoot> ownerRootSupplier;
     private final Map<BigraphEntity<?>, String> entityToGModelId;
     private final Map<Port, String> portToNodeGModelId;
 
     private int placeEdgeCounter = 0;
     private int linkConnectionCounter = 0;
 
-    LinkRenderer(final IBigraphModelState modelState,
+    LinkRenderer(final Supplier<GModelRoot> ownerRootSupplier,
             final Map<BigraphEntity<?>, String> entityToGModelId,
             final Map<Port, String> portToNodeGModelId) {
-        this.modelState = Objects.requireNonNull(modelState);
+        this.ownerRootSupplier = Objects.requireNonNull(ownerRootSupplier);
         this.entityToGModelId = Objects.requireNonNull(entityToGModelId);
         this.portToNodeGModelId = Objects.requireNonNull(portToNodeGModelId);
     }
@@ -71,6 +76,9 @@ final class LinkRenderer {
         gEdge.setSourceId(parentId);
         gEdge.setTargetId(childId);
         gEdge.getCssClasses().add("bigraph-place-edge");
+        if (parentId != null && parentId.startsWith("root_")) {
+            gEdge.getCssClasses().add("bigraph-root-edge");
+        }
         return gEdge;
     }
 
@@ -110,7 +118,7 @@ final class LinkRenderer {
                 connectionEdge.setTargetId(targetId);
                 connectionEdge.getCssClasses().add("bigraph-link-connection");
 
-                modelState.getRoot().getChildren().add(connectionEdge);
+                ownerRootSupplier.get().getChildren().add(connectionEdge);
                 LOGGER.info("  ✅ Created link connection: {} -> {}", linkNodeId, targetId);
             } else {
                 LOGGER.warn("  ⚠️ Could not find targetId for point: {}", point);

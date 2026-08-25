@@ -14,6 +14,8 @@
 
 package org.eclipse.glsp.example.bigraph.actions;
 
+import java.util.Map;
+
 import org.eclipse.glsp.server.actions.ResponseAction;
 
 /**
@@ -24,19 +26,31 @@ public class EvolutionFinishedAction extends ResponseAction {
     public static final String KIND = "bigraph.evolutionFinished";
 
     private String operationId;
-    /** "completed" or "paused" */
+    /** "completed", "paused" or "failed" */
     private String reason;
+    /**
+     * Results contributed by extension run hooks, keyed by extension id
+     * (e.g. exploration goal paths). {@code null} when no hook stored a result.
+     */
+    private Map<String, Object> extensionResults;
 
     public EvolutionFinishedAction() {
         super(KIND);
     }
 
     public EvolutionFinishedAction(final String operationId, final String reason) {
+        this(operationId, reason, null);
+    }
+
+    public EvolutionFinishedAction(final String operationId, final String reason,
+                                   final Map<String, Object> extensionResults) {
         super(KIND);
         this.operationId = operationId;
         this.reason = reason;
+        this.extensionResults = extensionResults;
     }
 
     public String getOperationId() { return operationId; }
     public String getReason()      { return reason; }
+    public Map<String, Object> getExtensionResults() { return extensionResults; }
 }

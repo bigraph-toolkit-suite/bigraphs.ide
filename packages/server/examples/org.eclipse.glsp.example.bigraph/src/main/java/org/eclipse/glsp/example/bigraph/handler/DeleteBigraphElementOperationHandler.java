@@ -33,6 +33,8 @@ import org.bigraphs.framework.core.impl.BigraphEntity.RootEntity;
 import org.bigraphs.framework.core.impl.BigraphEntity.SiteEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
+import org.eclipse.glsp.example.bigraph.extensions.ExtensionList;
+import org.eclipse.glsp.example.bigraph.extensions.VariantGate;
 import org.eclipse.glsp.example.bigraph.handler.support.BigraphNotifications;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelTypes;
@@ -46,6 +48,7 @@ import org.eclipse.glsp.server.features.core.model.UpdateModelAction;
 import org.eclipse.glsp.server.gmodel.GModelDeleteOperationHandler;
 
 import com.google.inject.Inject;
+import com.google.inject.Injector;
 
 /**
  * Handles deletion of all bigraph elements (nodes, inner names, outer names, edges, sites, connections).
@@ -109,8 +112,21 @@ public class DeleteBigraphElementOperationHandler extends GModelDeleteOperationH
     @Inject
     protected ActionDispatcher actionDispatcher;
 
+    @Inject
+    protected VariantGate variantGate;
+
+    @Inject
+    protected Injector injector;
+
     @Override
     public void deleteElements(final List<String> elementIds) {
+        if (ExtensionList.getInstance().dispatchDeleteElements(elementIds, injector, variantGate)) {
+            return;
+        }
+        if (!variantGate.isBigraphEditingPermitted()) {
+            LOGGER.debug("Bigraph delete ignored — active variant is '{}'.", variantGate.activeVariantId());
+            return;
+        }
         LOGGER.info("🗑️ Deleting elements: {}", elementIds);
 
         PureBigraphMutable bigraph = modelState.getMutableBigraph();

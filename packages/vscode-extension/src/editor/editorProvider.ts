@@ -33,6 +33,7 @@ import {
 	unregisterGlspClient,
 } from './glspClientRegistry.js';
 import { markSessionDisposed } from './glspServerBridge.js';
+import { dispatchWebviewMessage } from '../extension/extensions.js';
 
 export default class EditorProvider extends GlspEditorProvider {
 	diagramType = 'bigraph-xmi';
@@ -177,9 +178,16 @@ export default class EditorProvider extends GlspEditorProvider {
 			}
 		});
 
-		webviewPanel.webview.onDidReceiveMessage((msg: { type?: string; action?: string }) => {
+		webviewPanel.webview.onDidReceiveMessage((msg: {
+			type?: string;
+			action?: string;
+			xml?: string;
+			treeId?: string;
+		}) => {
 			if (msg?.type === 'workspaceBarAction' && msg.action) {
 				void handleWorkspaceBarAction(clientId, msg.action);
+			} else if (msg?.type) {
+				void dispatchWebviewMessage(clientId, filePath, msg as Record<string, unknown>);
 			}
 		});
 

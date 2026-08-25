@@ -20,6 +20,8 @@ public class CreateBigraphAction extends Action {
     public static final String KIND = "bigraph.create";
     
     private String path;
+    /** Optional model type discriminator, e.g. {@code "behavior-tree"}. */
+    private String modelType;
 
     public CreateBigraphAction() {
         super(KIND);
@@ -36,5 +38,13 @@ public class CreateBigraphAction extends Action {
 
     public void setPath(String path) {
         this.path = path;
+    }
+
+    public String getModelType() {
+        return modelType;
+    }
+
+    public void setModelType(String modelType) {
+        this.modelType = modelType;
     }
 }

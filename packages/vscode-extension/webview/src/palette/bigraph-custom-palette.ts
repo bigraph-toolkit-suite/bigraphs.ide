@@ -1,11 +1,43 @@
+/*
+ * Copyright (c) 2026 - Manuel Krombholz
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ */
+
 /**
- * BigraphCustomPalette — Full replacement for the GLSP default ToolPalette.
+ * BigraphCustomPalette — variant-agnostic SHELL for the bigraph editor
+ * tool palette.
  *
- * The static DOM skeleton lives in bigraph-palette.html; this module loads it,
- * wires up event handlers, and injects dynamic server content (cards / chips).
+ * <p>Despite the class name, this is not a "bigraph-only" palette
+ * anymore. It owns only the invariant parts of the UI (collapse strip,
+ * hero, mode bar) and delegates the modeling content to a per-variant
+ * {@link IVariantPalette} implementation. Export actions are contributed
+ * per extension and rendered inside each variant palette — not in this
+ * shell. The name was kept to avoid churn across {@code app.ts} and the
+ * webview HTML CSS scope — see the class doc on
+ * {@code IVariantPalette} for the swap contract.</p>
  *
- * Every colour uses var(--vscode-*) tokens — no hardcoded hex.
- * Exposes refresh() for hot-reloading after control creation.
+ * <h2>Lifecycle</h2>
+ * <ol>
+ *   <li>{@code app.ts} instantiates this class. The constructor starts
+ *       polling for the default GLSP tool palette element so it can
+ *       hide it and mount our shell next to it.</li>
+ *   <li>{@code setDispatcher(dispatcher)} is called once the GLSP DI
+ *       container is up. The shell stores the dispatcher and starts
+ *       fetching server palette items so any variant palette can read
+ *       them via {@link PaletteHostApi}.</li>
+ *   <li>The shell subscribes to {@link VariantChangeEvent}. Each time
+ *       the server announces a new active variant, the shell looks up
+ *       the matching factory via {@link findPaletteFactory}, disposes
+ *       the previous variant palette, and mounts the new one.</li>
+ * </ol>
+ *
+ * <h2>Why a "host" rather than a container split</h2>
+ * The variant palette needs the same dispatcher + server-fetched
+ * palette items the shell already maintains. Rather than duplicating
+ * the fetching logic per variant, the shell exposes a small
+ * {@link PaletteHostApi} that the variant can read from. This keeps
+ * one source of truth and one network round-trip.
  */
 
 import {
@@ -18,7 +50,9 @@ import {
     OriginViewportAction,
     FitToScreenAction,
 } from '@eclipse-glsp/client';
-import { BigraphControlCreatorTool } from './BigraphControlCreatorTool';
+import { findPaletteFactory } from '../extension/extensions';
+import { VariantChangeEvent } from '../extension/palette-events';
+import type { IVariantPalette, PaletteHostApi } from '../extension/palette-types';
 import paletteHtml from './bigraph-palette.html';
 import orbitToolbarHeroSvg from './assets/orbit-toolbar-hero.svg';
 import './bigraph-palette.css';
@@ -29,16 +63,8 @@ const GLSP_PALETTE_SELECTORS = ['.tool-palette', '.sprotty-palette', '.glsp-pale
 const PALETTE_ID = 'bigraph-custom-palette';
 const DELETE_TOOL_ID = 'glsp.delete-mouse';
 const DEBOUNCE_MS = 400;
-
-const LINK_META: Record<string, { icon: string; desc: string }> = {
-    'bigraph.link.edge':  { icon: 'codicon-git-commit',       desc: 'Hyperedge connecting multiple ports' },
-    'bigraph.link.inner': { icon: 'codicon-arrow-small-up',    desc: 'Interface name (inner boundary)' },
-    'bigraph.link.outer': { icon: 'codicon-arrow-small-down',  desc: 'Interface name (outer boundary)' },
-};
-
-function fireBigraphAction(detail: Record<string, unknown>): void {
-    window.dispatchEvent(new CustomEvent('bigraph-action', { detail }));
-}
+const VARIANT_SLOT_SELECTOR = '[data-slot="variant-content"]';
+const POLL_INTERVAL_MS = 120;
 
 function q<T extends HTMLElement>(scope: HTMLElement, sel: string): T {
     return scope.querySelector(sel) as T;
@@ -48,34 +74,42 @@ function cmpPalette(a: PaletteItem, b: PaletteItem): number {
     return (a.sortString ?? a.label).localeCompare(b.sortString ?? b.label);
 }
 
-// ── Palette class ──────────────────────────────────────────────────────
+// ── Palette shell ──────────────────────────────────────────────────────
 
 export class BigraphCustomPalette {
     private dispatcher: IActionDispatcher | null = null;
     private root: HTMLDivElement | null = null;
-    private activeCreationEl: HTMLElement | null = null;
+    private variantSlot: HTMLElement | null = null;
+    private activeVariantId: string | null = null;
+    private activeVariantPalette: IVariantPalette | null = null;
+    private paletteItems: PaletteItem[] = [];
     private defaultModeBtn: HTMLElement | null = null;
     private activeModeBtn: HTMLElement | null = null;
-    private paletteItems: PaletteItem[] = [];
     private collapsed = false;
     private refreshTimer: ReturnType<typeof setTimeout> | undefined;
     private initialized = false;
     private currentMode: 'select' | 'delete' | 'creation' = 'select';
+    private unsubscribeVariantEvents: (() => void) | null = null;
 
     constructor() {
         this.waitForGlspPalette();
         window.addEventListener('bigraph-palette-refresh', () => this.scheduleRefresh());
+        this.unsubscribeVariantEvents = VariantChangeEvent.on(({ variantId }) => {
+            this.switchVariant(variantId);
+        });
     }
 
     setDispatcher(d: IActionDispatcher): void {
         this.dispatcher = d;
-        if (this.root && !this.initialized) this.fetchAndRender();
+        if (this.root && !this.initialized) {
+            this.fetchAndRender();
+        }
     }
 
     async refresh(): Promise<void> {
         if (!this.dispatcher || !this.root) return;
         await this.fetchPaletteItems();
-        this.populateDynamicContent();
+        this.activeVariantPalette?.refresh();
     }
 
     // ── Bootstrap ──────────────────────────────────────────────────────
@@ -89,7 +123,7 @@ export class BigraphCustomPalette {
                 this.mount(el);
                 if (this.dispatcher) this.fetchAndRender();
             }
-        }, 120);
+        }, POLL_INTERVAL_MS);
     }
 
     private findGlspPalette(): Element | null {
@@ -115,22 +149,37 @@ export class BigraphCustomPalette {
         root.innerHTML = paletteHtml;
         parent.insertBefore(root, glspPalette);
         this.root = root;
+        this.variantSlot = root.querySelector<HTMLElement>(VARIANT_SLOT_SELECTOR);
         this.attachHeroSvg();
-        this.bindStaticEvents();
+        this.bindShellEvents();
+
+        // If SetActiveVariantAction was already delivered before the GLSP
+        // tool-palette element existed in the DOM (race: server is fast,
+        // sprotty's first render is delayed), switchVariant() above will
+        // have stashed the id but couldn't mount yet because variantSlot
+        // was null. Catch up here now that the slot is live.
+        if (this.activeVariantId) {
+            console.log('[BigraphPalette] post-mount catch-up for variant', this.activeVariantId);
+            this.mountVariantPalette(this.activeVariantId);
+        }
     }
 
     private attachHeroSvg(): void {
         if (!this.root) return;
         const heroContainer = this.root.querySelector<HTMLElement>('.bp-toolbar-hero-svg');
         if (!heroContainer) return;
-        // Render imported SVG markup directly. This avoids failing relative img/src resolution in webview HTML strings.
+        // Imported SVG markup is inlined directly — relative img/src would
+        // not resolve inside a webview HTML string.
         heroContainer.innerHTML = orbitToolbarHeroSvg;
     }
 
     private async fetchAndRender(): Promise<void> {
         this.initialized = true;
         await this.fetchPaletteItems();
-        this.populateDynamicContent();
+        // The variant palette is mounted lazily on SetActiveVariantAction.
+        // If we already know the variant (e.g. delayed dispatcher wiring),
+        // re-render now.
+        this.activeVariantPalette?.refresh();
     }
 
     // ── Server communication ───────────────────────────────────────────
@@ -143,17 +192,84 @@ export class BigraphCustomPalette {
                 editorContext: { selectedElementIds: [] },
             });
             const res = (await this.dispatcher.request(req)) as SetContextActions;
-            this.paletteItems = (res.actions ?? []).filter(
-                (a): a is PaletteItem => 'id' in a && 'sortString' in a,
-            );
+            this.paletteItems = (res.actions ?? [])
+                .filter((a): a is PaletteItem => 'id' in a && 'sortString' in a)
+                .slice()
+                .sort(cmpPalette);
         } catch (err) {
             console.warn('[BigraphPalette] fetch failed:', err);
         }
     }
 
+    // ── Variant lifecycle ──────────────────────────────────────────────
+
+    private switchVariant(variantId: string): void {
+        if (this.activeVariantId === variantId && this.activeVariantPalette) {
+            // Same variant — just refresh.
+            this.activeVariantPalette.refresh();
+            return;
+        }
+        this.activeVariantId = variantId;
+        this.mountVariantPalette(variantId);
+    }
+
+    private mountVariantPalette(variantId: string): void {
+        if (!this.variantSlot) return;
+        // Tear down whatever was in the slot.
+        this.activeVariantPalette?.dispose();
+        this.activeVariantPalette = null;
+        this.variantSlot.innerHTML = '';
+
+        const factory = findPaletteFactory(variantId);
+        if (!factory) {
+            this.renderUnknownVariantFallback(variantId);
+            return;
+        }
+        const host = this.buildHostApi();
+        const palette = factory(host);
+        palette.mount(this.variantSlot);
+        // After the first mount, push any data we already have.
+        if (this.paletteItems.length > 0) {
+            palette.refresh();
+        }
+        this.activeVariantPalette = palette;
+    }
+
+    private renderUnknownVariantFallback(variantId: string): void {
+        if (!this.variantSlot) return;
+        const msg = document.createElement('div');
+        msg.className = 'bp-empty';
+        msg.textContent = `No palette registered for variant "${variantId}".`;
+        this.variantSlot.appendChild(msg);
+    }
+
+    private buildHostApi(): PaletteHostApi {
+        return {
+            // `get`-style getters so the variant always sees the freshest
+            // dispatcher/items snapshot rather than a captured stale copy.
+            get dispatcher(): IActionDispatcher {
+                // The shell never mounts a variant before setDispatcher().
+                return this._self.dispatcher as IActionDispatcher;
+            },
+            get paletteItems(): ReadonlyArray<PaletteItem> {
+                return this._self.paletteItems;
+            },
+            notifyCreationToolActivated: () => this.handleCreationToolActivated(),
+            requestRefresh: () => this.scheduleRefresh(),
+            // Hidden back-reference used by the getters above. Marked
+            // non-enumerable so JSON.stringify doesn't choke on it.
+            _self: this,
+        } as PaletteHostApi & { _self: BigraphCustomPalette };
+    }
+
+    private handleCreationToolActivated(): void {
+        this.currentMode = 'creation';
+        this.activeModeBtn?.classList.remove('bp-active');
+    }
+
     // ── Static event wiring (runs once after mount) ────────────────────
 
-    private bindStaticEvents(): void {
+    private bindShellEvents(): void {
         const r = this.root!;
 
         // Collapse strip buttons
@@ -178,68 +294,15 @@ export class BigraphCustomPalette {
             };
         });
 
-        // Keep delete mode active until the user explicitly switches back to select.
-        // GLSP may auto-fall back to default tools after a deletion.
+        // Keep delete mode active until the user explicitly switches back
+        // to select. GLSP may auto-fall back to default tools after a
+        // deletion — without this re-arm the delete button would visually
+        // stay active but lose its tool behaviour.
         document.addEventListener('pointerup', (ev) => {
-            if (this.currentMode !== 'delete') { return; }
-            if (this.root?.contains(ev.target as Node)) { return; }
+            if (this.currentMode !== 'delete') return;
+            if (this.root?.contains(ev.target as Node)) return;
             setTimeout(() => this.reapplyDeleteMode(), 0);
         });
-
-        // Search
-        const searchWrap = q(r, '.bp-search-wrap');
-        const searchInput = q<HTMLInputElement>(r, '.bp-search-field');
-        const searchClear = q(r, '.bp-search-clear');
-
-        searchInput.oninput = () => {
-            this.applyFilter(searchInput.value);
-            searchWrap.classList.toggle('has-query', searchInput.value.length > 0);
-        };
-        searchInput.onkeydown = (ev) => {
-            if (ev.key === 'Escape') {
-                searchInput.value = '';
-                this.applyFilter('');
-                searchWrap.classList.remove('has-query');
-            }
-        };
-        searchClear.onclick = () => {
-            searchInput.value = '';
-            this.applyFilter('');
-            searchWrap.classList.remove('has-query');
-            searchInput.focus();
-        };
-
-        // Place Graph action buttons
-        const addCtrlBtn = q(r, '[data-section="place-graph"] [data-action="add-control"]');
-        addCtrlBtn.onclick = (e) => { e.stopPropagation(); new BigraphControlCreatorTool().showAddControlDialog(); };
-
-        // Link Graph header action button (connect tool)
-        const connectBtn = q(r, '[data-section="link-graph"] [data-action="connect"]');
-        connectBtn.onclick = (e) => {
-            e.stopPropagation();
-            const connectItem = this.findConnectTool();
-            if (connectItem?.actions?.length) {
-                this.dispatchAll(connectItem.actions);
-                this.setActiveCreation(connectBtn);
-            }
-        };
-
-        // Layout segmented control
-        let activeSeg: HTMLElement | null = null;
-        Array.from(r.querySelectorAll<HTMLElement>('.bp-seg')).forEach(seg => {
-            seg.onclick = () => {
-                const algorithm = seg.dataset.algorithm!;
-                const bigraphStandard = seg.dataset.standard === 'true';
-                fireBigraphAction({ kind: 'bigraph.autoLayout', algorithm, bigraphStandard });
-                activeSeg?.classList.remove('bp-seg-active');
-                seg.classList.add('bp-seg-active');
-                activeSeg = seg;
-                setTimeout(() => seg.classList.remove('bp-seg-active'), 1200);
-            };
-        });
-
-        // Action row buttons
-        q(r, '[data-action="export-svg"]').onclick = () => fireBigraphAction({ kind: 'requestExportSvg' });
     }
 
     // ── Action handlers ────────────────────────────────────────────────
@@ -283,190 +346,12 @@ export class BigraphCustomPalette {
         this.activeModeBtn?.classList.remove('bp-active');
         btn.classList.add('bp-active');
         this.activeModeBtn = btn;
-        this.clearActiveCreation();
-    }
-
-    // ── Dynamic content (server-driven) ────────────────────────────────
-
-    private populateDynamicContent(): void {
-        if (!this.root) return;
-        const sorted = [...this.paletteItems].sort(cmpPalette);
-        const placeGroup = sorted.find(i => i.children && i.id === 'bigraph-nodes');
-        const linkGroup = sorted.find(i => i.children && i.id === 'bigraph-links');
-
-        this.populatePlaceGraph(placeGroup);
-        this.populateLinkGraph(linkGroup);
-    }
-
-    private populatePlaceGraph(group: PaletteItem | undefined): void {
-        const grid = q(this.root!, '[data-content="place-graph"] .bp-card-grid');
-        grid.innerHTML = '';
-
-        if (!group?.children?.length) {
-            const empty = document.createElement('div');
-            empty.className = 'bp-empty';
-            empty.textContent = 'No controls defined';
-            grid.replaceWith(empty);
-            return;
-        }
-
-        const children = [...group.children].sort(cmpPalette);
-        const siteItem = children.find(c => c.id === 'bigraph.node.site');
-        const nodeItems = children.filter(c => c.id !== 'bigraph.node.site');
-
-        if (siteItem) grid.appendChild(this.buildSiteCard(siteItem));
-        for (const item of nodeItems) grid.appendChild(this.buildCard(item));
-    }
-
-    private populateLinkGraph(group: PaletteItem | undefined): void {
-        const list = q(this.root!, '[data-content="link-graph"] .bp-link-list');
-        list.innerHTML = '';
-
-        if (!group?.children?.length) return;
-
-        const order = ['bigraph.link.edge', 'bigraph.link.outer', 'bigraph.link.inner'];
-        const children = [...group.children]
-            .filter(c => c.id !== 'bigraph.link.connect')
-            .sort((a, b) => {
-                const ia = order.indexOf(a.id);
-                const ib = order.indexOf(b.id);
-                return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-            });
-
-        for (const item of children) {
-            const meta = LINK_META[item.id] ?? { icon: 'codicon-circle-outline', desc: '' };
-            const row = document.createElement('div');
-            row.className = 'bp-link-item';
-            row.setAttribute('data-label', item.label);
-            row.title = item.label;
-            row.innerHTML = `
-                <div class="bp-link-icon"><span class="codicon ${meta.icon}"></span></div>
-                <div class="bp-link-text">
-                    <div class="bp-link-name">${item.label}</div>
-                    <div class="bp-link-desc">${meta.desc}</div>
-                </div>
-            `;
-
-            row.onclick = () => {
-                if (item.actions?.length) this.dispatchAll(item.actions);
-                this.setActiveCreation(row);
-            };
-            list.appendChild(row);
-        }
-    }
-
-    // ── Card builders (Place Graph items) ──────────────────────────────
-
-    private static readonly STATUS_ABBREV: Record<string, string> = {
-        ATOMIC: 'AT', ACTIVE: 'AC', PASSIVE: 'PA',
-    };
-    private static readonly STATUS_LABELS: Record<string, string> = {
-        AT: 'Atomic', AC: 'Active', PA: 'Passive',
-    };
-
-    private buildPlaceholderHint(item: PaletteItem): HTMLElement {
-        const el = document.createElement('div');
-        el.className = 'bp-place-hint';
-        el.setAttribute('data-label', item.label);
-        el.textContent = item.label;
-        return el;
-    }
-
-    private buildCard(item: PaletteItem): HTMLElement {
-        if (item.id === 'bigraph.node.placeholder') {
-            return this.buildPlaceholderHint(item);
-        }
-
-        const card = document.createElement('div');
-        card.className = 'bp-card';
-        card.setAttribute('data-label', item.label);
-
-        const parts = item.label.match(/^(.+?)\s*\(arity:\s*(\d+)\)$/);
-        const controlName = parts?.[1] ?? item.label;
-        const arity = parts?.[2] ?? null;
-
-        // Read status from the action args the server sends
-        const rawStatus = (item.actions?.[0] as any)?.args?.status as string | undefined;
-        const status = rawStatus ? (BigraphCustomPalette.STATUS_ABBREV[rawStatus] ?? rawStatus) : null;
-        const statusLong = status ? (BigraphCustomPalette.STATUS_LABELS[status] ?? status) : '';
-
-        card.title = controlName + (arity ? ` · arity ${arity}` : '') + (statusLong ? ` · ${statusLong}` : '');
-
-        card.innerHTML = `
-            <div class="bp-card-name">${controlName}</div>
-            <div class="bp-card-meta">
-                ${arity ? `<span class="bp-card-arity"><span class="bp-card-dot"></span>${arity}</span>` : ''}
-                ${status ? `<span class="bp-card-status" data-status="${status}">${status}</span>` : ''}
-            </div>
-        `;
-
-        card.onclick = () => {
-            if (item.actions?.length) this.dispatchAll(item.actions);
-            this.setActiveCreation(card);
-        };
-
-        return card;
-    }
-
-    private findConnectTool(): PaletteItem | undefined {
-        const sorted = [...this.paletteItems].sort(cmpPalette);
-        const linkGroup = sorted.find(i => i.children && i.id === 'bigraph-links');
-        return linkGroup?.children?.find(item => item.id === 'bigraph.link.connect');
-    }
-
-    private buildSiteCard(item: PaletteItem): HTMLElement {
-        const card = document.createElement('div');
-        card.className = 'bp-card bp-card-site';
-        card.setAttribute('data-label', item.label);
-        card.title = item.label;
-        card.innerHTML = `
-            <span class="codicon codicon-browser" style="font-size:14px;color:var(--vscode-descriptionForeground)"></span>
-            <div class="bp-card-name">Site</div>
-        `;
-
-        card.onclick = () => {
-            if (item.actions?.length) this.dispatchAll(item.actions);
-            this.setActiveCreation(card);
-        };
-
-        return card;
-    }
-
-    // ── Search filter ──────────────────────────────────────────────────
-
-    private applyFilter(query: string): void {
-        const mid = this.root?.querySelector('.bp-body');
-        if (!mid) return;
-        const lc = query.toLowerCase();
-        mid.querySelectorAll<HTMLElement>('[data-label]').forEach(el => {
-            const match = !lc || (el.getAttribute('data-label') ?? '').toLowerCase().includes(lc);
-            el.classList.toggle('bp-filtered-out', !match);
-        });
-    }
-
-    // ── Active creation tool tracking ──────────────────────────────────
-
-    private setActiveCreation(el: HTMLElement): void {
-        this.clearActiveCreation();
-        el.classList.add('bp-active');
-        this.activeCreationEl = el;
-        this.currentMode = 'creation';
-        this.activeModeBtn?.classList.remove('bp-active');
-    }
-
-    private clearActiveCreation(): void {
-        this.activeCreationEl?.classList.remove('bp-active');
-        this.activeCreationEl = null;
     }
 
     // ── Dispatch helpers ───────────────────────────────────────────────
 
     private dispatch(action: unknown): void {
         this.dispatcher?.dispatch(action as Parameters<IActionDispatcher['dispatch']>[0]);
-    }
-
-    private dispatchAll(actions: unknown[]): void {
-        this.dispatcher?.dispatchAll(actions as Parameters<IActionDispatcher['dispatchAll']>[0]);
     }
 
     private scheduleRefresh(delay = DEBOUNCE_MS): void {
@@ -477,5 +362,14 @@ export class BigraphCustomPalette {
     private reapplyDeleteMode(): void {
         if (this.currentMode !== 'delete') return;
         this.dispatch(EnableToolsAction.create([DELETE_TOOL_ID]));
+    }
+
+    // ── Teardown (kept for symmetry; the palette lives for the page) ───
+
+    dispose(): void {
+        this.activeVariantPalette?.dispose();
+        this.activeVariantPalette = null;
+        this.unsubscribeVariantEvents?.();
+        this.unsubscribeVariantEvents = null;
     }
 }

@@ -10,6 +10,7 @@ import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.po
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.readField;
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.signature;
 import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.size;
+import static org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.variantGateFor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,6 +27,7 @@ import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.meta.BigraphMetaInformation;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelTypes;
+import org.eclipse.glsp.example.bigraph.model.BigraphNodeIdentity;
 import org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.RecordingActionDispatcher;
 import org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport.TestableBigraphChangeBoundsOperationHandler;
 import org.eclipse.glsp.graph.GEdge;
@@ -42,6 +44,7 @@ class ViewRegressionTest {
         DeleteBigraphElementOperationHandler handler = new DeleteBigraphElementOperationHandler();
         inject(handler, "modelState", fixture.state());
         inject(handler, "actionDispatcher", new RecordingActionDispatcher());
+        inject(handler, "variantGate", variantGateFor(fixture.state()));
 
         handler.deleteElements(List.of(fixture.siteId()));
 
@@ -58,6 +61,7 @@ class ViewRegressionTest {
         DeleteBigraphElementOperationHandler handler = new DeleteBigraphElementOperationHandler();
         inject(handler, "modelState", fixture.state());
         inject(handler, "actionDispatcher", new RecordingActionDispatcher());
+        inject(handler, "variantGate", variantGateFor(fixture.state()));
 
         handler.deleteElements(List.of(fixture.parentId()));
 
@@ -75,7 +79,7 @@ class ViewRegressionTest {
         NodeEntity<DynamicControl> node = addNode(bigraph, firstRoot(bigraph), "Room", "room");
 
         BigraphMetaInformation meta = new BigraphMetaInformation();
-        String stableId = org.eclipse.glsp.example.bigraph.model.BigraphNodeIdentity.getOrCreateStableId(node);
+        String stableId = BigraphNodeIdentity.getOrCreateStableId(node);
         meta.getNodePositions().put(stableId, point(123.0, 456.0));
         BigraphModelState state = initializedState(bigraph, meta);
 
@@ -153,6 +157,7 @@ class ViewRegressionTest {
         BigraphModelState state = initializedState(bigraph, meta);
         TestableBigraphChangeBoundsOperationHandler handler = new TestableBigraphChangeBoundsOperationHandler();
         inject(handler, "modelState", state);
+        inject(handler, "variantGate", variantGateFor(state));
 
         handler.changeBoundsForTest(
             state.getActiveView().getGModelIdForEntity(topLevel).orElseThrow(),

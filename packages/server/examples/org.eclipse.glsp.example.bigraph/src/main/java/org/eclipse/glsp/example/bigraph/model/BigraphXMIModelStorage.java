@@ -30,10 +30,14 @@ import org.eclipse.glsp.server.features.core.model.RequestModelAction;
 import org.eclipse.glsp.server.gmodel.GModelStorage;
 import org.eclipse.glsp.server.model.GModelState;
 import org.eclipse.glsp.example.bigraph.BigraphDebugPrinter;
+import org.eclipse.glsp.example.bigraph.actions.SetActiveVariantAction;
+import org.eclipse.glsp.example.bigraph.extensions.ExtensionList;
+import org.eclipse.glsp.example.bigraph.extensions.IdeExtension;
 import org.eclipse.glsp.example.bigraph.meta.BigraphMetaIO;
 import org.eclipse.glsp.example.bigraph.meta.BigraphMetaInformation;
 
 import com.google.inject.Inject;
+import com.google.inject.Injector;
 
 /**
  * Custom model storage that handles XMI files containing Bigraph models.
@@ -50,13 +54,63 @@ public class BigraphXMIModelStorage extends GModelStorage {
     @Inject
     protected ActionDispatcher actionDispatcher;
 
+    @Inject
+    protected Injector injector;
+
     @Override
     public void loadSourceModel(final RequestModelAction action) {
         final File file = convertToFile(action.getOptions());
         loadSourceModel(file, modelState).ifPresent(root -> {
             modelState.updateRoot(root);
             root.setRevision(-1);
+            // Give extensions a chance to reconstruct their private domain
+            // models (e.g. BehaviorTree) from the loaded shared bigraph,
+            // then tell the client which variant is now active so it can
+            // swap in the matching palette / view set.
+            notifyExtensionsModelLoaded();
+            broadcastActiveVariant();
         });
+    }
+
+    /**
+     * Invokes {@link IdeExtension#onModelLoaded} on every registered
+     * extension whose declared variant ids include the diagram's current
+     * {@code activeVariantId}. Extensions that don't own the active
+     * variant are skipped — they have no state to hydrate for this file.
+     */
+    protected void notifyExtensionsModelLoaded() {
+        final String activeVariantId = modelState.getActiveVariantId();
+        if (activeVariantId == null) {
+            return;
+        }
+        for (IdeExtension extension : ExtensionList.getInstance().getExtensions()) {
+            if (!extension.supportsVariant(activeVariantId)) {
+                continue;
+            }
+            try {
+                extension.onModelLoaded(modelState, injector);
+            } catch (RuntimeException ex) {
+                LOGGER.error("Extension {} failed to hydrate on model load",
+                    extension.getId(), ex);
+            }
+        }
+    }
+
+    /**
+     * Pushes the current {@code activeVariantId} together with the list
+     * of variants this file can be viewed as to the client so its
+     * palette host and tab-bar can stay in sync with the server's
+     * notion of "what kind of model is this".
+     */
+    protected void broadcastActiveVariant() {
+        final String activeVariantId = modelState.getActiveVariantId();
+        if (activeVariantId == null) {
+            return;
+        }
+        LOGGER.info("📣 Broadcasting active variant to client: {} (available: {})",
+                activeVariantId, modelState.getAvailableVariantIds());
+        actionDispatcher.dispatch(
+                new SetActiveVariantAction(activeVariantId, modelState.getAvailableVariantIds()));
     }
 
     @Override
@@ -71,6 +125,7 @@ public class BigraphXMIModelStorage extends GModelStorage {
 
             modelState.setSourceFilePath(file.getAbsolutePath());
             GModelRoot gModelRoot = modelState.initializeBigraphModel(bigraphModel, meta);
+            ExtensionList.getInstance().readExtensionMeta(modelState.getMetaInformation(), injector);
             return Optional.of(gModelRoot);
         } catch (BigraphLoadException e) {
             LOGGER.error("❌ Failed to load bigraph model from {}", file.getAbsolutePath(), e);
@@ -135,9 +190,10 @@ public class BigraphXMIModelStorage extends GModelStorage {
                 modelState.setPendingSignature(null); // clear after successful write
             }
 
-            // Save meta-information
+            // Save meta-information (extension sections merged in first).
             BigraphMetaInformation metaInfo = modelState.getMetaInformation();
             if (metaInfo != null) {
+                ExtensionList.getInstance().writeExtensionMeta(metaInfo, injector);
                 String metaFilePath = targetFile.getAbsolutePath().replace(".xmi", ".bigraph-meta");
                 LOGGER.info("Saving meta-information to: {}", metaFilePath);
                 new BigraphMetaIO().save(metaInfo, metaFilePath);

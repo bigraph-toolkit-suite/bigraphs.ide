@@ -26,7 +26,7 @@
             "problemMatcher": ["$maven"]
         },
         {
-            "label": "Build and Launch JAR with Debug",
+            "label": "Build and Launch JAR",
             "dependsOn": "Build GLSP Bigraph Server",
             "dependsOrder": "sequence",
             "type": "shell",

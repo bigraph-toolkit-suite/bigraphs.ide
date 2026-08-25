@@ -15,6 +15,7 @@
 package org.eclipse.glsp.example.bigraph.views;
 
 import org.eclipse.glsp.example.bigraph.model.IBigraphModelState;
+import org.eclipse.glsp.graph.GModelRoot;
 
 import java.util.Collection;
 import org.bigraphs.framework.core.impl.BigraphEntity;
@@ -37,8 +38,35 @@ import java.util.Optional;
 public abstract class BigraphView {
     protected final IBigraphModelState modelState;
 
+    /**
+     * The GModel container this view owns. Bound up-front by
+     * {@code BigraphModelState.initializeBigraphModel} to the bigraph
+     * variant's persistent root, so callbacks like {@link #onAddNode}
+     * always write into the bigraph tree — regardless of which
+     * variant is currently active and GLSP-visible. The "hot standby"
+     * design relies on this invariant: the bigraph GModel keeps
+     * itself consistent in the background even when the user is
+     * editing in another variant's view.
+     */
+    protected GModelRoot ownerRoot;
+
     public BigraphView(IBigraphModelState modelState) {
         this.modelState = modelState;
+    }
+
+    /**
+     * Binds the GModel container that all {@code on*} callbacks of
+     * this view operate on. Called once by the model state during
+     * initialization. Subsequent calls are allowed but rare — the
+     * usual lifecycle is "set once, kept for the diagram session".
+     */
+    public void setOwnerRoot(GModelRoot ownerRoot) {
+        this.ownerRoot = ownerRoot;
+    }
+
+    /** The GModel container this view writes into. */
+    public GModelRoot getOwnerRoot() {
+        return this.ownerRoot;
     }
 
     /**
