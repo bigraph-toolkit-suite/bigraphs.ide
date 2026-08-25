@@ -24,6 +24,8 @@ declare function acquireVsCodeApi(): VsCodeApi;
 
 	// Wire rules back to form-state reporting after active-tag changes
 	rules.setOnChanged(() => form.reportFormState());
+
+	verif.setOnChanged(() => form.refreshPlayEnabled());
 	rules.setOnPlayRule((ruleId) => {
 		if (vscode) {
 			vscode.postMessage(form.collectPlayRulePayload(ruleId));
