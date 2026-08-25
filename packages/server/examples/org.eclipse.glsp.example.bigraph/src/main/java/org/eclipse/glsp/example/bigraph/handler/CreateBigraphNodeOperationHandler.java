@@ -192,8 +192,8 @@ public class CreateBigraphNodeOperationHandler extends GModelCreateNodeOperation
             LOGGER.info("✅ Node added to view: {}", gNode.getId());
 
 
-            // === STEP 8: Select the new node ===
-            actionDispatcher.dispatchAfterNextUpdate(SelectAction.addSelection(List.of(gNode.getId())));
+            // Select only the new node so a later drag does not also move the clicked parent.
+            actionDispatcher.dispatchAfterNextUpdate(SelectAction.setSelection(List.of(gNode.getId())));
 
         } catch (Exception e) {
             LOGGER.error("❌ Failed to create bigraph node", e);

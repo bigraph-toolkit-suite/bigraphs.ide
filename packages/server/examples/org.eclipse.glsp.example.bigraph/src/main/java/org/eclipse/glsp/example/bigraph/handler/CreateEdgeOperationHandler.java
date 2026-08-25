@@ -92,8 +92,7 @@ public class CreateEdgeOperationHandler extends GModelCreateNodeOperationHandler
             
             LOGGER.info("✅ Successfully created Edge: {} (GNode: {})", edgeId, gNode.getId());
             
-            // Select the newly created node
-            actionDispatcher.dispatchAfterNextUpdate(SelectAction.addSelection(List.of(gNode.getId())));
+            actionDispatcher.dispatchAfterNextUpdate(SelectAction.setSelection(List.of(gNode.getId())));
 
         } catch (Exception e) {
             LOGGER.error("❌ Failed to create Edge", e);

@@ -92,8 +92,7 @@ public class CreateInnerNameOperationHandler extends GModelCreateNodeOperationHa
             
             LOGGER.info("✅ Successfully created Inner Name: {} (GNode: {})", innerNameId, gNode.getId());
             
-            // Select the newly created node
-            actionDispatcher.dispatchAfterNextUpdate(SelectAction.addSelection(List.of(gNode.getId())));
+            actionDispatcher.dispatchAfterNextUpdate(SelectAction.setSelection(List.of(gNode.getId())));
 
         } catch (Exception e) {
             LOGGER.error("❌ Failed to create Inner Name", e);

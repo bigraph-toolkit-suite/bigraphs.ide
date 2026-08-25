@@ -139,7 +139,48 @@ class ViewRegressionTest {
         assertTrue(gModelId.startsWith("node_"));
         assertTrue(state.getIndex().findElementByClass(gModelId, GNode.class).isPresent());
         assertEquals(1, dispatcher.getQueuedAfterNextUpdate().size());
-        assertTrue(dispatcher.getQueuedAfterNextUpdate().get(0) instanceof SelectAction);
+        assertExclusiveNewNodeSelection(dispatcher.getQueuedAfterNextUpdate().get(0), gModelId);
+    }
+
+    @Test
+    void createNodeOnExistingNodeSelectsOnlyTheNewNode() {
+        DynamicSignature signature = signature(new ControlSpec("Room", 0));
+        BigraphModelState state = initializedState(emptyBigraph(signature));
+        RecordingActionDispatcher dispatcher = new RecordingActionDispatcher();
+        CreateBigraphNodeOperationHandler handler = new CreateBigraphNodeOperationHandler();
+        inject(handler, "modelState", state);
+        inject(handler, "actionDispatcher", dispatcher);
+
+        handler.executeCreation(new CreateNodeOperation(
+            BigraphModelTypes.BIGRAPH_NODE,
+            point(400.0, 400.0),
+            null,
+            Map.of("controlName", "Room")));
+        NodeEntity<DynamicControl> parentNode = state.getMutableBigraph().getNodes().stream().findFirst().orElseThrow();
+        String parentId = state.getActiveView().getGModelIdForEntity(parentNode).orElseThrow();
+
+        handler.executeCreation(new CreateNodeOperation(
+            BigraphModelTypes.BIGRAPH_NODE,
+            point(400.0, 400.0),
+            null,
+            Map.of("controlName", "Room")));
+
+        NodeEntity<DynamicControl> newNode = state.getMutableBigraph().getNodes().stream()
+            .filter(n -> !n.equals(parentNode))
+            .findFirst()
+            .orElseThrow();
+        String childId = state.getActiveView().getGModelIdForEntity(newNode).orElseThrow();
+        assertEquals(2, dispatcher.getQueuedAfterNextUpdate().size());
+        SelectAction select = (SelectAction) dispatcher.getQueuedAfterNextUpdate().get(1);
+        assertExclusiveNewNodeSelection(select, childId);
+        assertFalse(select.getSelectedElementsIDs().contains(parentId));
+    }
+
+    private static void assertExclusiveNewNodeSelection(final Object action, final String gModelId) {
+        assertTrue(action instanceof SelectAction);
+        SelectAction select = (SelectAction) action;
+        assertTrue(select.isDeselectAll());
+        assertEquals(List.of(gModelId), select.getSelectedElementsIDs());
     }
 
     @Test

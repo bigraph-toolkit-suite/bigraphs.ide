@@ -135,8 +135,7 @@ public class CreateBigraphSiteOperationHandler extends GModelCreateNodeOperation
             GNode gNode = view.onAddSite(newSite, parent, siblingIndex);
             LOGGER.info("✅ Site added to view: {}", gNode.getId());
 
-            // === STEP 7: Select the new site ===
-            actionDispatcher.dispatchAfterNextUpdate(SelectAction.addSelection(List.of(gNode.getId())));
+            actionDispatcher.dispatchAfterNextUpdate(SelectAction.setSelection(List.of(gNode.getId())));
 
         } catch (Exception e) {
             LOGGER.error("❌ Failed to create bigraph site", e);

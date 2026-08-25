@@ -92,8 +92,7 @@ public class CreateOuterNameOperationHandler extends GModelCreateNodeOperationHa
             
             LOGGER.info("✅ Successfully created Outer Name: {} (GNode: {})", outerNameId, gNode.getId());
             
-            // Select the newly created node
-            actionDispatcher.dispatchAfterNextUpdate(SelectAction.addSelection(List.of(gNode.getId())));
+            actionDispatcher.dispatchAfterNextUpdate(SelectAction.setSelection(List.of(gNode.getId())));
 
         } catch (Exception e) {
             LOGGER.error("❌ Failed to create Outer Name", e);
