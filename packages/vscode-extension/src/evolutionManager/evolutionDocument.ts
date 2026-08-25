@@ -212,6 +212,12 @@ export function pushTreeUpdate(
 ): void {
 	const operations = doc.getOperations();
 	const checkpointCursor = doc.getCheckpointCursor();
-	patchFormState({ operations, checkpointCursor });
-	postMessage({ type: 'updateTree', operations, checkpointCursor });
+	// Opaque root keys (unknown to the core schema) travel with the live tree
+	// update so rewriting modes can react to their own writes in evolution.json.
+	const coreKeys = new Set<string>(Object.values(EvolutionJsonKey));
+	const extensionJson = Object.fromEntries(
+		Object.entries(doc.getRaw()).filter(([key]) => !coreKeys.has(key))
+	);
+	patchFormState({ operations, checkpointCursor, extensionJson });
+	postMessage({ type: 'updateTree', operations, checkpointCursor, extensionJson });
 }
