@@ -13,4 +13,13 @@ public class SuccessCriteria extends TreeNode<SuccessCriteria> {
     protected SuccessCriteria self() {
         return this;
     }
+
+    /** A success criteria is met once at least one of its linked proofs confirms it. */
+    public boolean addSuccessProof(SuccessProof proof) {
+        return addCoverageLink(proof);
+    }
+
+    public boolean removeSuccessProof(SuccessProof proof) {
+        return removeCoverageLink(proof);
+    }
 }
