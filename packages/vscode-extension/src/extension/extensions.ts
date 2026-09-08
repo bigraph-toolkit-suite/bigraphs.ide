@@ -1,4 +1,5 @@
 import { coreClientExtension } from './core';
+import { problemOrientedProjectPlanningExtension } from './popp';
 import { IClientExtension, ModelVariantDescriptor, GlspServerActionContext, WebviewMessageContext } from './types';
 
 /**
@@ -16,6 +17,7 @@ import { IClientExtension, ModelVariantDescriptor, GlspServerActionContext, Webv
  */
 const CLIENT_EXTENSIONS: ReadonlyArray<IClientExtension> = Object.freeze([
     coreClientExtension,
+    problemOrientedProjectPlanningExtension,
 ]);
 
 /** All registered client extensions, in registration order. */
