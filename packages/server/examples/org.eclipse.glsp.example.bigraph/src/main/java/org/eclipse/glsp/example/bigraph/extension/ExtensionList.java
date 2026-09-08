@@ -1,5 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extensions;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.ProblemOrientedProjectPlanningExtension;
 import org.eclipse.glsp.example.bigraph.meta.BigraphMetaInformation;
 
 import com.google.inject.Injector;
@@ -34,6 +35,7 @@ public final class ExtensionList {
         // ---- Register all extensions here ----
         // Core first — declares the classic "bigraph" variant.
         register(new CoreIdeExtension());
+        register(new ProblemOrientedProjectPlanningExtension());
     }
 
     public void register(IdeExtension extension) {
