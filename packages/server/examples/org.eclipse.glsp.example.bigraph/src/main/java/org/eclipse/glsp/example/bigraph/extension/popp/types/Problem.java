@@ -13,4 +13,13 @@ public class Problem extends TreeNode<Problem> {
     protected Problem self() {
         return this;
     }
+
+    /** A problem is solved once at least one of its linked goals is achieved. */
+    public boolean addGoal(Goal goal) {
+        return addCoverageLink(goal);
+    }
+
+    public boolean removeGoal(Goal goal) {
+        return removeCoverageLink(goal);
+    }
 }
