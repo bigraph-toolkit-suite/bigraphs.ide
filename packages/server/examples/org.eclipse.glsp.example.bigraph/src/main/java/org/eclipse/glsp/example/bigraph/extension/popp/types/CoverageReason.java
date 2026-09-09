@@ -2,7 +2,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 import java.util.List;
 
-/** Result of {@link TreeNode#explainCoverage()}, used to drive the inspect/highlight mode. */
+/** Result of {@link CoverageEngine#explain}, used to drive the inspect/highlight mode. */
 public sealed interface CoverageReason {
 
     /** The node this reason explains the coverage of. */
@@ -16,8 +16,8 @@ public sealed interface CoverageReason {
     record Decomposition(TreeNode<?> node, DecompositionType type, List<CoverageReason> children) implements CoverageReason {
     }
 
-    /** Node is covered because a cross-tree coverage link to {@code target} is covered. */
-    record Link(TreeNode<?> node, TreeNode<?> target, CoverageReason targetReason) implements CoverageReason {
+    /** Node is covered because a {@code type} relation connects it to the already-covered {@code coveringNode}. */
+    record Link(TreeNode<?> node, RelationType type, TreeNode<?> coveringNode, CoverageReason coveringReason) implements CoverageReason {
     }
 
     /** Node is not covered. */
