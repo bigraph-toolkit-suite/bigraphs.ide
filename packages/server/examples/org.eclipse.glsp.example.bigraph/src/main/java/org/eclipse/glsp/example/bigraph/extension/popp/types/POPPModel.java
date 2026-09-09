@@ -15,6 +15,26 @@ public class POPPModel {
     private SuccessCriteria successCriteriaRoot;
     private SuccessProof successProofRoot;
 
+    private final RelationGraph relations = new RelationGraph();
+    private final CoverageEngine coverage = new CoverageEngine(relations);
+
+    public RelationGraph getRelations() {
+        return relations;
+    }
+
+    public CoverageEngine getCoverage() {
+        return coverage;
+    }
+
+    /** Creates a typed cross-tree relation, rejecting node-kind combinations the POPP metamodel disallows. */
+    public RelationResult relate(TreeNode<?> a, TreeNode<?> b) {
+        return relations.relate(a, b);
+    }
+
+    public RelationResult unrelate(TreeNode<?> a, TreeNode<?> b) {
+        return relations.unrelate(a, b);
+    }
+
     public Optional<Problem> getProblemRoot() {
         return Optional.ofNullable(problemRoot);
     }

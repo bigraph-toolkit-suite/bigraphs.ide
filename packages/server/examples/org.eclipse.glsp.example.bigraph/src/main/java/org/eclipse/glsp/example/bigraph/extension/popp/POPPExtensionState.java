@@ -7,10 +7,16 @@ public class POPPExtensionState {
     private final IBigraphModelState bigraphModelState;
     private final POPPModel poppModel;
 
-    //TODO
-
-    public POPPExtensionState(final IBigraphModelState bigraphModelState) {
+    public POPPExtensionState(final IBigraphModelState bigraphModelState, final POPPModel poppModel) {
         this.bigraphModelState = bigraphModelState;
-        this.poppModel = null;
+        this.poppModel = poppModel;
+    }
+
+    public IBigraphModelState getBigraphModelState() {
+        return bigraphModelState;
+    }
+
+    public POPPModel getPoppModel() {
+        return poppModel;
     }
 }
