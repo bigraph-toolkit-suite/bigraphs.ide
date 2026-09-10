@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Pure tree hierarchy plus the facts a modeler sets directly; coverage is computed externally by {@link CoverageEngine}. */
+/** Pure tree hierarchy plus the facts a modeler sets directly; coverage is computed externally by {@link CoverageAnalyzer}. */
 public abstract class TreeNode<T extends TreeNode<T>> {
     private final String id;
     private boolean explicitlyCovered = false;
