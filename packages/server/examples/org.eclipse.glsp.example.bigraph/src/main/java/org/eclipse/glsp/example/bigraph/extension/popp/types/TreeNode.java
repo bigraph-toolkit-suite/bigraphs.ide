@@ -47,6 +47,11 @@ public abstract class TreeNode<T extends TreeNode<T>> {
             return false;
         }
 
+        if (decompositionType == DecompositionType.NONE){
+            /** Fallback {@link DecompositionType} value. */
+            decompositionType = DecompositionType.AND;
+        }
+
         child.getParent().ifPresent(oldParent -> {
             if (oldParent != self()) {
                 oldParent.children.remove(child);
