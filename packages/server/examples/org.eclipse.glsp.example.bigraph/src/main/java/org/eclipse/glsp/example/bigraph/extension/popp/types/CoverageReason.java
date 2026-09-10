@@ -2,7 +2,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 import java.util.List;
 
-/** Result of {@link CoverageEngine#explain}, used to drive the inspect/highlight mode. */
+/** Result of {@link CoverageAnalyzer#explain}, used to drive the inspect/highlight mode. */
 public sealed interface CoverageReason {
 
     /** The node this reason explains the coverage of. */
