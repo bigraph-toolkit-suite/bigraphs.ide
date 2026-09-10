@@ -8,6 +8,7 @@ public class SuccessProof extends TreeNode<SuccessProof> {
 
     public SuccessProof(String id) {
         super(id);
+        setCovered(true);
     }
 
     @Override
