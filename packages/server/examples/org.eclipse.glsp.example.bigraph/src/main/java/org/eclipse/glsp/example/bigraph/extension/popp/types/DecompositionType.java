@@ -1,17 +1,48 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
+import java.util.List;
+import java.util.function.Predicate;
+
 public enum DecompositionType {
-    NONE(false),
-    AND(true),
-    OR(false);
+    NONE {
+        @Override
+        public boolean isSatisfied(List<? extends TreeNode<?>> children, Predicate<TreeNode<?>> isCovered) {
+            return false;
+        }
 
-    private final boolean requiresAllChildrenCovered;
+        @Override
+        public List<? extends TreeNode<?>> contributingChildren(List<? extends TreeNode<?>> children,
+                Predicate<TreeNode<?>> isCovered) {
+            return List.of();
+        }
+    },
+    AND {
+        @Override
+        public boolean isSatisfied(List<? extends TreeNode<?>> children, Predicate<TreeNode<?>> isCovered) {
+            return children.stream().allMatch(isCovered);
+        }
 
-    private DecompositionType(boolean requiresAllChildrenCovered){
-        this.requiresAllChildrenCovered = requiresAllChildrenCovered;
-    }
+        @Override
+        public List<? extends TreeNode<?>> contributingChildren(List<? extends TreeNode<?>> children,
+                Predicate<TreeNode<?>> isCovered) {
+            return children;
+        }
+    },
+    OR {
+        @Override
+        public boolean isSatisfied(List<? extends TreeNode<?>> children, Predicate<TreeNode<?>> isCovered) {
+            return children.stream().anyMatch(isCovered);
+        }
 
-    public boolean requiresAllChildrenCovered() {
-        return requiresAllChildrenCovered;
-    }
+        @Override
+        public List<? extends TreeNode<?>> contributingChildren(List<? extends TreeNode<?>> children,
+                Predicate<TreeNode<?>> isCovered) {
+            return children.stream().filter(isCovered).toList();
+        }
+    };
+
+    public abstract boolean isSatisfied(List<? extends TreeNode<?>> children, Predicate<TreeNode<?>> isCovered);
+
+    public abstract List<? extends TreeNode<?>> contributingChildren(List<? extends TreeNode<?>> children,
+            Predicate<TreeNode<?>> isCovered);
 }

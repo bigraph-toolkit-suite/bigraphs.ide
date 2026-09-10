@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 /** Computes and explains coverage over a {@link RelationGraph}, without caching results. */
-public final class CoverageEngine {
+public final class CoverageAnalyzer {
 
     /** A neighbor reachable via a coverage-propagating relation, and the relation type used to reach it. */
     private record CoverageCandidate(RelationType type, TreeNode<?> node) {
@@ -14,7 +14,7 @@ public final class CoverageEngine {
 
     private final RelationGraph relations;
 
-    public CoverageEngine(RelationGraph relations) {
+    public CoverageAnalyzer(RelationGraph relations) {
         this.relations = relations;
     }
 
@@ -47,11 +47,8 @@ public final class CoverageEngine {
             }
             DecompositionType type = node.getDecompositionType();
             List<? extends TreeNode<?>> children = node.getChildren();
-            if (type != DecompositionType.NONE && !children.isEmpty()) {
-                boolean byDecomposition = type.requiresAllChildrenCovered()
-                    ? children.stream().allMatch(child -> isCovered(child, visiting))
-                    : children.stream().anyMatch(child -> isCovered(child, visiting));
-                if (byDecomposition) {
+            if (!children.isEmpty()) {
+                if (type.isSatisfied(children, child -> isCovered(child, visiting))) {
                     return true;
                 }
             }
@@ -72,15 +69,9 @@ public final class CoverageEngine {
         }
         DecompositionType type = node.getDecompositionType();
         List<? extends TreeNode<?>> children = node.getChildren();
-        if (type != DecompositionType.NONE && !children.isEmpty()) {
-            boolean requiresAll = type.requiresAllChildrenCovered();
-            List<? extends TreeNode<?>> contributing = requiresAll
-                ? children
-                : children.stream().filter(this::isCovered).toList();
-            boolean satisfies = requiresAll
-                ? contributing.stream().allMatch(this::isCovered)
-                : !contributing.isEmpty();
-            if (satisfies) {
+        if (!children.isEmpty()) {
+            List<? extends TreeNode<?>> contributing = type.contributingChildren(children, this::isCovered);
+            if (type.isSatisfied(children, this::isCovered)) {
                 List<CoverageReason> reasons = contributing.stream().map(this::explain).toList();
                 return new CoverageReason.Decomposition(node, type, reasons);
             }

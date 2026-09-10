@@ -16,13 +16,13 @@ public class POPPModel {
     private SuccessProof successProofRoot;
 
     private final RelationGraph relations = new RelationGraph();
-    private final CoverageEngine coverage = new CoverageEngine(relations);
+    private final CoverageAnalyzer coverage = new CoverageAnalyzer(relations);
 
     public RelationGraph getRelations() {
         return relations;
     }
 
-    public CoverageEngine getCoverage() {
+    public CoverageAnalyzer getCoverage() {
         return coverage;
     }
 
