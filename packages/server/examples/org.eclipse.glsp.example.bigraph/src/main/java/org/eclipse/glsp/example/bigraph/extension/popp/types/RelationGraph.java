@@ -1,5 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -10,18 +11,10 @@ import java.util.stream.Collectors;
 /** Stores typed cross-tree relations; the type and its canonical direction are derived from the two node kinds given. */
 public final class RelationGraph {
 
-    private record KindPair(Class<?> from, Class<?> to) {
-    }
-
-    private static final Map<KindPair, RelationType> RELATION_BY_KIND_PAIR = Map.ofEntries(
-        Map.entry(new KindPair(Problem.class, Consequence.class), RelationType.CAUSES),
-        Map.entry(new KindPair(Goal.class, SuccessCriteria.class), RelationType.CAUSES),
-        Map.entry(new KindPair(Problem.class, Goal.class), RelationType.INVERTS),
-        Map.entry(new KindPair(Consequence.class, SuccessCriteria.class), RelationType.INVERTS),
-        Map.entry(new KindPair(Solution.class, Goal.class), RelationType.REALIZES),
-        Map.entry(new KindPair(Solution.class, SuccessProof.class), RelationType.PRODUCES),
-        Map.entry(new KindPair(SuccessProof.class, SuccessCriteria.class), RelationType.VALIDATES)
-    );
+    private static final Map<RelationType.NodeTypePair, RelationType> RELATION_BY_ENDPOINT_KINDS = Arrays
+        .stream(RelationType.values())
+        .flatMap(type -> type.getSupportedNodeTypePair().stream().map(pair -> Map.entry(pair, type)))
+        .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
 
     private final Set<Relation> relations = new LinkedHashSet<>();
     private final Map<TreeNode<?>, Set<Relation>> outgoing = new LinkedHashMap<>();
@@ -29,11 +22,11 @@ public final class RelationGraph {
 
     /** Resolves the canonical {@code source -> target} relation for two nodes, in whichever order they're given. */
     private static Optional<Relation> resolve(TreeNode<?> a, TreeNode<?> b) {
-        RelationType asGiven = RELATION_BY_KIND_PAIR.get(new KindPair(a.getClass(), b.getClass()));
+        RelationType asGiven = RELATION_BY_ENDPOINT_KINDS.get(new RelationType.NodeTypePair(a.getClass(), b.getClass()));
         if (asGiven != null) {
             return Optional.of(new Relation(a, asGiven, b));
         }
-        RelationType reversed = RELATION_BY_KIND_PAIR.get(new KindPair(b.getClass(), a.getClass()));
+        RelationType reversed = RELATION_BY_ENDPOINT_KINDS.get(new RelationType.NodeTypePair(b.getClass(), a.getClass()));
         if (reversed != null) {
             return Optional.of(new Relation(b, reversed, a));
         }
