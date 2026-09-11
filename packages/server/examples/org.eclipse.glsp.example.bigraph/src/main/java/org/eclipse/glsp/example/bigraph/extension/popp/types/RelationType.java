@@ -7,9 +7,9 @@ public enum RelationType {
     /** Problem to Consequence, and Goal to SuccessCriteria: achieving the goal causes the criterion. */
     CAUSES(CoveragePropagation.BACKWARD,
         new NodeTypePair(Problem.class, Consequence.class), new NodeTypePair(Goal.class, SuccessCriteria.class)),
-    /** Problem to Goal, and Consequence to SuccessCriteria: the derived, inverted counterpart. */
+    /** Problem to Goal: the derived, inverted counterpart. */
     INVERTS(CoveragePropagation.BACKWARD,
-        new NodeTypePair(Problem.class, Goal.class), new NodeTypePair(Consequence.class, SuccessCriteria.class)),
+        new NodeTypePair(Problem.class, Goal.class)),
     /** Solution to Goal, the goal means relationship; provenance only, does not imply coverage. */
     REALIZES(CoveragePropagation.NONE, new NodeTypePair(Solution.class, Goal.class)),
     /** Solution to SuccessProof, produced once the solution is tested; provenance only. */
