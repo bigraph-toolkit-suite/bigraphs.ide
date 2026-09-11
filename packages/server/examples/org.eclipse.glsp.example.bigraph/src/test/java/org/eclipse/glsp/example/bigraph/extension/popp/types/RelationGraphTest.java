@@ -30,7 +30,6 @@ class RelationGraphTest {
             new ExpectedRelation(Problem.class, RelationType.CAUSES, Consequence.class),
             new ExpectedRelation(Goal.class, RelationType.CAUSES, SuccessCriteria.class),
             new ExpectedRelation(Problem.class, RelationType.INVERTS, Goal.class),
-            new ExpectedRelation(Consequence.class, RelationType.INVERTS, SuccessCriteria.class),
             new ExpectedRelation(Solution.class, RelationType.REALIZES, Goal.class),
             new ExpectedRelation(Solution.class, RelationType.PRODUCES, SuccessProof.class),
             new ExpectedRelation(SuccessProof.class, RelationType.VALIDATES, SuccessCriteria.class));
@@ -59,7 +58,7 @@ class RelationGraphTest {
         Set<Set<Class<?>>> validKindPairs = VALID_RELATIONS.stream()
                 .map(r -> Set.of(r.from(), r.to()))
                 .collect(Collectors.toSet());
-        assertEquals(7, validKindPairs.size());
+        assertEquals(6, validKindPairs.size());
 
         List<Set<Class<?>>> unsupportedPairs = new ArrayList<>();
         for (int i = 0; i < kinds.length; i++) {
@@ -70,7 +69,7 @@ class RelationGraphTest {
                 }
             }
         }
-        assertEquals(8, unsupportedPairs.size(), "8 of the 15 possible node-kind pairs should be unsupported");
+        assertEquals(9, unsupportedPairs.size(), "9 of the 15 possible node-kind pairs should be unsupported");
 
         for (Set<Class<?>> pair : unsupportedPairs) {
             List<Class<?>> kindList = List.copyOf(pair);
