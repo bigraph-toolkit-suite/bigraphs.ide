@@ -16,12 +16,12 @@ import org.junit.jupiter.api.Test;
 class RelationGraphTest {
 
     private static final Map<Class<?>, Supplier<TreeNode<?>>> NODE_FACTORIES = Map.of(
-            Problem.class, () -> new Problem("problem"),
-            Consequence.class, () -> new Consequence("consequence"),
-            Goal.class, () -> new Goal("goal"),
-            SuccessCriteria.class, () -> new SuccessCriteria("criteria"),
-            Solution.class, () -> new Solution("solution"),
-            SuccessProof.class, () -> new SuccessProof("proof"));
+            Problem.class, () -> new Problem("problem", 0, 0),
+            Consequence.class, () -> new Consequence("consequence", 0, 0),
+            Goal.class, () -> new Goal("goal", 0, 0),
+            SuccessCriteria.class, () -> new SuccessCriteria("criteria", 0, 0),
+            Solution.class, () -> new Solution("solution", 0, 0),
+            SuccessProof.class, () -> new SuccessProof("proof", 0, 0));
 
     private record ExpectedRelation(Class<?> from, RelationType type, Class<?> to) {
     }
@@ -88,8 +88,8 @@ class RelationGraphTest {
     @Test
     void resolvesRelationsInEitherArgumentOrderAndTracksThem() {
         RelationGraph graph = new RelationGraph();
-        Problem problem = new Problem("problem");
-        Consequence consequence = new Consequence("consequence");
+        Problem problem = new Problem("problem", 0, 0);
+        Consequence consequence = new Consequence("consequence", 0, 0);
 
         assertTrue(graph.canRelate(problem, consequence));
         assertEquals(RelationResult.CREATED, graph.relate(consequence, problem));
@@ -110,8 +110,8 @@ class RelationGraphTest {
     @Test
     void rejectsInvalidRelationRequests() {
         RelationGraph graph = new RelationGraph();
-        Problem problem = new Problem("problem");
-        Solution solution = new Solution("solution");
+        Problem problem = new Problem("problem", 0, 0);
+        Solution solution = new Solution("solution", 0, 0);
 
         assertFalse(graph.canRelate(problem, null));
         assertFalse(graph.canRelate(problem, problem));
@@ -125,9 +125,9 @@ class RelationGraphTest {
     @Test
     void filtersOutgoingAndIncomingByRelationType() {
         RelationGraph graph = new RelationGraph();
-        Problem problem = new Problem("problem");
-        Goal goal = new Goal("goal");
-        Consequence consequence = new Consequence("consequence");
+        Problem problem = new Problem("problem", 0, 0);
+        Goal goal = new Goal("goal", 0, 0);
+        Consequence consequence = new Consequence("consequence", 0, 0);
 
         assertEquals(RelationResult.CREATED, graph.relate(problem, consequence));
         assertEquals(RelationResult.CREATED, graph.relate(problem, goal));

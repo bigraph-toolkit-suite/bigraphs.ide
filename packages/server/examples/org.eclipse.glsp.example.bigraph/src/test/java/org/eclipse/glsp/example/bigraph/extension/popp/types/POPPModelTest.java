@@ -14,9 +14,9 @@ class POPPModelTest {
     @Test
     void storesTypedRootsAndCollectsTheirDescendants() {
         POPPModel model = new POPPModel();
-        Problem root = new Problem("root");
-        Problem child = new Problem("child");
-        Problem grandchild = new Problem("grandchild");
+        Problem root = new Problem("root", 0, 0);
+        Problem child = new Problem("child", 0, 0);
+        Problem grandchild = new Problem("grandchild", 0, 0);
         root.addChild(child);
         child.addChild(grandchild);
 
@@ -31,11 +31,11 @@ class POPPModelTest {
     @Test
     void collectsDescendantsIndependentlyForEveryTreeKind() {
         POPPModel model = new POPPModel();
-        Goal goalRoot = new Goal("goal-root");
-        Solution solutionRoot = new Solution("solution-root");
-        Consequence consequenceRoot = new Consequence("consequence-root");
-        SuccessCriteria successCriteriaRoot = new SuccessCriteria("sc-root");
-        SuccessProof successProofRoot = new SuccessProof("proof-root");
+        Goal goalRoot = new Goal("goal-root", 0, 0);
+        Solution solutionRoot = new Solution("solution-root", 0, 0);
+        Consequence consequenceRoot = new Consequence("consequence-root", 0, 0);
+        SuccessCriteria successCriteriaRoot = new SuccessCriteria("sc-root", 0, 0);
+        SuccessProof successProofRoot = new SuccessProof("proof-root", 0, 0);
 
         model.setGoalRoot(goalRoot);
         model.setSolutionRoot(solutionRoot);
@@ -61,10 +61,10 @@ class POPPModelTest {
     @Test
     void collectsAllDescendantsAcrossMultipleBranches() {
         POPPModel model = new POPPModel();
-        Problem root = new Problem("root");
-        Problem left = new Problem("left");
-        Problem right = new Problem("right");
-        Problem leftChild = new Problem("left-child");
+        Problem root = new Problem("root", 0, 0);
+        Problem left = new Problem("left", 0, 0);
+        Problem right = new Problem("right", 0, 0);
+        Problem leftChild = new Problem("left-child", 0, 0);
         root.addChild(left);
         root.addChild(right);
         left.addChild(leftChild);
@@ -78,8 +78,8 @@ class POPPModelTest {
     @Test
     void delegatesRelationsAndCoverageToItsCollaborators() {
         POPPModel model = new POPPModel();
-        SuccessProof proof = new SuccessProof("proof");
-        SuccessCriteria criterion = new SuccessCriteria("criterion");
+        SuccessProof proof = new SuccessProof("proof", 0, 0);
+        SuccessCriteria criterion = new SuccessCriteria("criterion", 0, 0);
 
         assertEquals(RelationResult.CREATED, model.relate(proof, criterion));
         assertTrue(model.getCoverage().isCovered(criterion));

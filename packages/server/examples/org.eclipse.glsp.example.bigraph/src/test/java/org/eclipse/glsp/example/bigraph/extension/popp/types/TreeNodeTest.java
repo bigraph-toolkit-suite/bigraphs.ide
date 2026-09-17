@@ -11,9 +11,9 @@ class TreeNodeTest {
 
     @Test
     void maintainsHierarchyAndRejectsCycles() {
-        Problem root = new Problem("root");
-        Problem child = new Problem("child");
-        Problem grandchild = new Problem("grandchild");
+        Problem root = new Problem("root", 0, 0);
+        Problem child = new Problem("child", 0, 0);
+        Problem grandchild = new Problem("grandchild", 0, 0);
 
         assertTrue(root.addChild(child));
         assertTrue(child.addChild(grandchild));
@@ -30,11 +30,11 @@ class TreeNodeTest {
 
     @Test
     void reparentsNodesAndCalculatesHeightAndWidth() {
-        Problem firstRoot = new Problem("first-root");
-        Problem secondRoot = new Problem("second-root");
-        Problem left = new Problem("left");
-        Problem right = new Problem("right");
-        Problem leaf = new Problem("leaf");
+        Problem firstRoot = new Problem("first-root", 0, 0);
+        Problem secondRoot = new Problem("second-root", 0, 0);
+        Problem left = new Problem("left", 0, 0);
+        Problem right = new Problem("right", 0, 0);
+        Problem leaf = new Problem("leaf", 0, 0);
 
         assertTrue(firstRoot.addChild(left));
         assertTrue(firstRoot.addChild(right));
@@ -49,19 +49,19 @@ class TreeNodeTest {
 
     @Test
     void validatesIdsAndCopiesChildren() {
-        assertThrows(IllegalArgumentException.class, () -> new Problem(null));
-        assertThrows(IllegalArgumentException.class, () -> new Problem("  "));
+        assertThrows(IllegalArgumentException.class, () -> new Problem(null, "", 0, 0));
+        assertThrows(IllegalArgumentException.class, () -> new Problem("  ", "", 0, 0));
 
-        Problem root = new Problem("root");
-        Problem child = new Problem("child");
+        Problem root = new Problem("root", 0, 0);
+        Problem child = new Problem("child", 0, 0);
         root.addChild(child);
-        assertThrows(UnsupportedOperationException.class, () -> root.getChildren().add(new Problem("other")));
+        assertThrows(UnsupportedOperationException.class, () -> root.getChildren().add(new Problem("other", 0, 0)));
     }
 
     @Test
     void decompositionCannotBeResetToNoneWhileChildrenExist() {
-        Problem root = new Problem("root");
-        root.addChild(new Problem("child"));
+        Problem root = new Problem("root", 0, 0);
+        root.addChild(new Problem("child", 0, 0));
 
         assertTrue(root.setDecompositionType(DecompositionType.AND));
         assertFalse(root.setDecompositionType(DecompositionType.NONE));
