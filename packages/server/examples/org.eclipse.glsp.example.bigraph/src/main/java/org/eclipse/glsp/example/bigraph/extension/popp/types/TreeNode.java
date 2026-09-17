@@ -6,29 +6,58 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Pure tree hierarchy plus the facts a modeler sets directly; coverage is computed externally by {@link CoverageAnalyzer}. */
 public abstract class TreeNode<T extends TreeNode<T>> {
     private final String id;
+    private String description;
+    private double x;
+    private double y;
     private boolean explicitlyCovered = false;
     private DecompositionType decompositionType = DecompositionType.NONE;
     protected T parent;
     protected final List<T> children = new ArrayList<>();
 
-    protected TreeNode() {
-        this(UUID.randomUUID().toString());
+    protected TreeNode(String description, double x, double y) {
+        this(UUID.randomUUID().toString(), description, x, y);
     }
 
-    protected TreeNode(String id) {
+    protected TreeNode(String id, String description, double x, double y) {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("id must not be null or blank");
         }
         this.id = id;
+        this.description = Objects.requireNonNull(description);
+        this.x = x;
+        this.y = y;
     }
 
     protected abstract T self();
 
     public String getId() {
         return id;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public double getX() {
+        return x;
+    }
+
+    public void setX(double x) {
+        this.x = x;
+    }
+
+    public double getY() {
+        return y;
+    }
+
+    public void setY(double y) {
+        this.y = y;
     }
 
     public Optional<T> getParent() {
@@ -133,7 +162,7 @@ public abstract class TreeNode<T extends TreeNode<T>> {
         return explicitlyCovered;
     }
 
-    public void setCovered(boolean covered) {
+    public void setExplicitlyCovered(boolean covered) {
         this.explicitlyCovered = covered;
     }
 
