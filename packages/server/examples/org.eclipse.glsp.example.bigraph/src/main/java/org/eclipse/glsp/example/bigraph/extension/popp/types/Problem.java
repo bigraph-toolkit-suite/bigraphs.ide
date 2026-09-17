@@ -1,12 +1,12 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 public class Problem extends TreeNode<Problem> {
-    public Problem() {
-        super();
+    public Problem(String description, double x, double y) {
+        super(description, x, y);
     }
 
-    public Problem(String id) {
-        super(id);
+    public Problem(String id, String description, double x, double y) {
+        super(id, description, x, y);
     }
 
     @Override
