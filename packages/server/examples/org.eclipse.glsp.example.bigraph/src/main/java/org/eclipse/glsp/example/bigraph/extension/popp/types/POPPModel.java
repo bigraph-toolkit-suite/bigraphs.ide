@@ -1,22 +1,76 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
-/** A POPP model has at most one root per tree kind. */
-public class POPPModel {
-    private Problem problemRoot;
-    private Goal goalRoot;
-    private Solution solutionRoot;
-    private Consequence consequenceRoot;
-    private SuccessCriteria successCriteriaRoot;
-    private SuccessProof successProofRoot;
+import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
+import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventEmitter;
+import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
+
+public class POPPModel implements POPPEventListener, POPPEventEmitter {
+
+    /** Creates a node of type N from its editor-facing attributes; matches every TreeNode subtype's constructor. */
+    @FunctionalInterface
+    private interface NodeFactory<N extends TreeNode<N>> {
+        N create(String description, double x, double y);
+    }
+
+    /** Owns everything specific to one node kind: its root list, creation, deletion and root-membership bookkeeping. */
+    private final class NodeRegistry<N extends TreeNode<N>> {
+        private final List<N> roots = new LinkedList<>();
+        private final NodeFactory<N> factory;
+
+        NodeRegistry(NodeFactory<N> factory) {
+            this.factory = factory;
+        }
+
+        List<N> roots() {
+            return roots;
+        }
+
+        List<N> all() {
+            return collectAll(roots);
+        }
+
+        N create(String description, double x, double y) {
+            N node = factory.create(description, x, y);
+            emitEvent(new POPPEvent.NodeCreated(node.getKind(), node));
+            return node;
+        }
+
+        void delete(String id) {
+            N node = all().stream()
+                    .filter(n -> n.getId().equals(id))
+                    .findFirst()
+                    .orElseThrow(() -> new NoSuchElementException("No such node was found"));
+
+            node.getParent().ifPresent(parent -> parent.removeChild(node));
+            node.getChildren().forEach(child -> child.setParent(null));
+            emitEvent(new POPPEvent.NodeRemoved(node.getKind(), node));
+        }
+
+        void addRoot(N node) {
+            if (node == null || roots.contains(node)) return;
+            node.addListener(POPPModel.this);
+            roots.add(node);
+        }
+
+        void removeRoot(N node) {
+            if (node == null) return;
+            node.removeListener(POPPModel.this);
+            roots.remove(node);
+        }
+    }
+
+    private final NodeRegistry<Problem> problems = new NodeRegistry<>(Problem::new);
+    private final NodeRegistry<Goal> goals = new NodeRegistry<>(Goal::new);
+    private final NodeRegistry<Consequence> consequences = new NodeRegistry<>(Consequence::new);
+    private final NodeRegistry<Solution> solutions = new NodeRegistry<>(Solution::new);
+    private final NodeRegistry<SuccessCriteria> successCriteria = new NodeRegistry<>(SuccessCriteria::new);
+    private final NodeRegistry<SuccessProof> successProofs = new NodeRegistry<>(SuccessProof::new);
 
     private final RelationGraph relations = new RelationGraph();
     private final CoverageAnalyzer coverage = new CoverageAnalyzer(relations);
+    private final List<POPPEventListener> listeners = new ArrayList<>();
 
     public RelationGraph getRelations() {
         return relations;
@@ -28,97 +82,116 @@ public class POPPModel {
 
     /** Creates a typed cross-tree relation, rejecting node-kind combinations the POPP metamodel disallows. */
     public RelationResult relate(TreeNode<?> a, TreeNode<?> b) {
-        return relations.relate(a, b);
+        RelationResult result = relations.relate(a, b);
+        if (result == RelationResult.CREATED) {
+            findRelation(a, b).ifPresent(
+                    relation -> emitEvent(new POPPEvent.RelationCreated(relation.source(), relation.type(), relation.target())));
+        }
+        return result;
     }
 
     public RelationResult unrelate(TreeNode<?> a, TreeNode<?> b) {
-        return relations.unrelate(a, b);
-    }
-
-    public Optional<Problem> getProblemRoot() {
-        return Optional.ofNullable(problemRoot);
-    }
-
-    public void setProblemRoot(Problem problemRoot) {
-        this.problemRoot = problemRoot;
-    }
-
-    public Optional<Goal> getGoalRoot() {
-        return Optional.ofNullable(goalRoot);
-    }
-
-    public void setGoalRoot(Goal goalRoot) {
-        this.goalRoot = goalRoot;
-    }
-
-    public Optional<Solution> getSolutionRoot() {
-        return Optional.ofNullable(solutionRoot);
-    }
-
-    public void setSolutionRoot(Solution solutionRoot) {
-        this.solutionRoot = solutionRoot;
-    }
-
-    public Optional<Consequence> getConsequenceRoot() {
-        return Optional.ofNullable(consequenceRoot);
-    }
-
-    public void setConsequenceRoot(Consequence consequenceRoot) {
-        this.consequenceRoot = consequenceRoot;
-    }
-
-    public Optional<SuccessCriteria> getSuccessCriteriaRoot() {
-        return Optional.ofNullable(successCriteriaRoot);
-    }
-
-    public void setSuccessCriteriaRoot(SuccessCriteria successCriteriaRoot) {
-        this.successCriteriaRoot = successCriteriaRoot;
-    }
-
-    public Optional<SuccessProof> getSuccessProofRoot() {
-        return Optional.ofNullable(successProofRoot);
-    }
-
-    public void setSuccessProofRoot(SuccessProof successProofRoot) {
-        this.successProofRoot = successProofRoot;
-    }
-
-    public List<Problem> getAllProblems() {
-        return collectAll(problemRoot);
-    }
-
-    public List<Goal> getAllGoals() {
-        return collectAll(goalRoot);
-    }
-
-    public List<Solution> getAllSolutions() {
-        return collectAll(solutionRoot);
-    }
-
-    public List<Consequence> getAllConsequences() {
-        return collectAll(consequenceRoot);
-    }
-
-    public List<SuccessCriteria> getAllSuccessCriteria() {
-        return collectAll(successCriteriaRoot);
-    }
-
-    public List<SuccessProof> getAllSuccessProofs() {
-        return collectAll(successProofRoot);
-    }
-
-    private static <N extends TreeNode<N>> List<N> collectAll(N root) {
-        List<N> result = new ArrayList<>();
-        if (root == null) {
-            return result;
-        }
-        Deque<N> pending = new ArrayDeque<>();
-        pending.push(root);
-        while (!pending.isEmpty()) {
-            N node = pending.pop();
-            result.add(node);
-            pending.addAll(node.getChildren());
+        Relation existing = findRelation(a, b).orElse(null);
+        RelationResult result = relations.unrelate(a, b);
+        if (result == RelationResult.REMOVED && existing != null) {
+            emitEvent(new POPPEvent.RelationRemoved(existing.source(), existing.type(), existing.target()));
         }
         return result;
+    }
+
+    private Optional<Relation> findRelation(TreeNode<?> a, TreeNode<?> b) {
+        if (a == null || b == null) {
+            return Optional.empty();
+        }
+        return relations.outgoing(a).stream().filter(relation -> relation.target() == b || relation.source() == b)
+                .findFirst();
+    }
+
+    public List<Problem> getProblemRoots() { return problems.roots(); }
+    public List<Goal> getGoalRoots() { return goals.roots(); }
+    public List<Consequence> getConsequenceRoots() { return consequences.roots(); }
+    public List<Solution> getSolutionRoots() { return solutions.roots(); }
+    public List<SuccessCriteria> getSuccessCriteriaRoots() { return successCriteria.roots(); }
+    public List<SuccessProof> getSuccessProofRoots() { return successProofs.roots(); }
+
+    public void addProblemRoot(Problem root) { problems.addRoot(root); }
+    public void addGoalRoot(Goal root) { goals.addRoot(root); }
+    public void addConsequenceRoot(Consequence root) { consequences.addRoot(root); }
+    public void addSolutionRoot(Solution root) { solutions.addRoot(root); }
+    public void addSuccessCriteriaRoot(SuccessCriteria root) { successCriteria.addRoot(root); }
+    public void addSuccessProofRoot(SuccessProof root) { successProofs.addRoot(root); }
+
+    public void removeProblemRoot(Problem root) { problems.removeRoot(root); }
+    public void removeGoalRoot(Goal root) { goals.removeRoot(root); }
+    public void removeConsequenceRoot(Consequence root) { consequences.removeRoot(root); }
+    public void removeSolutionRoot(Solution root) { solutions.removeRoot(root); }
+    public void removeSuccessCriteriaRoot(SuccessCriteria root) { successCriteria.removeRoot(root); }
+    public void removeSuccessProofRoot(SuccessProof root) { successProofs.removeRoot(root); }
+
+    public List<Problem> getAllProblems() { return problems.all(); }
+    public List<Goal> getAllGoals() { return goals.all(); }
+    public List<Consequence> getAllConsequences() { return consequences.all(); }
+    public List<Solution> getAllSolutions() { return solutions.all(); }
+    public List<SuccessCriteria> getAllSuccessCriteria() { return successCriteria.all(); }
+    public List<SuccessProof> getAllSuccessProofs() { return successProofs.all(); }
+
+    public Problem createProblem(String description, double x, double y) { return problems.create(description, x, y); }
+    public Goal createGoal(String description, double x, double y) { return goals.create(description, x, y); }
+    public Consequence createConsequence(String description, double x, double y) { return consequences.create(description, x, y); }
+    public Solution createSolution(String description, double x, double y) { return solutions.create(description, x, y); }
+    public SuccessCriteria createSuccessCriteria(String description, double x, double y) { return successCriteria.create(description, x, y); }
+    public SuccessProof createSuccessProof(String description, double x, double y) { return successProofs.create(description, x, y); }
+
+    public void deleteProblem(String id) { problems.delete(id); }
+    public void deleteGoal(String id) { goals.delete(id); }
+    public void deleteConsequence(String id) { consequences.delete(id); }
+    public void deleteSolution(String id) { solutions.delete(id); }
+    public void deleteSuccessCriteria(String id) { successCriteria.delete(id); }
+    public void deleteSuccessProof(String id) { successProofs.delete(id); }
+
+    private static <N extends TreeNode<N>> List<N> collectAll(List<N> roots) {
+        List<N> result = new ArrayList<>();
+        Deque<N> pending = new ArrayDeque<>();
+        for (N root : roots) {
+            pending.push(root);
+            while (!pending.isEmpty()) {
+                N node = pending.pop();
+                result.add(node);
+                pending.addAll(node.getChildren());
+            }
+        }
+        return result;
+    }
+
+    public List<POPPEventListener> getListeners() {
+        return listeners;
+    }
+
+    @Override
+    public void onPOPPEvent(final POPPEvent event) {
+        if (Objects.requireNonNull(event) instanceof POPPEvent.NodeChangeParent e) {
+            handleParentChange(e);
+        }
+        emitEvent(event);
+    }
+
+    private void handleParentChange(POPPEvent.NodeChangeParent event) {
+        boolean becameRoot = event.oldParent() != null && event.newParent() == null;
+        boolean lostRootStatus = event.oldParent() == null && event.newParent() != null;
+        if (!becameRoot && !lostRootStatus) return;
+
+        switch (event.node()) {
+            case Problem r -> { if (becameRoot) problems.addRoot(r); else problems.removeRoot(r); }
+            case Goal r -> { if (becameRoot) goals.addRoot(r); else goals.removeRoot(r); }
+            case Consequence r -> { if (becameRoot) consequences.addRoot(r); else consequences.removeRoot(r); }
+            case Solution r -> { if (becameRoot) solutions.addRoot(r); else solutions.removeRoot(r); }
+            case SuccessCriteria r -> { if (becameRoot) successCriteria.addRoot(r); else successCriteria.removeRoot(r); }
+            case SuccessProof r -> { if (becameRoot) successProofs.addRoot(r); else successProofs.removeRoot(r); }
+            default -> {}
+        }
+    }
+
+    private void emitEvent(final POPPEvent event) {
+        listeners.forEach(listener -> listener.onPOPPEvent(event));
     }
 }
