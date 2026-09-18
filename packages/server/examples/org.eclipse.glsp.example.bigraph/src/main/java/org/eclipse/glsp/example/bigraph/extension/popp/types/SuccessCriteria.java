@@ -1,12 +1,12 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 public class SuccessCriteria extends TreeNode<SuccessCriteria> {
-    public SuccessCriteria(String description, double x, double y) {
-        super(description, x, y);
+    SuccessCriteria(String description, double x, double y) {
+        super(NodeKind.SUCCESS_CRITERIA, description, x, y);
     }
 
-    public SuccessCriteria(String id, String description, double x, double y) {
-        super(id, description, x, y);
+    SuccessCriteria(String id, String description, double x, double y) {
+        super(NodeKind.SUCCESS_CRITERIA, id, description, x, y);
     }
 
     @Override
