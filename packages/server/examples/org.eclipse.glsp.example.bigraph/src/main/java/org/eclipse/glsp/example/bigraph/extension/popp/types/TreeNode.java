@@ -1,13 +1,15 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
+import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventEmitter;
+import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
 
-public abstract class TreeNode<T extends TreeNode<T>> {
+import java.util.*;
+
+public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListener, POPPEventEmitter {
+    private final List<POPPEventListener> listeners = new LinkedList<>();
     private final String id;
+    private final NodeKind kind;
     private String description;
     private double x;
     private double y;
@@ -16,11 +18,11 @@ public abstract class TreeNode<T extends TreeNode<T>> {
     protected T parent;
     protected final List<T> children = new ArrayList<>();
 
-    protected TreeNode(String description, double x, double y) {
-        this(UUID.randomUUID().toString(), description, x, y);
+    protected TreeNode(NodeKind kind, String description, double x, double y) {
+        this(kind, UUID.randomUUID().toString(), description, x, y);
     }
 
-    protected TreeNode(String id, String description, double x, double y) {
+    protected TreeNode(NodeKind kind, String id, String description, double x, double y) {
         if (id == null || id.isBlank()) {
             throw new IllegalArgumentException("id must not be null or blank");
         }
@@ -28,6 +30,11 @@ public abstract class TreeNode<T extends TreeNode<T>> {
         this.description = Objects.requireNonNull(description);
         this.x = x;
         this.y = y;
+        this.kind = kind;
+    }
+
+    public NodeKind getKind() {
+        return kind;
     }
 
     protected abstract T self();
@@ -41,23 +48,24 @@ public abstract class TreeNode<T extends TreeNode<T>> {
     }
 
     public void setDescription(String description) {
+        POPPEvent event = new POPPEvent.NodeDescriptionChanged(kind, self(), this.description);
         this.description = description;
+        emitEvent(event);
     }
 
     public double getX() {
         return x;
     }
 
-    public void setX(double x) {
-        this.x = x;
-    }
-
     public double getY() {
         return y;
     }
 
-    public void setY(double y) {
+    public void move(double x, double y) {
+        POPPEvent event = new POPPEvent.NodeMoved(kind, self(), this.x, this.y);
+        this.x = x;
         this.y = y;
+        emitEvent(event);
     }
 
     public Optional<T> getParent() {
@@ -78,7 +86,7 @@ public abstract class TreeNode<T extends TreeNode<T>> {
 
         if (decompositionType == DecompositionType.NONE){
             /** Fallback {@link DecompositionType} value. */
-            decompositionType = DecompositionType.AND;
+            setDecompositionType(DecompositionType.AND);
         }
 
         child.getParent().ifPresent(oldParent -> {
@@ -89,6 +97,7 @@ public abstract class TreeNode<T extends TreeNode<T>> {
 
         child.parent = self();
         children.add(child);
+        child.addListener(this);
         return true;
     }
 
@@ -116,10 +125,12 @@ public abstract class TreeNode<T extends TreeNode<T>> {
             this.parent.children.remove(self());
         }
 
+        POPPEvent event = new POPPEvent.NodeChangeParent(kind, self(), this.parent, parent);
         this.parent = parent;
         if (parent != null && !parent.children.contains(self())) {
             parent.children.add(self());
         }
+        emitEvent(event);
         return true;
     }
 
@@ -171,7 +182,9 @@ public abstract class TreeNode<T extends TreeNode<T>> {
             return false;
         }
 
+        POPPEvent event = new POPPEvent.NodeDecompositionTypeChanged(kind, self(), this.decompositionType);
         this.decompositionType = decompositionType;
+        emitEvent(event);
         return true;
     }
 
@@ -187,5 +200,18 @@ public abstract class TreeNode<T extends TreeNode<T>> {
     @Override
     public String toString() {
         return getClass().getSimpleName() + "[id=" + id + "]";
+    }
+
+    public List<POPPEventListener> getListeners() {
+        return listeners;
+    }
+
+    @Override
+    public void onPOPPEvent(POPPEvent event) {
+        emitEvent(event);
+    }
+
+    private void emitEvent(POPPEvent event){
+        listeners.forEach(listener -> listener.onPOPPEvent(event));
     }
 }

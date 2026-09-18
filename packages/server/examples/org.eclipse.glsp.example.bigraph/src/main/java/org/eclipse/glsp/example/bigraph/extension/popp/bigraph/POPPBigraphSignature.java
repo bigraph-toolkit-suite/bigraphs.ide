@@ -30,14 +30,12 @@ public final class POPPBigraphSignature {
     public static final String CTRL_AND_DECOMP = "AndDecomp";
     public static final String CTRL_OR_DECOMP = "OrDecomp";
 
-    public static final String CTRL_TRACE_PG = "TracePG";
-    public static final String CTRL_TRACE_GS = "TraceGS";
-    public static final String CTRL_TRACE_SP = "TraceSP";
-    public static final String CTRL_TRACE_CR = "TraceCR";
-    public static final String CTRL_TRACE_PC = "TracePC";
-
-    public static final String CTRL_COVERED = "Covered";
-    public static final String CTRL_SATISFIED = "Satisfied";
+    public static final String CTRL_PORT_CONNECT_PROBLEM_GOAL = "PortConnectProblemGoal";
+    public static final String CTRL_PORT_CONNECT_GOAL_SOLUTION = "PortConnectGoalSolution";
+    public static final String CTRL_PORT_CONNECT_GOAL_SUCCESS_CRITERIA = "PortConnectSuccessCriteria";
+    public static final String CTRL_PORT_CONNECT_PROBLEM_CONSEQUENCE = "PortConnectProblemConsequence";
+    public static final String CTRL_PORT_CONNECT_SUCCESS_CRITERIA_SUCCESS_PROOF = "PortConnectSuccessCriteriaSuccessProof";
+    public static final String CTRL_PORT_CONNECT_SOLUTION_SUCCESS_PROOF = "PortConnectSolutionSuccessProof";
 
     private POPPBigraphSignature() {
     }
@@ -63,14 +61,11 @@ public final class POPPBigraphSignature {
                 .newControl().identifier(CTRL_AND_DECOMP).arity(FiniteOrdinal.ofInteger(0)).assign()
                 .newControl().identifier(CTRL_OR_DECOMP).arity(FiniteOrdinal.ofInteger(0)).assign()
 
-                .newControl().identifier(CTRL_TRACE_PG).arity(FiniteOrdinal.ofInteger(2)).assign()
-                .newControl().identifier(CTRL_TRACE_GS).arity(FiniteOrdinal.ofInteger(2)).assign()
-                .newControl().identifier(CTRL_TRACE_SP).arity(FiniteOrdinal.ofInteger(2)).assign()
-                .newControl().identifier(CTRL_TRACE_CR).arity(FiniteOrdinal.ofInteger(2)).assign()
-                .newControl().identifier(CTRL_TRACE_PC).arity(FiniteOrdinal.ofInteger(2)).assign()
-
-                .newControl().identifier(CTRL_COVERED).arity(FiniteOrdinal.ofInteger(0)).assign()
-                .newControl().identifier(CTRL_SATISFIED).arity(FiniteOrdinal.ofInteger(0)).assign()
+                .newControl().identifier(CTRL_PORT_CONNECT_PROBLEM_GOAL).arity(FiniteOrdinal.ofInteger(1)).assign()
+                .newControl().identifier(CTRL_PORT_CONNECT_GOAL_SOLUTION).arity(FiniteOrdinal.ofInteger(1)).assign()
+                .newControl().identifier(CTRL_PORT_CONNECT_GOAL_SUCCESS_CRITERIA).arity(FiniteOrdinal.ofInteger(1)).assign()
+                .newControl().identifier(CTRL_PORT_CONNECT_PROBLEM_CONSEQUENCE).arity(FiniteOrdinal.ofInteger(1)).assign()
+                .newControl().identifier(CTRL_PORT_CONNECT_SUCCESS_CRITERIA_SUCCESS_PROOF).arity(FiniteOrdinal.ofInteger(1)).assign()
                 .create();
     }
 }
