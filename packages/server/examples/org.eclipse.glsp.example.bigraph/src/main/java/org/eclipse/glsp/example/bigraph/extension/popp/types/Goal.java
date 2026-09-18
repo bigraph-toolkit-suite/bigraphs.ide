@@ -1,12 +1,12 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 public class Goal extends TreeNode<Goal> {
-    public Goal(String description, double x, double y) {
-        super(description, x, y);
+    Goal(String description, double x, double y) {
+        super(NodeKind.GOAL, description, x, y);
     }
 
-    public Goal(String id, String description, double x, double y) {
-        super(id, description, x, y);
+    Goal(String id, String description, double x, double y) {
+        super(NodeKind.GOAL, id, description, x, y);
     }
 
     @Override
