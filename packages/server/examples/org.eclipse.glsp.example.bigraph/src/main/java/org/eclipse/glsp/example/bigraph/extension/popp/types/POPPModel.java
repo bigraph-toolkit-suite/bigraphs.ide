@@ -33,6 +33,7 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
 
         N create(String description, double x, double y) {
             N node = factory.create(description, x, y);
+            addRoot(node); // Created with no parent
             emitEvent(new POPPEvent.NodeCreated(node.getKind(), node));
             return node;
         }
