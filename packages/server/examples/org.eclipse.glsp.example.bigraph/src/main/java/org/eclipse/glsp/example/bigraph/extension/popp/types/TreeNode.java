@@ -112,29 +112,27 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
     }
 
     public boolean setParent(T parent) {
-        if (parent == self()) {
-            return false;
-        }
-        if (parent != null && parent.isChildOf(self())) {
+        if (parent == self() || (parent != null && parent.isChildOf(self()))) {
             return false;
         }
         if (this.parent == parent) {
             return true;
         }
 
-        POPPEvent event = new POPPEvent.NodeChangeParent(kind, self(), this.parent, parent);
+        TreeNode<T> oldParent = this.parent;
+        POPPEvent event = new POPPEvent.NodeChangeParent(kind, self(), oldParent, parent);
 
-        if (this.parent != null) {
+        if (oldParent != null) {
             if (parent == null) emitEvent(event);
-            this.parent.removeChild(self());
+            oldParent.removeChild(self());
         }
 
-        TreeNode<T> oldParent = this.parent;
         this.parent = parent;
         if (parent != null && !parent.children.contains(self())) {
             parent.children.add(self());
         }
-        if (!(parent == null && oldParent != null)) {
+
+        if (oldParent == null || parent != null) {
             emitEvent(event);
         }
         return true;
