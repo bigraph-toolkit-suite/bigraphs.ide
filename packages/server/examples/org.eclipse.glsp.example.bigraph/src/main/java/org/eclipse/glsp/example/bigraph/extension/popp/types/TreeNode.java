@@ -95,7 +95,7 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
             }
         });
 
-        child.parent = self();
+        child.setParent(self());
         children.add(child);
         child.addListener(this);
         return true;
@@ -106,7 +106,8 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
             return false;
         }
         children.remove(child);
-        child.parent = null;
+        child.setParent(null);
+        child.removeListener(this);
         return true;
     }
 
@@ -121,16 +122,21 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
             return true;
         }
 
+        POPPEvent event = new POPPEvent.NodeChangeParent(kind, self(), this.parent, parent);
+
         if (this.parent != null) {
-            this.parent.children.remove(self());
+            if (parent == null) emitEvent(event);
+            this.parent.removeChild(self());
         }
 
-        POPPEvent event = new POPPEvent.NodeChangeParent(kind, self(), this.parent, parent);
+        TreeNode<T> oldParent = this.parent;
         this.parent = parent;
         if (parent != null && !parent.children.contains(self())) {
             parent.children.add(self());
         }
-        emitEvent(event);
+        if (!(parent == null && oldParent != null)) {
+            emitEvent(event);
+        }
         return true;
     }
 
@@ -212,6 +218,6 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
     }
 
     private void emitEvent(POPPEvent event){
-        listeners.forEach(listener -> listener.onPOPPEvent(event));
+        new ArrayList<>(listeners).forEach(listener -> listener.onPOPPEvent(event));
     }
 }

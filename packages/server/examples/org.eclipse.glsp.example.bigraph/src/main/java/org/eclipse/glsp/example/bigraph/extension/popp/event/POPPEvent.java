@@ -24,6 +24,7 @@ public sealed interface POPPEvent {
     record NodeRemoved(NodeKind kind, TreeNode<?> node) implements POPPEvent {
     }
 
+    /** There is no guarantee that node is updated before the event is handled, therefore the newParent should be used. */
     record NodeChangeParent(NodeKind kind, TreeNode<?> node, TreeNode<?> oldParent, TreeNode<?> newParent) implements POPPEvent {
     }
 
