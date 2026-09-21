@@ -2,10 +2,12 @@
 
 Contains the code for the Java-based framework to create [GLSP](https://github.com/eclipse-glsp/glsp) server components.
 
+This fork does **not** include the upstream Workflow example (`org.eclipse.glsp.example.workflow`). The Bigraph diagram backend lives in `examples/org.eclipse.glsp.example.bigraph` and is built separately after the plugins are installed.
+
 ## Building
 
 The GLSP server bundles are built with Java 17 or higher and maven.
-Execute `mvn clean verify -Pm2` (for maven) or `mvn clean verify -Pp2` (for p2).
+Execute `mvn clean install -Pm2 -DskipTests -Dcheckstyle.skip` (for maven jars in `~/.m2`) or `mvn clean verify -Pp2` (for p2).
 The nightly builds are available as maven repository or p2 update site.
 
 ### Maven Repositories 
@@ -29,72 +31,11 @@ All changes on the master branch are deployed automatically to the corresponding
 - `org.eclipse.glsp.server.emf`: Reusable implementations if an [EMF](https://www.eclipse.org/modeling/emf/)-based source model is used
 - `org.eclipse.glsp.server.websocket`: Extension of the base server implementation for communication over websockets
 
-- `org.eclipse.glsp.example.workflow`: GLSP server for the Workflow Diagram example
+- `org.eclipse.glsp.example.bigraph`: Bigraph diagram backend (this fork; not part of the plugin reactor)
 
-## Workflow Diagram Example
+## Bigraph example
 
-The workflow diagram is a consistent example provided by all GLSP components.
-The example implements a simple flow chart diagram editor with different types of nodes and edges (see screenshot below).
-The example can be used to try out different GLSP features, as well as several available integrations with IDE platforms (Theia, VS Code, Eclipse, Standalone).
-As the example is fully open source, you can also use it as a blueprint for a custom implementation of a GLSP diagram editor.
-See [our project website](https://www.eclipse.org/glsp/documentation/#workflowoverview) for an overview of the workflow example and all components implementing it.
-
-https://user-images.githubusercontent.com/588090/154459938-849ca684-11b3-472c-8a59-98ea6cb0b4c1.mp4
-
-### How to start the Workflow Diagram example?
-
-To see the diagram in action, you need to choose and launch one diagram client, see [here for an overview of available clients](https://www.eclipse.org/glsp/examples/#workflowoverview).
-
--   [`glsp-theia-integration`](https://github.com/eclipse-glsp/glsp-theia-integration): Diagrams clients integrated into [Theia](https://github.com/theia-ide/theia).
--   [`glsp-vscode-integration`](https://github.com/eclipse-glsp/glsp-vscode-integration): Diagram clients integrated into [VS Code](https://github.com/microsoft/vscode).
--   [`glsp-eclipse-integration`](https://github.com/eclipse-glsp/glsp-eclipse-integration): Diagram clients integrated into Eclipse IDE.
-
-Please look at the workflow example guides in the repository linked above to get more information on building and running the respecitive GLSP clients.
-
-### Building the Workflow Diagram example server
-
-In the root of this repository, run
-
-```bash
-mvn clean verify -Pm2 -Pfatjar
-```
-
-### Execute from IDE
-
-To run the Workflow Diagram example server within an IDE, run the main method of
-[`WorkflowServerLauncher.java`](./examples/org.eclipse.glsp.example.workflow/src/org/eclipse/glsp/example/workflow/launch/WorkflowServerLauncher.java) as a Java Application, located in the module `glsp-server/examples/org.eclipse.glsp.example.workflow.launch`.
-
-### Execute Standalone JAR
-
-In the folder `examples/org.eclipse.glsp.example.workflow/target`, you should have a jar file `org.eclipse.glsp.example.workflow-X.X.X-SNAPSHOT-glsp.jar` whereas `X.X.X` is the current version.
-
-To run the Workflow Diagram example server standalone JAR, run this command in your terminal:
-
-```console
-    cd examples/org.eclipse.glsp.example.workflow/target
-    java -jar org.eclipse.glsp.example.workflow-X.X.X-SNAPSHOT-glsp.jar
-```
-
-#### Usage
-
-```console
-    usage: java -jar org.eclipse.glsp.example.workflow-X.X.X-glsp.jar [-c <arg>] [-d <arg>]
-        [-f <arg>] [-h] [-j <arg>] [-l <arg>] [-p <arg>] [-w]
-
-    options:
-    -c,--consoleLog <arg>      Enable/Disable console logging. [default='true']
-    -d,--logDir <arg>          Set the directory for log files (File logging has to be
-                                enabled)
-    -f,--fileLog <arg>         Enable/Disable file logging. [default='false']
-    -h,--help                  Display usage information about GLSPServerLauncher
-    -j,--jettyLogLevel <arg>   Set the log level for the Jetty websocket server.
-                                [default='INFO']
-    -l,--logLevel <arg>        Set the log level. [default='INFO']
-    -p,--port <arg>            Set server port. [default='0']
-    -w,--websocket             Use websocket launcher instead of default launcher.
-```
-
-Once the server is running, choose a diagram client integration (such as Eclipse Theia, VS Code, Eclipse, or Standalone) below.
+After installing the plugins (`mvn clean install -Pm2 -DskipTests -Dcheckstyle.skip`), package and run the Bigraph server from `examples/org.eclipse.glsp.example.bigraph`. See that module’s README and the repo-root `README.md`.
 
 ### Where to find the sources?
 

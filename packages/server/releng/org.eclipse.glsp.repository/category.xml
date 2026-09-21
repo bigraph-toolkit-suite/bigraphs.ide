@@ -18,9 +18,6 @@
    <bundle id="org.eclipse.glsp.server.websocket.source">
       <category name="org.eclipse.glsp"/>
    </bundle>
-   <bundle id="org.eclipse.glsp.example.workflow">
-      <category name="org.eclipse.glsp.examples"/>
-   </bundle>
    <bundle id="org.eclipse.glsp.server.emf">
       <category name="org.eclipse.glsp"/>
    </bundle>
@@ -29,9 +26,6 @@
    </bundle>
    <bundle id="org.eclipse.glsp.server.websocket">
       <category name="org.eclipse.glsp"/>
-   </bundle>
-   <bundle id="org.eclipse.glsp.example.workflow.source">
-      <category name="org.eclipse.glsp.examples"/>
    </bundle>
    <bundle id="org.apache.logging.log4j.api">
       <category name="org.eclipse.glsp.dependencies"/>
@@ -49,11 +43,6 @@
       <category name="org.eclipse.glsp.dependencies"/>
    </bundle>
    <category-def name="org.eclipse.glsp" label="Eclipse GLSP"/>
-   <category-def name="org.eclipse.glsp.examples" label="GLSP Examples">
-      <description>
-         The GLSP server implementation for the Workflow example
-      </description>
-   </category-def>
    <category-def name="org.eclipse.glsp.dependencies" label="External Dependencies"/>
    <repository-reference location="https://download.eclipse.org/elk/updates/releases/0.9.1/" name="ELK 0.9.1" enabled="true" />
    <repository-reference location="https://download.eclipse.org/tools/orbit/simrel/maven-jetty/release/12.0.12" name="Orbit- Jetty 12.0.12" enabled="true" />

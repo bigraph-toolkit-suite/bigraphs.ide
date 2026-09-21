@@ -13,6 +13,7 @@ Once per clone / after dependency updates.
 | | Folder | Task |
 |---|---|---|
 | **Framework** (separate repo) | — | No VS Code task. From your [Bigraph Framework](https://github.com/bigraphs/bigraph-framework) clone: `mvn initialize && mvn clean install -DskipTests` |
+| **GLSP plugins** | **Server** | Terminal → Run Task → **Install GLSP Server Plugins** (once per clone / after changes under `packages/server/plugins`). Installs `2.5.0-SNAPSHOT` jars into `~/.m2`. |
 | **Frontend** | **VSCode Extension** | Terminal → Run Task → **Install Dependencies** |
 
 ### Build and run
@@ -57,9 +58,20 @@ mvn clean install -DskipTests
 
 Use `-DskipTests` if tests fail (see [Troubleshooting](#troubleshooting)).
 
+### GLSP server plugins
+
+The Bigraph backend depends on this fork’s `org.eclipse.glsp.*` artifacts at **`2.5.0-SNAPSHOT`**. Install them into `~/.m2` before packaging the example (this fork does **not** include the upstream Workflow example):
+
+```bash
+cd packages/server
+mvn clean install -Pm2 -DskipTests -Dcheckstyle.skip
+```
+
+Use **`-Pm2`** (Maven jars). A plain `mvn` here activates the default **`p2`** Tycho profile, which is not what the Bigraph JAR uses.
+
 ### Backend (GLSP Bigraph server)
 
-Build the **Bigraph example** module (not the whole GLSP reactor unless you need it):
+Then build the **Bigraph example** module:
 
 ```bash
 cd packages/server/examples/org.eclipse.glsp.example.bigraph
@@ -69,7 +81,7 @@ java -jar target/org.eclipse.glsp.example.bigraph-2.5.0-SNAPSHOT.jar -p 52579
 
 The client expects **port `52579`**. Override with **`GLSP_SERVER_HOST`** / **`GLSP_SERVER_PORT`** when developing (see `packages/vscode-extension/src/glsp/connector.ts`).
 
-This is the same as the **Server** tasks **Build GLSP Bigraph Server** and **Build and Launch JAR**.
+Installing plugins is the **Server** task **Install GLSP Server Plugins**. Packaging/running the example is **Build GLSP Bigraph Server** and **Build and Launch JAR**.
 
 ### Frontend (VS Code extension)
 

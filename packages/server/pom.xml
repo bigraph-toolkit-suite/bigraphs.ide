@@ -125,7 +125,6 @@
 				<module>plugins/org.eclipse.glsp.server.websocket</module>
 				<module>plugins/org.eclipse.glsp.layout</module>
 				<module>plugins/org.eclipse.glsp.graph</module>
-				<module>examples/org.eclipse.glsp.example.workflow</module>
 				<module>releng</module>
 			</modules>
 			<build>
@@ -261,7 +260,6 @@
 				<module>plugins/org.eclipse.glsp.server</module>
 				<module>plugins/org.eclipse.glsp.server.emf</module>
 				<module>plugins/org.eclipse.glsp.server.websocket</module>
-				<module>examples/org.eclipse.glsp.example.workflow</module>
 				<module>tests</module>
 			</modules>
 
@@ -354,7 +352,6 @@
 				<module>plugins/org.eclipse.glsp.layout</module>
 				<module>plugins/org.eclipse.glsp.server</module>
 				<module>plugins/org.eclipse.glsp.server.websocket</module>
-				<module>examples/org.eclipse.glsp.example.workflow</module>
 			</modules>
 
 
