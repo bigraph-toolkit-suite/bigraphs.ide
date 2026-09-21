@@ -609,6 +609,7 @@ async function dispatchToGlsp(params: {
 		actionType: params.actionType,
 		rules: params.rules.map((r) => ({
 			id: r.id,
+			label: r.label,
 			redex: path.join(params.evolutionFolder, r.redex),
 			reactum: path.join(params.evolutionFolder, r.reactum)
 		})),
