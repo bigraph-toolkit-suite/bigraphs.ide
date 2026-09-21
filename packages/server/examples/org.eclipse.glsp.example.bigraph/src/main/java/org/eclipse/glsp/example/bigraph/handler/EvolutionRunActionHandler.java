@@ -38,17 +38,18 @@ import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.bigraphs.framework.core.reactivesystem.ParametricReactionRule;
 import org.bigraphs.framework.simulation.matching.MatchIterable;
 import org.bigraphs.framework.simulation.matching.pure.PureBigraphMatcher;
-import org.eclipse.glsp.example.bigraph.DemoBigraphCreator;
+import org.eclipse.glsp.example.bigraph.actions.EvolutionFinishedAction;
 import org.eclipse.glsp.example.bigraph.actions.EvolutionRunAction;
 import org.eclipse.glsp.example.bigraph.actions.EvolutionRunAction.RuleRef;
 import org.eclipse.glsp.example.bigraph.actions.EvolutionRunAction.VerificationRef;
-import org.eclipse.glsp.example.bigraph.actions.EvolutionFinishedAction;
 import org.eclipse.glsp.example.bigraph.actions.EvolutionStartedAction;
 import org.eclipse.glsp.example.bigraph.actions.PublishEvolutionStateAction;
+import org.eclipse.glsp.example.bigraph.evolution.AppliedRewrite;
 import org.eclipse.glsp.example.bigraph.evolution.EvolutionOperation;
 import org.eclipse.glsp.example.bigraph.evolution.EvolutionRegistry;
 import org.eclipse.glsp.example.bigraph.evolution.EvolutionSignatures;
 import org.eclipse.glsp.example.bigraph.evolution.RuleApplicationStrategy;
+import org.eclipse.glsp.example.bigraph.evolution.RuleRewrite;
 import org.eclipse.glsp.example.bigraph.extensions.EvolutionRunApi;
 import org.eclipse.glsp.example.bigraph.extensions.EvolutionRunHook;
 import org.eclipse.glsp.example.bigraph.extensions.ExtensionList;
@@ -346,13 +347,24 @@ public class EvolutionRunActionHandler extends AbstractActionHandler<EvolutionRu
         }
 
         @Override
+        public String getRuleName(final int ruleIndex) {
+            return EvolutionRunActionHandler.this.ruleName(rules.get(ruleIndex));
+        }
+
+        @Override
         public boolean hasWalkedEdge(final String predecessorCheckpointId, final int ruleIndex) {
             return walkedEdges.containsKey(walkedEdgeKey(predecessorCheckpointId, getRuleId(ruleIndex)));
         }
 
         @Override
         public PureBigraph tryApplyRule(final PureBigraph current, final int ruleIndex) {
-            return EvolutionRunActionHandler.this.tryApplyRule(current, ruleIndex, this);
+            final AppliedRewrite applied = tryApplyRuleWithMatch(current, ruleIndex);
+            return applied == null ? null : applied.result();
+        }
+
+        @Override
+        public AppliedRewrite tryApplyRuleWithMatch(final PureBigraph current, final int ruleIndex) {
+            return EvolutionRunActionHandler.this.tryApplyRuleWithMatch(current, ruleIndex, this);
         }
 
         @Override
@@ -523,18 +535,24 @@ public class EvolutionRunActionHandler extends AbstractActionHandler<EvolutionRu
      */
     private PureBigraph tryApplyRule(final PureBigraph current, final int ruleIndex,
                                      final RunContext ctx) {
+        final AppliedRewrite applied = tryApplyRuleWithMatch(current, ruleIndex, ctx);
+        return applied == null ? null : applied.result();
+    }
+
+    private AppliedRewrite tryApplyRuleWithMatch(final PureBigraph current, final int ruleIndex,
+                                                 final RunContext ctx) {
         final PureBigraph[] pair = ctx.parsedRules.get(ruleIndex);
         if (pair == null) { return null; }
 
         final RuleRef ruleRef = ctx.rules.get(ruleIndex);
-        final PureBigraph result = DemoBigraphCreator.applyRewriteRule(
+        final AppliedRewrite applied = RuleRewrite.apply(
             current, pair[0], pair[1], ruleRef.getId() != null ? ruleRef.getId() : ruleRef.getRedex());
-        if (result == null) {
+        if (applied == null) {
             LOGGER.debug("Rule {} did not match.", ruleRef.getRedex());
             return null;
         }
         LOGGER.info("Applied rule {} (total applied: {})", ruleRef.getRedex(), ctx.totalApplied + 1);
-        return result;
+        return applied;
     }
 
     /**
@@ -580,6 +598,13 @@ public class EvolutionRunActionHandler extends AbstractActionHandler<EvolutionRu
             return ruleRef.getId();
         }
         return new File(ruleRef.getRedex()).getName();
+    }
+
+    private String ruleName(final RuleRef ruleRef) {
+        if (ruleRef.getLabel() != null && !ruleRef.getLabel().isBlank()) {
+            return ruleRef.getLabel();
+        }
+        return ruleId(ruleRef);
     }
 
     /**

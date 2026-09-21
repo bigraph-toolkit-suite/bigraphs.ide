@@ -20,6 +20,7 @@ import java.util.Map;
 
 import org.bigraphs.framework.core.impl.pure.PureBigraph;
 import org.eclipse.glsp.example.bigraph.actions.EvolutionRunAction;
+import org.eclipse.glsp.example.bigraph.evolution.AppliedRewrite;
 
 /**
  * Facade over the core evolution machinery, handed to an
@@ -53,6 +54,13 @@ public interface EvolutionRunApi {
     String getRuleId(int ruleIndex);
 
     /**
+     * Display name of rule {@code ruleIndex} (the label the user sees,
+     * e.g. {@code forward_alloc}). Falls back to {@link #getRuleId} when
+     * the client sent no label.
+     */
+    String getRuleName(int ruleIndex);
+
+    /**
      * Whether {@code evolution.json} already has an operation that applied
      * rule {@code ruleIndex} from {@code predecessorCheckpointId}. Hooks that
      * grow the tree (evolution, exploration) should skip matching in that case;
@@ -66,6 +74,12 @@ public interface EvolutionRunApi {
      * Does <em>not</em> record anything — call {@link #recordApplication} on success.
      */
     PureBigraph tryApplyRule(PureBigraph current, int ruleIndex);
+
+    /**
+     * Same as {@link #tryApplyRule} but keeps the match that produced the result.
+     * {@code null} when the rule did not match.
+     */
+    AppliedRewrite tryApplyRuleWithMatch(PureBigraph current, int ruleIndex);
 
     /**
      * Records a successful application of rule {@code ruleIndex}: increments the

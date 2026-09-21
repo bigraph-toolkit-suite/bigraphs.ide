@@ -25,10 +25,13 @@ public class EvolutionRunAction extends Action {
 
     public static class RuleRef {
         private String id;
+        /** Display name of the rewrite rule (e.g. {@code forward_alloc}). */
+        private String label;
         private String redex;
         private String reactum;
 
         public String getId()      { return id; }
+        public String getLabel()   { return label; }
         public String getRedex()   { return redex; }
         public String getReactum() { return reactum; }
     }

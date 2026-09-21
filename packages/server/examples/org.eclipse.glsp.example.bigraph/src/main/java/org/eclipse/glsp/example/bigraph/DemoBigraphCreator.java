@@ -33,6 +33,7 @@ import org.bigraphs.framework.visualization.BigraphGraphvizExporter;
 import org.bigraphs.framework.core.BigraphFileModelManagement;
 import org.bigraphs.framework.core.reactivesystem.BigraphMatch;
 import org.bigraphs.framework.core.reactivesystem.ParametricReactionRule;
+import org.eclipse.glsp.example.bigraph.evolution.AppliedRewrite;
 import org.bigraphs.framework.core.exceptions.InvalidReactionRuleException;
 import org.bigraphs.framework.simulation.matching.AbstractBigraphMatcher;
 import org.bigraphs.framework.simulation.matching.MatchIterable;
@@ -600,6 +601,16 @@ public class DemoBigraphCreator {
      * @return The transformed bigraph after applying the rewrite rule, or null if no matches found or error occurred
      */
     public static PureBigraph applyRewriteRule(PureBigraph mainBigraph, PureBigraph redex, PureBigraph reactum, String ruleLabel) {
+        AppliedRewrite applied = applyRewriteRuleWithMatch(mainBigraph, redex, reactum, ruleLabel);
+        return applied == null ? null : applied.result();
+    }
+
+    /**
+     * Same as {@link #applyRewriteRule} but keeps the match that was rewritten
+     * (needed to serialize the occurrence). Does not re-match after applying.
+     */
+    public static AppliedRewrite applyRewriteRuleWithMatch(PureBigraph mainBigraph, PureBigraph redex,
+                                                           PureBigraph reactum, String ruleLabel) {
         try {
             LOGGER.info("🔄 Applying rewrite rule operation...");
             
@@ -647,7 +658,7 @@ public class DemoBigraphCreator {
                     LOGGER.info("✅ Rewrite rule applied successfully!");
                     LOGGER.info("📊 Original bigraph had {} nodes", mainBigraph.getNodes().size());
                     LOGGER.info("📊 Transformed bigraph has {} nodes", transformedBigraph.getNodes().size());
-                    return transformedBigraph;
+                    return new AppliedRewrite(transformedBigraph, firstMatch);
                 } else {
                     LOGGER.warn("⚠️ Rule application returned null");
                     return null;

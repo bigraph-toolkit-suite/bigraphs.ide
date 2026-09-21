@@ -34,7 +34,6 @@ import org.eclipse.glsp.server.operations.OperationHandler;
 import org.eclipse.glsp.server.di.MultiBinding;
 import org.eclipse.glsp.example.bigraph.handler.CreateBigraphActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.CreateBigraphControlActionHandler;
-import org.eclipse.glsp.example.bigraph.handler.TestRewriteRuleActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.RenameNodeActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.RequestVariantSwitchActionHandler;
 import org.eclipse.glsp.example.bigraph.handler.ConvertNameRoleActionHandler;
@@ -128,7 +127,6 @@ public class BigraphXMIDiagramModule extends GModelDiagramModule {
         binding.add(RequestVariantSwitchActionHandler.class);
         binding.add(ConvertNameRoleActionHandler.class);
         binding.add(CreateBigraphControlActionHandler.class);
-        binding.add(TestRewriteRuleActionHandler.class);
         binding.add(FileDroppedActionHandler.class);
         binding.add(EvolutionRunActionHandler.class);
         binding.add(PublishEvolutionStateActionHandler.class);
