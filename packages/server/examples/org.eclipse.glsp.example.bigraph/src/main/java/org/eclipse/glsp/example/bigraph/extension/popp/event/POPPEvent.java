@@ -5,7 +5,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
-/** Emitted by {@code POPPOperations} after a domain-model mutation has been applied successfully. */
+/** Emitted after a domain-model mutation has been applied successfully. */
 public sealed interface POPPEvent {
 
     record NodeCreated(NodeKind kind, TreeNode<?> node) implements POPPEvent {
