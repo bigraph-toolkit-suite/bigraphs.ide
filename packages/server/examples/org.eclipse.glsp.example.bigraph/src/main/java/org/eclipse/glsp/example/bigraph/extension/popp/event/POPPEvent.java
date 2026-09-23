@@ -1,9 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.event;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 /** Emitted after a domain-model mutation has been applied successfully. */
 public sealed interface POPPEvent {
@@ -28,7 +25,7 @@ public sealed interface POPPEvent {
     record NodeChangeParent(NodeKind kind, TreeNode<?> node, TreeNode<?> oldParent, TreeNode<?> newParent) implements POPPEvent {
     }
 
-    record RelationCreated(TreeNode<?> source, RelationType type, TreeNode<?> target) implements POPPEvent {
+    record RelationCreated(Relation relation) implements POPPEvent {
     }
 
     record RelationRemoved(TreeNode<?> source, RelationType type, TreeNode<?> target) implements POPPEvent {

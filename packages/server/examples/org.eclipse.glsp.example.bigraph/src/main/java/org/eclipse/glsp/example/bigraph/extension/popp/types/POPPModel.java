@@ -90,7 +90,7 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
         RelationResult result = relations.relate(a, b);
         if (result == RelationResult.CREATED) {
             findRelation(a, b).ifPresent(
-                    relation -> emitEvent(new POPPEvent.RelationCreated(relation.source(), relation.type(), relation.target())));
+                    relation -> emitEvent(new POPPEvent.RelationCreated(relation)));
         }
         return result;
     }

@@ -20,7 +20,7 @@ public class POPPGModelFactory {
             DecompositionType.OR, POPPGModelType.OR_DECOMPOSITION
     );
 
-    private GNode createTreeNode(final TreeNode<?> treeNode){
+    public GNode createTreeNode(final TreeNode<?> treeNode){
         POPPGModelType gtype = POPPGModelType.getFromClass(treeNode.getClass()).orElseThrow();
 
         GLabel labelElement = new GLabelBuilder(POPPGModelType.NODE_DESCRIPTION.toString())
@@ -38,7 +38,7 @@ public class POPPGModelFactory {
         return gnode;
     }
 
-    private GEdge createRelationEdge(final Relation relation) {
+    public GEdge createRelationEdge(final Relation relation) {
         POPPGModelType gtype = POPPGModelType.getFromRelationType(relation.type()).orElseThrow();
 
         return new GEdgeBuilder(gtype.toString())
@@ -48,17 +48,17 @@ public class POPPGModelFactory {
                 .build();
     }
 
-    private String relationEdgeId(Relation relation) {
+    public String relationEdgeId(Relation relation) {
         return relation.source().getId() + "_" + relation.type().name().toLowerCase() + "_" + relation.target().getId();
     }
 
-    private List<GEdge> createRelationEdges(final RelationGraph relationGraph) {
+    public List<GEdge> createRelationEdges(final RelationGraph relationGraph) {
         return relationGraph.all().stream()
                 .map(this::createRelationEdge)
                 .collect(Collectors.toList());
     }
 
-    private GEdge createDecompositionEdge(final TreeNode<?> parent, final TreeNode<?> child) {
+    public GEdge createDecompositionEdge(final TreeNode<?> parent, final TreeNode<?> child) {
         POPPGModelType gtype = DECOMPOSITION_EDGE_TYPE.get(parent.getDecompositionType());
 
         return new GEdgeBuilder(gtype.toString())
@@ -68,12 +68,26 @@ public class POPPGModelFactory {
                 .build();
     }
 
-    private List<GEdge> createDecompositionEdges(final TreeNode<?> node) {
+    public List<GEdge> createDecompositionEdges(final TreeNode<?> node) {
         List<GEdge> edges = new ArrayList<>();
         for (TreeNode<?> child : node.getChildren()) {
             edges.add(createDecompositionEdge(node, child));
             edges.addAll(createDecompositionEdges(child));
         }
         return edges;
+    }
+
+    public GPoint point(final double x, final double y) {
+        GPoint p = GraphFactory.eINSTANCE.createGPoint();
+        p.setX(x);
+        p.setY(y);
+        return p;
+    }
+
+    public GDimension size(final double w, final double h) {
+        GDimension d = GraphFactory.eINSTANCE.createGDimension();
+        d.setWidth(w);
+        d.setHeight(h);
+        return d;
     }
 }
