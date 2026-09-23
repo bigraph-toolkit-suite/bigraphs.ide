@@ -34,7 +34,7 @@ public final class RelationGraph {
     }
 
     /** Whether the two nodes could be connected at all, e.g. to drive drag-and-drop feedback in the UI. */
-    public boolean canRelate(TreeNode<?> a, TreeNode<?> b) {
+    public static boolean canRelate(TreeNode<?> a, TreeNode<?> b) {
         return a != null && b != null && a != b && resolve(a, b).isPresent();
     }
 

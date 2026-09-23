@@ -35,6 +35,7 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
             N node = factory.create(description, x, y);
             addRoot(node); // Created with no parent
             emitEvent(new POPPEvent.NodeCreated(node.getKind(), node));
+            nodeRegistry.put(node.getId(), node);
             return node;
         }
 
@@ -46,6 +47,7 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
 
             node.getParent().ifPresent(parent -> parent.removeChild(node));
             node.getChildren().forEach(child -> child.setParent(null));
+            nodeRegistry.remove(node.getId());
             emitEvent(new POPPEvent.NodeRemoved(node.getKind(), node));
         }
 
@@ -61,6 +63,8 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
             roots.remove(node);
         }
     }
+
+    private final Map<String, TreeNode<?>> nodeRegistry = new HashMap<>();
 
     private final NodeRegistry<Problem> problems = new NodeRegistry<>(Problem::new);
     private final NodeRegistry<Goal> goals = new NodeRegistry<>(Goal::new);
@@ -106,6 +110,10 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
         }
         return relations.outgoing(a).stream().filter(relation -> relation.target() == b || relation.source() == b)
                 .findFirst();
+    }
+
+    public TreeNode<?> findNode(String id) {
+        return nodeRegistry.get(id);
     }
 
     public List<Problem> getProblemRoots() { return problems.roots(); }
