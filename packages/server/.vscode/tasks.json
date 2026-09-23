@@ -9,8 +9,7 @@
                 "clean",
                 "install",
                 "-Pm2",
-                "-DskipTests",
-                "-Dcheckstyle.skip"
+                "-DskipTests"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
