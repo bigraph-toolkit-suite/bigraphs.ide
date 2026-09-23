@@ -45,9 +45,7 @@
 
 		<!-- Maven Plugin Versions: General maven plugin versions -->
 		<buildhelper.maven.version>3.6.0</buildhelper.maven.version>
-		<emfcloud.checkstyle.version>0.1.0-SNAPSHOT</emfcloud.checkstyle.version>
 		<maven.antrun.version>3.1.0</maven.antrun.version>
-		<maven.checkstyle.version>3.4.0</maven.checkstyle.version>
 		<maven.clean.version>3.4.0</maven.clean.version>
 		<maven.compiler.version>3.11.0</maven.compiler.version>
 		<maven.dependency.version>3.7.1</maven.dependency.version>
@@ -74,7 +72,7 @@
 		<google.guice.version>[7.0.0,)</google.guice.version>
 		<google.gson.version>[2.10.1,)</google.gson.version>
 		<junit.jupiter.engine.version>[5.7.1,6.0.0)</junit.jupiter.engine.version>
-		<lsp4j.version>[0.21.0,)</lsp4j.version>
+		<lsp4j.version>1.0.0</lsp4j.version>
 		<jetty.websocket.version>[12.0.3,)</jetty.websocket.version>
 
 
@@ -250,10 +248,6 @@
 				<activeByDefault>false</activeByDefault>
 			</activation>
 
-			<properties>
-				<checkstyle.version>8.44</checkstyle.version>
-			</properties>
-
 			<modules>
 				<module>plugins/org.eclipse.glsp.graph</module>
 				<module>plugins/org.eclipse.glsp.layout</module>
@@ -309,37 +303,6 @@
 						<groupId>org.apache.maven.plugins</groupId>
 						<artifactId>maven-failsafe-plugin</artifactId>
 						<version>${maven.failsafe.version}</version>
-					</plugin>
-					<!-- to disable use -Dcheckstyle.skip -->
-					<plugin>
-						<groupId>org.apache.maven.plugins</groupId>
-						<artifactId>maven-checkstyle-plugin</artifactId>
-						<version>${maven.checkstyle.version}</version>
-						<configuration>
-							<configLocation>emfcloud-checkstyle-${checkstyle.version}.xml</configLocation>
-							<consoleOutput>true</consoleOutput>
-							<excludes>**/src-gen/**/*.java</excludes>
-						</configuration>
-						<executions>
-							<execution>
-								<phase>validate</phase>
-								<goals>
-									<goal>check</goal>
-								</goals>
-							</execution>
-						</executions>
-						<dependencies>
-							<dependency>
-								<groupId>org.eclipse.emfcloud</groupId>
-								<artifactId>org.eclipse.emfcloud.checkstyle</artifactId>
-								<version>${emfcloud.checkstyle.version}</version>
-							</dependency>
-							<dependency>
-								<groupId>com.puppycrawl.tools</groupId>
-								<artifactId>checkstyle</artifactId>
-								<version>${checkstyle.version}</version>
-							</dependency>
-						</dependencies>
 					</plugin>
 				</plugins>
 			</build>

@@ -104,10 +104,9 @@ public class DefaultGLSPServer implements GLSPServer {
       return CompletableFuture.completedFuture(result);
    }
 
-   @SuppressWarnings("deprecation")
    protected void validateServerInitialized() {
       if (!isInitialized()) {
-         throw new ResponseErrorException(new ResponseError(ResponseErrorCode.serverNotInitialized,
+         throw new ResponseErrorException(new ResponseError(ResponseErrorCode.ServerNotInitialized,
             "The GLSP server has not been initialized.", null));
       }
    }
