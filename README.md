@@ -64,7 +64,7 @@ The Bigraph backend depends on this fork’s `org.eclipse.glsp.*` artifacts at *
 
 ```bash
 cd packages/server
-mvn clean install -Pm2 -DskipTests -Dcheckstyle.skip
+mvn clean install -Pm2 -DskipTests
 ```
 
 Use **`-Pm2`** (Maven jars). A plain `mvn` here activates the default **`p2`** Tycho profile, which is not what the Bigraph JAR uses.

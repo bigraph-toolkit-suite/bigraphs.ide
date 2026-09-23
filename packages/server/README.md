@@ -7,7 +7,7 @@ This fork does **not** include the upstream Workflow example (`org.eclipse.glsp.
 ## Building
 
 The GLSP server bundles are built with Java 17 or higher and maven.
-Execute `mvn clean install -Pm2 -DskipTests -Dcheckstyle.skip` (for maven jars in `~/.m2`) or `mvn clean verify -Pp2` (for p2).
+Execute `mvn clean install -Pm2 -DskipTests` (for maven jars in `~/.m2`) or `mvn clean verify -Pp2` (for p2).
 The nightly builds are available as maven repository or p2 update site.
 
 ### Maven Repositories 
@@ -35,7 +35,7 @@ All changes on the master branch are deployed automatically to the corresponding
 
 ## Bigraph example
 
-After installing the plugins (`mvn clean install -Pm2 -DskipTests -Dcheckstyle.skip`), package and run the Bigraph server from `examples/org.eclipse.glsp.example.bigraph`. See that module’s README and the repo-root `README.md`.
+After installing the plugins (`mvn clean install -Pm2 -DskipTests`), package and run the Bigraph server from `examples/org.eclipse.glsp.example.bigraph`. See that module’s README and the repo-root `README.md`.
 
 ### Where to find the sources?
 
