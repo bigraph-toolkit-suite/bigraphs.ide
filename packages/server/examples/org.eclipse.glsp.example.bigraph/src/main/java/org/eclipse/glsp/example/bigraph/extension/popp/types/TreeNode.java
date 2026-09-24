@@ -120,7 +120,7 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
         }
 
         TreeNode<T> oldParent = this.parent;
-        POPPEvent event = new POPPEvent.NodeChangeParent(kind, self(), oldParent, parent);
+        POPPEvent event = new POPPEvent.NodeChangedParent(kind, self(), oldParent, parent);
 
         if (oldParent != null) {
             if (parent == null) emitEvent(event);

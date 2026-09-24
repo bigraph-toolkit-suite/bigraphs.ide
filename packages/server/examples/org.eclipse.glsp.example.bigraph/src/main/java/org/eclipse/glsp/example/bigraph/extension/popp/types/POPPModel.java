@@ -180,13 +180,13 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
 
     @Override
     public void onPOPPEvent(final POPPEvent event) {
-        if (Objects.requireNonNull(event) instanceof POPPEvent.NodeChangeParent e) {
+        if (Objects.requireNonNull(event) instanceof POPPEvent.NodeChangedParent e) {
             handleParentChange(e);
         }
         emitEvent(event);
     }
 
-    private void handleParentChange(POPPEvent.NodeChangeParent event) {
+    private void handleParentChange(POPPEvent.NodeChangedParent event) {
         boolean becameRoot = event.oldParent() != null && event.newParent() == null;
         boolean lostRootStatus = event.oldParent() == null && event.newParent() != null;
         if (!becameRoot && !lostRootStatus) return;

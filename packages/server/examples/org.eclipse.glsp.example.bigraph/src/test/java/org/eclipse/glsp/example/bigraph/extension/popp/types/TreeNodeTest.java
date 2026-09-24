@@ -78,8 +78,8 @@ class TreeNodeTest {
 
         child.addListener((event) -> {
             eventHandled.set(true);
-            assertInstanceOf(POPPEvent.NodeChangeParent.class, event);
-            POPPEvent.NodeChangeParent e = (POPPEvent.NodeChangeParent) event;
+            assertInstanceOf(POPPEvent.NodeChangedParent.class, event);
+            POPPEvent.NodeChangedParent e = (POPPEvent.NodeChangedParent) event;
             assertEquals(e.node(), child);
             assertEquals(e.newParent(), root);
             assertNull(e.oldParent());
