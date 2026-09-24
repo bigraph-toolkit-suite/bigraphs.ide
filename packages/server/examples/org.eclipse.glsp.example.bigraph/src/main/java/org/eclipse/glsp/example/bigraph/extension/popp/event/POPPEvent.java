@@ -22,7 +22,7 @@ public sealed interface POPPEvent {
     }
 
     /** There is no guarantee that node is updated before the event is handled, therefore the newParent should be used. */
-    record NodeChangeParent(NodeKind kind, TreeNode<?> node, TreeNode<?> oldParent, TreeNode<?> newParent) implements POPPEvent {
+    record NodeChangedParent(NodeKind kind, TreeNode<?> node, TreeNode<?> oldParent, TreeNode<?> newParent) implements POPPEvent {
     }
 
     record RelationCreated(Relation relation) implements POPPEvent {
