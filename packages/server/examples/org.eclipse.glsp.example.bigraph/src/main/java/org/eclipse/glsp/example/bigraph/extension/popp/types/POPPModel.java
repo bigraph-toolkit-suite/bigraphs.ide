@@ -48,6 +48,8 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
             node.getParent().ifPresent(parent -> parent.removeChild(node));
             node.getChildren().forEach(child -> child.setParent(null));
             nodeRegistry.remove(node.getId());
+            relations.incoming(node).forEach(relation -> unrelate(relation.source(), node));
+            relations.outgoing(node).forEach(relation -> unrelate(node, relation.target()));
             emitEvent(new POPPEvent.NodeRemoved(node.getKind(), node));
         }
 
