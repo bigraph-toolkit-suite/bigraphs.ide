@@ -14,13 +14,20 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
         N create(String description, double x, double y);
     }
 
+    @FunctionalInterface
+    private interface NodeFactoryWithId<N extends TreeNode<N>> {
+        N create(String id, String description, double x, double y);
+    }
+
     /** Owns everything specific to one node kind: its root list, creation, deletion and root-membership bookkeeping. */
     private final class NodeRegistry<N extends TreeNode<N>> {
         private final List<N> roots = new LinkedList<>();
         private final NodeFactory<N> factory;
+        private final NodeFactoryWithId<N> restoreFactory;
 
-        NodeRegistry(NodeFactory<N> factory) {
+        NodeRegistry(NodeFactory<N> factory, NodeFactoryWithId<N> restoreFactory) {
             this.factory = factory;
+            this.restoreFactory = restoreFactory;
         }
 
         List<N> roots() {
@@ -34,6 +41,15 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
         N create(String description, double x, double y) {
             N node = factory.create(description, x, y);
             addRoot(node); // Created with no parent
+            emitEvent(new POPPEvent.NodeCreated(node.getKind(), node));
+            nodeRegistry.put(node.getId(), node);
+            return node;
+        }
+
+        /** Like {@link #create}, but preserves a given id instead of generating one. */
+        N restore(String id, String description, double x, double y) {
+            N node = restoreFactory.create(id, description, x, y);
+            addRoot(node); // Registered as a root until/unless a subsequent addChild reparents it
             emitEvent(new POPPEvent.NodeCreated(node.getKind(), node));
             nodeRegistry.put(node.getId(), node);
             return node;
@@ -68,12 +84,12 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
 
     private final Map<String, TreeNode<?>> nodeRegistry = new HashMap<>();
 
-    private final NodeRegistry<Problem> problems = new NodeRegistry<>(Problem::new);
-    private final NodeRegistry<Goal> goals = new NodeRegistry<>(Goal::new);
-    private final NodeRegistry<Consequence> consequences = new NodeRegistry<>(Consequence::new);
-    private final NodeRegistry<Solution> solutions = new NodeRegistry<>(Solution::new);
-    private final NodeRegistry<SuccessCriteria> successCriteria = new NodeRegistry<>(SuccessCriteria::new);
-    private final NodeRegistry<SuccessProof> successProofs = new NodeRegistry<>(SuccessProof::new);
+    private final NodeRegistry<Problem> problems = new NodeRegistry<>(Problem::new, Problem::new);
+    private final NodeRegistry<Goal> goals = new NodeRegistry<>(Goal::new, Goal::new);
+    private final NodeRegistry<Consequence> consequences = new NodeRegistry<>(Consequence::new, Consequence::new);
+    private final NodeRegistry<Solution> solutions = new NodeRegistry<>(Solution::new, Solution::new);
+    private final NodeRegistry<SuccessCriteria> successCriteria = new NodeRegistry<>(SuccessCriteria::new, SuccessCriteria::new);
+    private final NodeRegistry<SuccessProof> successProofs = new NodeRegistry<>(SuccessProof::new, SuccessProof::new);
 
     private final RelationGraph relations = new RelationGraph();
     private final CoverageAnalyzer coverage = new CoverageAnalyzer(relations);
@@ -116,6 +132,17 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
 
     public TreeNode<?> findNode(String id) {
         return nodeRegistry.get(id);
+    }
+
+    public TreeNode<?> restoreNode(NodeKind kind, String id, String description, double x, double y) {
+        return switch (kind) {
+            case PROBLEM -> problems.restore(id, description, x, y);
+            case GOAL -> goals.restore(id, description, x, y);
+            case CONSEQUENCE -> consequences.restore(id, description, x, y);
+            case SOLUTION -> solutions.restore(id, description, x, y);
+            case SUCCESS_CRITERIA -> successCriteria.restore(id, description, x, y);
+            default -> successProofs.restore(id, description, x, y);
+        };
     }
 
     public List<Problem> getProblemRoots() { return problems.roots(); }
