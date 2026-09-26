@@ -1,5 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
 
+import com.google.inject.Singleton;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
@@ -13,6 +14,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
  * model. All bigraph shape/mutation logic lives in {@link POPPBigraph}, this
  * class only decides, per event, which {@link POPPBigraph} operations to call.
  */
+@Singleton
 public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
     private final POPPBigraph poppBigraph;
 
