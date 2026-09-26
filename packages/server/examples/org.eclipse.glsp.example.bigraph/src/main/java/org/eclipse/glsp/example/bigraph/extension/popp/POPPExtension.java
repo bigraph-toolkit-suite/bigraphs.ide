@@ -1,14 +1,19 @@
 package org.eclipse.glsp.example.bigraph.extension.popp;
 
 import com.google.inject.Binder;
+import com.google.inject.Injector;
 import com.google.inject.Singleton;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphLoader;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPEdgeCreationChecker;
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPTypeHints;
 import org.eclipse.glsp.example.bigraph.extension.popp.handler.CreatePOPPBigraphNodeOperationHandler;
 import org.eclipse.glsp.example.bigraph.extensions.ExtensionStateKey;
 import org.eclipse.glsp.example.bigraph.extensions.IdeExtension;
+import org.eclipse.glsp.example.bigraph.model.IBigraphModelState;
 import org.eclipse.glsp.example.bigraph.model.ModelVariant;
 import org.eclipse.glsp.server.actions.ActionHandler;
 import org.eclipse.glsp.server.features.typehints.EdgeCreationChecker;
@@ -80,7 +85,16 @@ public class POPPExtension implements IdeExtension {
     public void configure(final Binder binder) {
         binder.bind(POPPExtensionContext.class).in(Singleton.class);
         binder.bind(POPPEdgeCreationChecker.class).in(Singleton.class);
+        binder.bind(POPPGModelSynchronizer.class).in(Singleton.class);
+        binder.bind(POPPBigraphSynchronizer.class).in(Singleton.class);
+        binder.bind(POPPBigraphLoader.class).in(Singleton.class);
     }
+
+    @Override
+    public void onModelLoaded(final IBigraphModelState state, final Injector injector) {
+        injector.getInstance(POPPBigraphLoader.class).loadModelFromBigraph(state.getMutableBigraph());
+    }
+
 
     @Override
     public Optional<Class<? extends EdgeCreationChecker>> getEdgeCreationChecker() {

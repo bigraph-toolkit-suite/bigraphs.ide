@@ -1,8 +1,12 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
 
+import com.google.inject.Inject;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
+import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionState;
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
@@ -17,10 +21,41 @@ import java.util.Map;
  */
 @SuppressWarnings("unchecked")
 public final class POPPBigraphLoader {
-    private POPPBigraphLoader() {}
+    private final POPPExtensionContext context;
+    private final POPPGModelSynchronizer gModelSynchronizer;
+    private final POPPBigraphSynchronizer bigraphSynchronizer;
 
-    public static POPPModel loadModelFromBigraph(final PureBigraphMutable bigraph) {
-        POPPModel model = new POPPModel();
+
+    @Inject
+    public POPPBigraphLoader(final POPPExtensionContext context,
+                             final POPPGModelSynchronizer gModelSynchronizer,
+                             final POPPBigraphSynchronizer bigraphSynchronizer) {
+        this.context = context;
+        this.gModelSynchronizer = gModelSynchronizer;
+        this.bigraphSynchronizer = bigraphSynchronizer;
+    }
+
+    public void loadModelFromBigraph(final PureBigraphMutable bigraph) {
+        if (bigraph == null || bigraph.getRoots().isEmpty()) {
+            return;
+        }
+
+        final POPPExtensionState poppExtensionState = context.getOwnState();
+        final POPPModel model = new POPPModel();
+
+        if (poppExtensionState.getPoppModel() != null) {
+            poppExtensionState.getPoppModel().removeListener(bigraphSynchronizer);
+            poppExtensionState.getPoppModel().removeListener(gModelSynchronizer);
+        }
+
+        model.addListener(bigraphSynchronizer); //TODO ASK MANUEL IF THIS IS NEEDED
+        model.addListener(gModelSynchronizer);
+
+        poppExtensionState.setPoppModel(model);
+        load(bigraph, model);
+    }
+
+    private POPPModel load(final PureBigraphMutable bigraph, POPPModel model){
         POPPBigraph structure = new POPPBigraph(bigraph);
 
         if (bigraph.getRoots().isEmpty()) {
