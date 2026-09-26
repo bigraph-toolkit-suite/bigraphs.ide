@@ -7,226 +7,86 @@ import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-@SuppressWarnings("unchecked")
+/**
+ * Reacts to {@link POPPEvent}s and keeps a bigraph in sync with the domain
+ * model. All bigraph shape/mutation logic lives in {@link POPPBigraph}, this
+ * class only decides, per event, which {@link POPPBigraph} operations to call.
+ */
 public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
-    private final PureBigraphMutable bigraph;
-    private final DynamicSignature signature;
-
-    private final Map<String, BigraphEntity.NodeEntity<DynamicControl>> nodesById = new HashMap<>();
-
-    // Purely synthesizer-side: the domain model has no notion of these chain nodes,
-    // so this is the only source of truth for "which *_DECOMP_i nodes currently
-    // exist in the bigraph for this domain node".
-    private final Map<String, List<String>> decompChainIds = new HashMap<>();
+    private final POPPBigraph poppBigraph;
 
     public POPPBigraphSynchronizer(final PureBigraphMutable bigraph, final DynamicSignature signature) {
-        this.bigraph = bigraph;
-        this.signature = signature;
+        this.poppBigraph = new POPPBigraph(bigraph, signature);
     }
 
     public DynamicSignature getSignature() {
-        return signature;
+        return poppBigraph.getSignature();
     }
 
     public PureBigraphMutable getBigraph() {
-        return bigraph;
+        return poppBigraph.getBigraph();
     }
 
-    public BigraphEntity.RootEntity getDefaultRoot(){
-        if (bigraph.getRoots().isEmpty()) {
-            return bigraph.addRoot();
-        }
-
-        return bigraph.getRoots().getFirst();
-    }
-
-    public BigraphEntity.NodeEntity<DynamicControl> getPOPPContainer() {
-        BigraphEntity.RootEntity root = getDefaultRoot();
-        for (BigraphEntity<?> child : bigraph.getChildrenOf(root)) {
-            if (child instanceof BigraphEntity.NodeEntity<?> node && POPPBigraphSignature.POPP.matches(node)) {
-                return (BigraphEntity.NodeEntity<DynamicControl>) node;
-            }
-        }
-
-        return addNode(root, POPPBigraphSignature.POPP, "POPP");
-    }
-
-    private BigraphEntity.NodeEntity<DynamicControl> addNode(final BigraphEntity<?> parent,
-                                                             final POPPBigraphSignature control,
-                                                             final String id) {
-        DynamicControl ctrl = signature.getControlByName(control.controlName());
-        BigraphEntity.NodeEntity<DynamicControl> entity = bigraph.addNode(parent, ctrl, id);
-        nodesById.put(id, entity);
-        return entity;
-    }
-
-    private void removeNode(final String id){
-        bigraph.removeNode(nodesById.get(id));
-        nodesById.remove(id);
-    }
-
-    public BigraphEntity.NodeEntity<DynamicControl> getById(String id) {
-        return nodesById.get(id);
-    }
-
-    /**
-     * Rebuilds the binary AND/OR decomposition chain for {@code node} from the
-     * domain model's current {@link TreeNode#getDecompositionType()} and
-     * {@link TreeNode#getChildren()}, folding children pairwise into a
-     * right-leaning chain of synthetic {@code *_DECOMP} nodes so every
-     * decomposition node in the bigraph has at most two children, e.g. for
-     * children [c0, c1, c2]: {@code DECOMP(c0, DECOMP_1(c1, c2))}.
-     */
-    private void rebuildDecomposition(TreeNode<?> node) {
-        rebuildDecomposition(node, null);
-    }
-
-    private void rebuildDecomposition(TreeNode<?> node, String excludeChildId) {
-        String nodeId = node.getId();
-        clearDecompositionChain(nodeId);
-
-        DecompositionType type = node.getDecompositionType();
-        if (type == DecompositionType.NONE) {
-            return;
-        }
-
-        List<String> childIds = node.getChildren().stream()
-                .map(TreeNode::getId)
-                .filter(id -> !id.equals(excludeChildId))
-                .toList();
-
-        POPPBigraphSignature control = POPPBigraphSignature.getByDecompositionType(type);
-        BigraphEntity<?> parent = getById(nodeId);
-        List<String> chainIds = new ArrayList<>();
-
-        if (childIds.isEmpty()) {
-            addNode(parent, control, nodeId + "_DECOMP");
-            chainIds.add(nodeId + "_DECOMP");
-        } else if (childIds.size() == 1) {
-            BigraphEntity.NodeEntity<DynamicControl> root = addNode(parent, control, nodeId + "_DECOMP");
-            chainIds.add(nodeId + "_DECOMP");
-            bigraph.moveNode(getById(childIds.get(0)), root);
-        } else {
-            BigraphEntity<?> currentParent = parent;
-            for (int i = 0; i < childIds.size() - 1; i++) {
-                String chainId = i == 0 ? nodeId + "_DECOMP" : nodeId + "_DECOMP_" + i;
-                BigraphEntity.NodeEntity<DynamicControl> chainNode = addNode(currentParent, control, chainId);
-                chainIds.add(chainId);
-                bigraph.moveNode(getById(childIds.get(i)), chainNode);
-                currentParent = chainNode;
-            }
-            bigraph.moveNode(getById(childIds.get(childIds.size() - 1)),
-                    (BigraphEntity.NodeEntity<DynamicControl>) currentParent);
-        }
-
-        decompChainIds.put(nodeId, chainIds);
-    }
-
-    /** Tears down the synthetic chain nodes previously built for {@code nodeId}. */
-    private void clearDecompositionChain(String nodeId) {
-        List<String> chainIds = decompChainIds.remove(nodeId);
-        if (chainIds == null) {
-            return;
-        }
-        for (int i = chainIds.size() - 1; i >= 0; i--) {
-            BigraphEntity.NodeEntity<DynamicControl> chainNode = nodesById.remove(chainIds.get(i));
-            if (chainNode == null) {
-                continue;
-            }
-            new ArrayList<>(bigraph.getChildrenOf(chainNode)).forEach(child -> {
-                if (child instanceof BigraphEntity.NodeEntity<?> n) {
-                    bigraph.moveNode((BigraphEntity.NodeEntity<DynamicControl>) n, getPOPPContainer());
-                }
-            });
-            bigraph.removeNode(chainNode);
-        }
+    public POPPBigraph getPoppBigraph() {
+        return poppBigraph;
     }
 
     @Override
     protected void onNodeCreated(POPPEvent.NodeCreated e) {
-        BigraphEntity.NodeEntity<DynamicControl> entity = addNode(getPOPPContainer(), POPPBigraphSignature.getByNodeKind(e.kind()), e.node().getId());
-        rebuildDecomposition(e.node());
-        entity.getAttributes().put("description", e.node().getDescription());
-        entity.getAttributes().put("x", e.node().getX());
-        entity.getAttributes().put("y", e.node().getY());
+        getPoppBigraph().addTreeNode(e.node());
     }
 
     @Override
     protected void onNodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {
-        getById(e.node().getId()).getAttributes().put("description", e.node().getDescription());
+        getPoppBigraph().getById(e.node().getId()).getAttributes().put("description", e.node().getDescription());
     }
 
     @Override
     protected void onNodeMoved(POPPEvent.NodeMoved e) {
-        BigraphEntity.NodeEntity<DynamicControl> entity = getById(e.node().getId());
+        BigraphEntity.NodeEntity<DynamicControl> entity = getPoppBigraph().getById(e.node().getId());
         entity.getAttributes().put("x", e.node().getX());
         entity.getAttributes().put("y", e.node().getY());
     }
 
     @Override
     protected void onNodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged e) {
-        rebuildDecomposition(e.node());
+        getPoppBigraph().rebuildDecomposition(e.node());
     }
 
     @Override
     protected void onNodeRemoved(POPPEvent.NodeRemoved e) {
-        // Assumes the corresponding NodeChangedParent(newParent == null) already
-        // fired and rebuilt the old parent's chain without this node.
-        clearDecompositionChain(e.node().getId()); // no-op if this node never decomposed
-        removeNode(e.node().getId());
+        getPoppBigraph().clearDecompositionChain(e.node().getId());
+        getPoppBigraph().removeNode(e.node().getId());
     }
 
     @Override
     protected void onNodeChangedParent(POPPEvent.NodeChangedParent e) {
-        BigraphEntity.NodeEntity<DynamicControl> entity = getById(e.node().getId());
-        bigraph.moveNode(entity, getPOPPContainer());
+        BigraphEntity.NodeEntity<DynamicControl> entity = getPoppBigraph().getById(e.node().getId());
+        getBigraph().moveNode(entity, getPoppBigraph().getOrCreatePOPPContainer());
 
         if (e.oldParent() != null) {
-            rebuildDecomposition(e.oldParent(), e.node().getId());
+            getPoppBigraph().rebuildDecomposition(e.oldParent(), e.node().getId());
         }
 
         if (e.newParent() == null) {
-            return; // already parked under the POPP container above
+            return;
         }
 
         if (e.newParent().getDecompositionType() != DecompositionType.NONE) {
-            rebuildDecomposition(e.newParent());
+            getPoppBigraph().rebuildDecomposition(e.newParent());
         } else {
-            bigraph.moveNode(entity, getById(e.newParent().getId()));
+            getBigraph().moveNode(entity, getPoppBigraph().getById(e.newParent().getId()));
         }
     }
 
     @Override
     protected void onRelationCreated(POPPEvent.RelationCreated e) {
-        BigraphEntity.NodeEntity<DynamicControl> source = getById(e.relation().source().getId());
-        BigraphEntity.NodeEntity<DynamicControl> target = getById(e.relation().target().getId());
-        POPPBigraphSignature sourceStubControl = POPPBigraphSignature.getSourceStub(e.relation());
-        POPPBigraphSignature targetStubControl = POPPBigraphSignature.getTargetStub(e.relation());
-        BigraphEntity.NodeEntity<DynamicControl> sourceStub = addNode(source, sourceStubControl, sourceStubControl + ":" + source.getName() + "->" + target.getName());
-        BigraphEntity.NodeEntity<DynamicControl> targetStub = addNode(target, targetStubControl, targetStubControl + ":" + source.getName() + "->" + target.getName());
-        BigraphEntity.Edge relationLink = bigraph.addEdge(e.relation().type() + ":" + source.getName() + "->" + target.getName());
-        bigraph.connectNodeToLink(sourceStub, relationLink);
-        bigraph.connectNodeToLink(targetStub, relationLink);
+        getPoppBigraph().createRelation(e.relation());
     }
 
     @Override
     protected void onRelationRemoved(POPPEvent.RelationRemoved e) {
-        BigraphEntity.Edge relationEdge = bigraph.getEdges().stream()
-                .filter(edge -> edge.getName().equals(e.type() + ":" + e.source().getId() + "->" + e.target().getId()))
-                .findFirst().orElseThrow();
-        List<BigraphEntity<?>> relationStubs = bigraph.getPointsFromLink(relationEdge);
-        relationStubs.forEach(stub -> {
-            if (stub instanceof BigraphEntity.NodeEntity<?> node) {
-                bigraph.removeNode((BigraphEntity.NodeEntity<DynamicControl>) node);
-            }
-        });
-        bigraph.removeEdge(relationEdge);
+        getPoppBigraph().removeRelation(e.type(), e.source().getId(), e.target().getId());
     }
 }

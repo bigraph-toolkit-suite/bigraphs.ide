@@ -75,6 +75,27 @@ public enum POPPBigraphSignature {
                 .getControl().getNamedType().stringValue().equals(controlName);
     }
 
+    public static POPPBigraphSignature forNode(BigraphEntity.NodeEntity<?> node) {
+        for (POPPBigraphSignature control : values()) {
+            if (control.matches(node)) {
+                return control;
+            }
+        }
+        return null;
+    }
+
+    public static boolean isDecompControl(POPPBigraphSignature control) {
+        return control == AND_DECOMP || control == OR_DECOMP;
+    }
+
+    public static boolean isIncomingStub(POPPBigraphSignature control) {
+        return control != null && control.name().endsWith("_INCOMING");
+    }
+
+    public static boolean isOutgoingStub(POPPBigraphSignature control) {
+        return control != null && control.name().endsWith("_OUTGOING");
+    }
+
     /** The control for the given {@link NodeKind}. */
     public static POPPBigraphSignature getByNodeKind(final NodeKind kind) {
         switch (kind) {
@@ -87,6 +108,18 @@ public enum POPPBigraphSignature {
         }
     }
 
+    public static NodeKind toNodeKind(POPPBigraphSignature control) {
+        return switch (control) {
+            case PROBLEM -> NodeKind.PROBLEM;
+            case GOAL -> NodeKind.GOAL;
+            case CONSEQUENCE -> NodeKind.CONSEQUENCE;
+            case SOLUTION -> NodeKind.SOLUTION;
+            case SUCCESS_CRITERIA -> NodeKind.SUCCESS_CRITERIA;
+            case SUCCESS_PROOF -> NodeKind.SUCCESS_PROOF;
+            default -> throw new IllegalArgumentException(control + " is not a domain node control");
+        };
+    }
+
     /** The control for the given {@link DecompositionType} */
     public static POPPBigraphSignature getByDecompositionType(final DecompositionType decompositionType) {
         switch (decompositionType) {
@@ -94,6 +127,12 @@ public enum POPPBigraphSignature {
             case AND -> { return AND_DECOMP; }
             default -> { return null; }
         }
+    }
+
+    public static DecompositionType decompositionTypeOf(POPPBigraphSignature control) {
+        if (control == AND_DECOMP) return DecompositionType.AND;
+        if (control == OR_DECOMP) return DecompositionType.OR;
+        return DecompositionType.NONE;
     }
 
     /**
