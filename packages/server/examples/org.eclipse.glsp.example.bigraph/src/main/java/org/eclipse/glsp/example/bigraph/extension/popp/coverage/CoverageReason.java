@@ -1,4 +1,8 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.types;
+package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
+
+import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
 import java.util.List;
 
