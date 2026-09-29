@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReason;
 import org.junit.jupiter.api.Test;
 
 class CoverageAnalyzerTest {

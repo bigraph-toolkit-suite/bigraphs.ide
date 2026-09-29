@@ -2,6 +2,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 import java.util.*;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventEmitter;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
