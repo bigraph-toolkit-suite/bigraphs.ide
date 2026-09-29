@@ -6,11 +6,12 @@ import org.eclipse.glsp.example.bigraph.model.IBigraphModelState;
 
 public class POPPExtensionState {
     private final IBigraphModelState bigraphModelState;
+    private final POPPGModel gModel;
     private POPPModel poppModel;
-    private POPPGModel gModel;
 
     public POPPExtensionState(final IBigraphModelState bigraphModelState) {
         this.bigraphModelState = bigraphModelState;
+        this.gModel = new POPPGModel(this);
     }
 
     public IBigraphModelState getBigraphModelState() {
@@ -25,9 +26,6 @@ public class POPPExtensionState {
         return poppModel;
     }
 
-    public void setGModel(POPPGModel gModel) {
-        this.gModel = gModel;
-    }
 
     public POPPGModel getGModel() {
         return gModel;
