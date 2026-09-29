@@ -48,11 +48,12 @@ public final class POPPBigraphLoader {
             poppExtensionState.getPoppModel().removeListener(gModelSynchronizer);
         }
 
-        model.addListener(bigraphSynchronizer); //TODO ASK MANUEL IF THIS IS NEEDED
         model.addListener(gModelSynchronizer);
 
         poppExtensionState.setPoppModel(model);
         load(bigraph, model);
+
+        model.addListener(bigraphSynchronizer);
     }
 
     private POPPModel load(final PureBigraphMutable bigraph, POPPModel model){
