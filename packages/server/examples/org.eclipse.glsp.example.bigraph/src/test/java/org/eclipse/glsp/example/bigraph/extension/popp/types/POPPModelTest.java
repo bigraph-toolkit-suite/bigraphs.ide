@@ -14,13 +14,11 @@ class POPPModelTest {
     @Test
     void storesTypedRootsAndCollectsTheirDescendants() {
         POPPModel model = new POPPModel();
-        Problem root = new Problem("root", 0, 0);
+        Problem root = model.createProblem("root", 0, 0);
         Problem child = new Problem("child", 0, 0);
         Problem grandchild = new Problem("grandchild", 0, 0);
         root.addChild(child);
         child.addChild(grandchild);
-
-        model.addProblemRoot(root);
 
         assertEquals(root, model.getProblemRoots().getFirst());
         assertEquals(3, model.getAllProblems().size());
@@ -31,17 +29,11 @@ class POPPModelTest {
     @Test
     void collectsDescendantsIndependentlyForEveryTreeKind() {
         POPPModel model = new POPPModel();
-        Goal goalRoot = new Goal("goal-root", 0, 0);
-        Solution solutionRoot = new Solution("solution-root", 0, 0);
-        Consequence consequenceRoot = new Consequence("consequence-root", 0, 0);
-        SuccessCriteria successCriteriaRoot = new SuccessCriteria("sc-root", 0, 0);
-        SuccessProof successProofRoot = new SuccessProof("proof-root", 0, 0);
-
-        model.addGoalRoot(goalRoot);
-        model.addSolutionRoot(solutionRoot);
-        model.addConsequenceRoot(consequenceRoot);
-        model.addSuccessCriteriaRoot(successCriteriaRoot);
-        model.addSuccessProofRoot(successProofRoot);
+        Goal goalRoot = model.createGoal("goal-root", 0, 0);
+        Solution solutionRoot = model.createSolution("solution-root", 0, 0);
+        Consequence consequenceRoot = model.createConsequence("consequence-root", 0, 0);
+        SuccessCriteria successCriteriaRoot = model.createSuccessCriteria("sc-root", 0, 0);
+        SuccessProof successProofRoot = model.createSuccessProof("proof-root", 0, 0);
 
         assertEquals(goalRoot, model.getGoalRoots().getFirst());
         assertEquals(List.of(goalRoot), model.getAllGoals());
@@ -61,16 +53,15 @@ class POPPModelTest {
     @Test
     void collectsAllDescendantsAcrossMultipleBranches() {
         POPPModel model = new POPPModel();
-        Problem root = new Problem("root", 0, 0);
-        Problem left = new Problem("left", 0, 0);
-        Problem right = new Problem("right", 0, 0);
-        Problem leftChild = new Problem("left-child", 0, 0);
+        Problem root = model.createProblem("root", 0, 0);
+        Problem left = model.createProblem("left", 0, 0);
+        Problem right = model.createProblem("right", 0, 0);
+        Problem leftChild = model.createProblem("left-child", 0, 0);
         root.addChild(left);
         root.addChild(right);
         left.addChild(leftChild);
 
-        model.addProblemRoot(root);
-
+        System.out.println(String.join(" ", model.getAllProblems().stream().map(p -> p.getDescription()).toList()));
         assertEquals(Set.of(root, left, right, leftChild), Set.copyOf(model.getAllProblems()));
         assertEquals(4, model.getAllProblems().size());
     }

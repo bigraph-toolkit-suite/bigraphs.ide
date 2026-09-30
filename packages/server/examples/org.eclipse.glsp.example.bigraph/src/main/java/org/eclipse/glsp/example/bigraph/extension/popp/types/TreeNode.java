@@ -128,8 +128,8 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
         }
 
         this.parent = parent;
-        if (parent != null && !parent.children.contains(self())) {
-            parent.children.add(self());
+        if (parent != null && !parent.getChildren().contains(self())) {
+            parent.addChild(self());
         }
 
         if (oldParent == null || parent != null) {
