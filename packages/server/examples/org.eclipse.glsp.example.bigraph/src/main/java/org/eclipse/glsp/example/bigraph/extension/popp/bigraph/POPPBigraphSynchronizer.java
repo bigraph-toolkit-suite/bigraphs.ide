@@ -1,10 +1,12 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
 
+import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
@@ -18,8 +20,9 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
 public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
     private final POPPBigraph poppBigraph;
 
-    public POPPBigraphSynchronizer(final PureBigraphMutable bigraph, final DynamicSignature signature) {
-        this.poppBigraph = new POPPBigraph(bigraph, signature);
+    @Inject
+    public POPPBigraphSynchronizer(final POPPExtensionContext context) {
+        this.poppBigraph = new POPPBigraph(context.getBigraphModelState().getMutableBigraph());
     }
 
     public DynamicSignature getSignature() {
