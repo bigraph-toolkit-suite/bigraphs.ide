@@ -135,6 +135,17 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
         return nodeRegistry.get(id);
     }
 
+    public TreeNode<?> createNode(NodeKind kind, String description, double x, double y) {
+        return switch (kind) {
+            case PROBLEM -> problems.create(description, x, y);
+            case GOAL -> goals.create(description, x, y);
+            case CONSEQUENCE -> consequences.create(description, x, y);
+            case SOLUTION -> solutions.create(description, x, y);
+            case SUCCESS_CRITERIA -> successCriteria.create(description, x, y);
+            default -> successProofs.create(description, x, y);
+        };
+    }
+
     public TreeNode<?> restoreNode(NodeKind kind, String id, String description, double x, double y) {
         return switch (kind) {
             case PROBLEM -> problems.restore(id, description, x, y);
@@ -152,20 +163,6 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
     public List<Solution> getSolutionRoots() { return solutions.roots(); }
     public List<SuccessCriteria> getSuccessCriteriaRoots() { return successCriteria.roots(); }
     public List<SuccessProof> getSuccessProofRoots() { return successProofs.roots(); }
-
-    public void addProblemRoot(Problem root) { problems.addRoot(root); }
-    public void addGoalRoot(Goal root) { goals.addRoot(root); }
-    public void addConsequenceRoot(Consequence root) { consequences.addRoot(root); }
-    public void addSolutionRoot(Solution root) { solutions.addRoot(root); }
-    public void addSuccessCriteriaRoot(SuccessCriteria root) { successCriteria.addRoot(root); }
-    public void addSuccessProofRoot(SuccessProof root) { successProofs.addRoot(root); }
-
-    public void removeProblemRoot(Problem root) { problems.removeRoot(root); }
-    public void removeGoalRoot(Goal root) { goals.removeRoot(root); }
-    public void removeConsequenceRoot(Consequence root) { consequences.removeRoot(root); }
-    public void removeSolutionRoot(Solution root) { solutions.removeRoot(root); }
-    public void removeSuccessCriteriaRoot(SuccessCriteria root) { successCriteria.removeRoot(root); }
-    public void removeSuccessProofRoot(SuccessProof root) { successProofs.removeRoot(root); }
 
     public List<Problem> getAllProblems() { return problems.all(); }
     public List<Goal> getAllGoals() { return goals.all(); }
