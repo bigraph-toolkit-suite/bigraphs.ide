@@ -46,7 +46,7 @@ public class POPPBigraph {
     }
 
     public POPPBigraph(PureBigraphMutable bigraph) {
-        this(bigraph, null);
+        this(bigraph, bigraph.getSignature());
     }
 
     public PureBigraphMutable getBigraph() {
