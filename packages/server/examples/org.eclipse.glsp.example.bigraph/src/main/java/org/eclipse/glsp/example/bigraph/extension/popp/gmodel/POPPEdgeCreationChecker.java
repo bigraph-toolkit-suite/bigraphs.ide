@@ -32,9 +32,12 @@ public class POPPEdgeCreationChecker implements EdgeCreationChecker {
     @Override
     public boolean isValidTarget(String edgeType, GModelElement sourceElement, GModelElement targetElement) {
         TreeNode<?> source = context.getOwnState().getPoppModel().findNode(sourceElement.getId());
-        TreeNode<?> target = context.getOwnState().getPoppModel().findNode(sourceElement.getId());
-        if (source == null || target == null) return false;
+        TreeNode<?> target = context.getOwnState().getPoppModel().findNode(targetElement.getId());
+        if (source == null || target == null || source == target) return false;
 
+        if (source.getClass() == target.getClass()) {
+            return true; // same-kind nodes can be linked as a decomposition parent/child
+        }
         return RelationGraph.canRelate(source, target);
     }
 }

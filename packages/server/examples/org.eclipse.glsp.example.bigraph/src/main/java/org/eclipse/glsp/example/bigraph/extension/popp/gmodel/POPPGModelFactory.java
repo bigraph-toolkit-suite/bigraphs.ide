@@ -31,6 +31,8 @@ public class POPPGModelFactory {
         GNode gnode = new GNodeBuilder(gtype.toString())
                 .id(treeNode.getId())
                 .layout("vbox")
+                .position(point(treeNode.getX(), treeNode.getY()))
+                .size(size(180, 50))
                 .add(labelElement)
                 .addArgument("decomposition_type", treeNode.getDecompositionType().toString())
                 .build();
