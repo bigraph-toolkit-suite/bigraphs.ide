@@ -2,19 +2,20 @@ package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
-import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
+import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
+
+import java.util.Optional;
 
 /**
- * Reacts to {@link POPPEvent}s and keeps a bigraph in sync with the domain
- * model. All bigraph shape/mutation logic lives in {@link POPPBigraph}, this
- * class only decides, per event, which {@link POPPBigraph} operations to call.
+ * Reacts to {@link POPPEvent}s and forwards each one to the matching
+ * {@link POPPBigraph} operation. All bigraph shape/mutation logic — including
+ * keeping the core bigraph view mirrored — lives in {@link POPPBigraph}; this
+ * class only decides which operation to call for which event.
  */
 @Singleton
 public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
@@ -22,7 +23,11 @@ public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
 
     @Inject
     public POPPBigraphSynchronizer(final POPPExtensionContext context) {
-        this.poppBigraph = new POPPBigraph(context.getBigraphModelState().getMutableBigraph());
+        PureBigraphMutable bigraph = context.getBigraphModelState().getMutableBigraph();
+        this.poppBigraph = new POPPBigraph(bigraph, bigraph.getSignature(), () ->
+                context.getBigraphModelState() instanceof BigraphModelState bigraphModelState
+                        ? Optional.ofNullable(bigraphModelState.getActiveView())
+                        : Optional.empty());
     }
 
     public DynamicSignature getSignature() {
@@ -44,14 +49,12 @@ public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
 
     @Override
     protected void onNodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {
-        getPoppBigraph().getById(e.node().getId()).getAttributes().put("description", e.node().getDescription());
+        getPoppBigraph().updateDescription(e.node().getId(), e.node().getDescription());
     }
 
     @Override
     protected void onNodeMoved(POPPEvent.NodeMoved e) {
-        BigraphEntity.NodeEntity<DynamicControl> entity = getPoppBigraph().getById(e.node().getId());
-        entity.getAttributes().put("x", e.node().getX());
-        entity.getAttributes().put("y", e.node().getY());
+        getPoppBigraph().updatePosition(e.node().getId(), e.node().getX(), e.node().getY());
     }
 
     @Override
@@ -61,28 +64,12 @@ public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
 
     @Override
     protected void onNodeRemoved(POPPEvent.NodeRemoved e) {
-        getPoppBigraph().clearDecompositionChain(e.node().getId());
-        getPoppBigraph().removeNode(e.node().getId());
+        getPoppBigraph().deleteTreeNode(e.node().getId());
     }
 
     @Override
     protected void onNodeChangedParent(POPPEvent.NodeChangedParent e) {
-        BigraphEntity.NodeEntity<DynamicControl> entity = getPoppBigraph().getById(e.node().getId());
-        getBigraph().moveNode(entity, getPoppBigraph().getOrCreatePOPPContainer());
-
-        if (e.oldParent() != null) {
-            getPoppBigraph().rebuildDecomposition(e.oldParent(), e.node().getId());
-        }
-
-        if (e.newParent() == null) {
-            return;
-        }
-
-        if (e.newParent().getDecompositionType() != DecompositionType.NONE) {
-            getPoppBigraph().rebuildDecomposition(e.newParent());
-        } else {
-            getBigraph().moveNode(entity, getPoppBigraph().getById(e.newParent().getId()));
-        }
+        getPoppBigraph().reparentTreeNode(e.node(), e.oldParent(), e.newParent());
     }
 
     @Override
