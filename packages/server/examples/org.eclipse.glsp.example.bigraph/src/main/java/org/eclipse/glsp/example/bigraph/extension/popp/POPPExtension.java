@@ -10,14 +10,17 @@ import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchr
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPEdgeCreationChecker;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPTypeHints;
+import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPConnectEdgeCreationHandler;
 import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPCreateNodeOperationHandler;
-import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPDecompositionEdgeCreationHandler;
-import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPRelationEdgeCreationHandler;
 import org.eclipse.glsp.example.bigraph.extension.popp.handler.SwitchDecompositionTypeHandler;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.example.bigraph.extensions.ExtensionStateKey;
 import org.eclipse.glsp.example.bigraph.extensions.IdeExtension;
 import org.eclipse.glsp.example.bigraph.model.IBigraphModelState;
 import org.eclipse.glsp.example.bigraph.model.ModelVariant;
+import org.eclipse.glsp.graph.GDimension;
+import org.eclipse.glsp.graph.GPoint;
 import org.eclipse.glsp.server.actions.ActionHandler;
 import org.eclipse.glsp.server.features.typehints.EdgeCreationChecker;
 import org.eclipse.glsp.server.operations.OperationHandler;
@@ -75,8 +78,7 @@ public class POPPExtension implements IdeExtension {
     @Override
     public List<Class<? extends OperationHandler<?>>> getOperationHandlers() {
         return List.of(
-                POPPDecompositionEdgeCreationHandler.class,
-                POPPRelationEdgeCreationHandler.class
+                POPPConnectEdgeCreationHandler.class
         );
     }
 
@@ -116,5 +118,39 @@ public class POPPExtension implements IdeExtension {
             return Optional.of(POPPBigraphSignature.create());
         }
         return Optional.empty();
+    }
+
+    @Override
+    public boolean deleteElements(final List<String> elementIds, final Injector injector) {
+        POPPModel model = injector.getInstance(POPPExtensionContext.class).getOwnState().getPoppModel();
+
+        boolean handledAny = false;
+        for (String elementId : elementIds) {
+            if (model.findNode(elementId) != null) {
+                model.deleteNode(elementId);
+                handledAny = true;
+            }
+        }
+        return handledAny;
+    }
+
+    @Override
+    public boolean applyGModelBoundsChange(final String elementGModelId,
+                                           final GPoint newPosition,
+                                           final GDimension newSize,
+                                           final IBigraphModelState state,
+                                           final Injector injector) {
+        if (newPosition == null) {
+            return false;
+        }
+
+        POPPModel model = injector.getInstance(POPPExtensionContext.class).getOwnState().getPoppModel();
+        TreeNode<?> node = model.findNode(elementGModelId);
+        if (node == null) {
+            return false;
+        }
+
+        node.move(newPosition.getX(), newPosition.getY());
+        return true;
     }
 }

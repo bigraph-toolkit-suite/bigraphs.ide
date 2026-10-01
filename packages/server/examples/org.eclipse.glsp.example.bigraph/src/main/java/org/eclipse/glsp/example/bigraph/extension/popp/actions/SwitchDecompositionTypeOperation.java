@@ -8,6 +8,10 @@ public class SwitchDecompositionTypeOperation extends Operation {
     private String nodeId;
     private DecompositionType newType;
 
+    public SwitchDecompositionTypeOperation() {
+        super(KIND);
+    }
+
     public SwitchDecompositionTypeOperation(final String nodeId, final DecompositionType newType) {
         super(KIND);
         this.nodeId = nodeId;

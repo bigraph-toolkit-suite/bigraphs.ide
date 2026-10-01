@@ -14,7 +14,7 @@ class POPPModelTest {
     @Test
     void storesTypedRootsAndCollectsTheirDescendants() {
         POPPModel model = new POPPModel();
-        Problem root = model.createProblem("root", 0, 0);
+        Problem root = (Problem) model.createNode(NodeKind.PROBLEM, "root", 0, 0);
         Problem child = new Problem("child", 0, 0);
         Problem grandchild = new Problem("grandchild", 0, 0);
         root.addChild(child);
@@ -29,11 +29,11 @@ class POPPModelTest {
     @Test
     void collectsDescendantsIndependentlyForEveryTreeKind() {
         POPPModel model = new POPPModel();
-        Goal goalRoot = model.createGoal("goal-root", 0, 0);
-        Solution solutionRoot = model.createSolution("solution-root", 0, 0);
-        Consequence consequenceRoot = model.createConsequence("consequence-root", 0, 0);
-        SuccessCriteria successCriteriaRoot = model.createSuccessCriteria("sc-root", 0, 0);
-        SuccessProof successProofRoot = model.createSuccessProof("proof-root", 0, 0);
+        Goal goalRoot = (Goal) model.createNode(NodeKind.GOAL , "goal-root", 0, 0);
+        Solution solutionRoot = (Solution) model.createNode(NodeKind.SOLUTION, "solution-root", 0, 0);
+        Consequence consequenceRoot = (Consequence) model.createNode(NodeKind.CONSEQUENCE, "consequence-root", 0, 0);
+        SuccessCriteria successCriteriaRoot = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "sc-root", 0, 0);
+        SuccessProof successProofRoot = (SuccessProof) model.createNode(NodeKind.SUCCESS_PROOF, "proof-root", 0, 0);
 
         assertEquals(goalRoot, model.getGoalRoots().getFirst());
         assertEquals(List.of(goalRoot), model.getAllGoals());
@@ -53,10 +53,10 @@ class POPPModelTest {
     @Test
     void collectsAllDescendantsAcrossMultipleBranches() {
         POPPModel model = new POPPModel();
-        Problem root = model.createProblem("root", 0, 0);
-        Problem left = model.createProblem("left", 0, 0);
-        Problem right = model.createProblem("right", 0, 0);
-        Problem leftChild = model.createProblem("left-child", 0, 0);
+        Problem root = (Problem) model.createNode(NodeKind.PROBLEM, "root", 0, 0);
+        Problem left = (Problem) model.createNode(NodeKind.PROBLEM, "left", 0, 0);
+        Problem right = (Problem) model.createNode(NodeKind.PROBLEM, "right", 0, 0);
+        Problem leftChild = (Problem) model.createNode(NodeKind.PROBLEM, "left-child", 0, 0);
         root.addChild(left);
         root.addChild(right);
         left.addChild(leftChild);
@@ -95,11 +95,11 @@ class POPPModelTest {
         assertFalse(created.get());
         assertFalse(deleted.get());
 
-        Problem problem = model.createProblem("problem", 0, 0);
+        Problem problem = model.createNode(NodeKind.PROBLEM, "problem", 0, 0);
         assertTrue(created.get());
         assertFalse(deleted.get());
 
-        model.deleteProblem(problem.getId());
+        model.deleteNode(problem.getId());
         assertTrue(created.get());
         assertTrue(deleted.get());
     }
@@ -112,7 +112,7 @@ class POPPModelTest {
             if (event instanceof POPPEvent.NodeDescriptionChanged) renamed.set(true);
         }));
 
-        Problem problem = model.createProblem("problem", 0, 0);
+        Problem problem = (Problem) model.createNode(NodeKind.PROBLEM, "problem", 0, 0);
         assertFalse(renamed.get());
 
         problem.setDescription("renamed");
@@ -123,8 +123,8 @@ class POPPModelTest {
     @Test
     void rootsAreRemovedWhenParentAssigned(){
         POPPModel model = new POPPModel();
-        Problem root = model.createProblem("root", 0, 0);
-        Problem child = model.createProblem("child", 0, 0);
+        Problem root = (Problem) model.createNode(NodeKind.PROBLEM, "root", 0, 0);
+        Problem child = (Problem) model.createNode(NodeKind.PROBLEM, "child", 0, 0);
 
         assertEquals(2, model.getProblemRoots().size());
         root.addChild(child);
