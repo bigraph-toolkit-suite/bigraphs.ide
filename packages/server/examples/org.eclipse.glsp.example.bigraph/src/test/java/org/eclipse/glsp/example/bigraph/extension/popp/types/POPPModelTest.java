@@ -95,7 +95,7 @@ class POPPModelTest {
         assertFalse(created.get());
         assertFalse(deleted.get());
 
-        Problem problem = model.createNode(NodeKind.PROBLEM, "problem", 0, 0);
+        Problem problem = (Problem) model.createNode(NodeKind.PROBLEM, "problem", 0, 0);
         assertTrue(created.get());
         assertFalse(deleted.get());
 

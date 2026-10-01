@@ -7,26 +7,29 @@ import java.util.List;
 import java.util.Optional;
 
 public enum POPPGModelType {
-    PROBLEM("popp:problem", true, Problem.class, false, null),
-    GOAL("popp:goal", true, Goal.class, false, null),
-    CONSEQUENCE("popp:consequence", true, Consequence.class, false, null),
-    SOLUTION("popp:solution", true, Solution.class, false, null),
-    SUCCESS_CRITERIA("popp:success_criteria", true, SuccessCriteria.class, false, null),
-    SUCCESS_PROOF("popp:success_proof", true, SuccessProof.class, false, null),
-    CAUSES_RELATION("popp:causes", false, null, true, RelationType.CAUSES),
-    INVERTS_RELATION("popp:inverts", false, null, true, RelationType.INVERTS),
-    REALIZES_RELATION("popp:realizes", false, null, true, RelationType.REALIZES),
-    PRODUCES_RELATION("popp:produces", false, null, true, RelationType.PRODUCES),
-    VALIDATES_RELATION("popp:validates", false, null, true, RelationType.VALIDATES),
-    NODE_DESCRIPTION("popp:node_description", false, null, false, null),
-    AND_DECOMPOSITION("popp:and", false, null, false, null),
-    OR_DECOMPOSITION("popp:or", false, null, false, null);
+    PROBLEM("popp:problem", true, Problem.class, NodeKind.PROBLEM, false, null),
+    GOAL("popp:goal", true, Goal.class, NodeKind.GOAL, false, null),
+    CONSEQUENCE("popp:consequence", true, Consequence.class, NodeKind.CONSEQUENCE, false, null),
+    SOLUTION("popp:solution", true, Solution.class, NodeKind.SOLUTION, false, null),
+    SUCCESS_CRITERIA("popp:success_criteria", true, SuccessCriteria.class, NodeKind.SUCCESS_CRITERIA, false, null),
+    SUCCESS_PROOF("popp:success_proof", true, SuccessProof.class, NodeKind.SUCCESS_PROOF, false, null),
+    CAUSES_RELATION("popp:causes", false, null, null, true, RelationType.CAUSES),
+    INVERTS_RELATION("popp:inverts", false, null, null, true, RelationType.INVERTS),
+    REALIZES_RELATION("popp:realizes", false, null, null, true, RelationType.REALIZES),
+    PRODUCES_RELATION("popp:produces", false, null, null, true, RelationType.PRODUCES),
+    VALIDATES_RELATION("popp:validates", false, null, null, true, RelationType.VALIDATES),
+    NODE_DESCRIPTION("popp:node_description", false, null, null, false, null),
+    AND_DECOMPOSITION("popp:and", false, null, null, false, null),
+    OR_DECOMPOSITION("popp:or", false, null, null, false, null),
+    /** Virtual trigger type for the universal "connect" palette tool; never materialized as a GModel element. */
+    CONNECT("popp:connect", false, null, null, false, null);
 
-    private POPPGModelType(String key, boolean isNodeType, Class<? extends TreeNode<?>> domainEquivalentNode, boolean isRelationType, RelationType domainEquivalentRelation) {
+    private POPPGModelType(String key, boolean isNodeType, Class<? extends TreeNode<?>> domainEquivalentNode, NodeKind kind, boolean isRelationType, RelationType domainEquivalentRelation) {
         this.key = key;
         this.isNodeType = isNodeType;
         this.isRelationType = isRelationType;
         this.domainEquivalentNode = domainEquivalentNode;
+        this.kind = kind;
         this.domainEquivalentRelation = domainEquivalentRelation;
 
     }
@@ -35,6 +38,7 @@ public enum POPPGModelType {
     private final boolean isNodeType;
     private final boolean isRelationType;
     private final Class<? extends TreeNode<?>> domainEquivalentNode;
+    private final NodeKind kind;
     private final RelationType domainEquivalentRelation;
 
     @Override
@@ -54,6 +58,10 @@ public enum POPPGModelType {
         return domainEquivalentNode;
     }
 
+    public NodeKind getKind() {
+        return kind;
+    }
+
     public RelationType getDomainEquivalentRelation() {
         return domainEquivalentRelation;
     }
@@ -67,7 +75,7 @@ public enum POPPGModelType {
     }
 
     public static Optional<POPPGModelType> getFromRelationType(RelationType relationType) {
-        return Arrays.stream(values()).filter(r -> r.getDomainEquivalentRelation().equals(relationType)).findFirst();
+        return Arrays.stream(values()).filter(r -> r.isRelationType() && r.getDomainEquivalentRelation().equals(relationType)).findFirst();
     }
 
     public static List<POPPGModelType> getNodes() {

@@ -17,7 +17,6 @@ public class POPPGModelSynchronizer extends POPPSpecificEventListener {
     public POPPGModelSynchronizer(POPPExtensionContext context) {
         this.context = context;
         this.factory = new POPPGModelFactory();
-        context.getOwnState().getPoppModel().addListener(this);
     }
 
     public POPPGModel getGModel() {
@@ -57,12 +56,18 @@ public class POPPGModelSynchronizer extends POPPSpecificEventListener {
         context.getOwnState().getGModel().removeNode(e.node().getId());
     }
 
-    public void onNodeChangedParent(POPPEvent.NodeChangedParent e) {
-        GEdge decompositionEdge = factory.createDecompositionEdge(e.newParent(), e.node());
-        getGModel().getRoot().getChildren().add(decompositionEdge);
-        getGModel().getRoot().getChildren().stream()
-                .filter(element -> element.getId().equals(e.oldParent().getId() + "_decomposes_" + e.node().getId()))
-                .findFirst().ifPresent(oldEdge -> getGModel().getRoot().getChildren().remove(oldEdge));
+    @Override
+    protected void onNodeChangedParent(POPPEvent.NodeChangedParent e) {
+        if (e.oldParent() != null) {
+            getGModel().getRoot().getChildren().stream()
+                    .filter(element -> element.getId().equals(e.oldParent().getId() + "_decomposes_" + e.node().getId()))
+                    .findFirst().ifPresent(oldEdge -> getGModel().getRoot().getChildren().remove(oldEdge));
+        }
+
+        if (e.newParent() != null) {
+            GEdge decompositionEdge = factory.createDecompositionEdge(e.newParent(), e.node());
+            getGModel().getRoot().getChildren().add(decompositionEdge);
+        }
     }
 
     @Override
