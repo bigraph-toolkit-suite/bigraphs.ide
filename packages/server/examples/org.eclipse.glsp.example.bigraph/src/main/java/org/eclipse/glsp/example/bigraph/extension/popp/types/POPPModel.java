@@ -135,6 +135,21 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
         return nodeRegistry.get(id);
     }
 
+    public void deleteNode(String id) {
+        TreeNode<?> node = findNode(id);
+        if (node == null) {
+            return;
+        }
+        switch (node.getKind()) {
+            case PROBLEM -> problems.delete(id);
+            case GOAL -> goals.delete(id);
+            case CONSEQUENCE -> consequences.delete(id);
+            case SOLUTION -> solutions.delete(id);
+            case SUCCESS_CRITERIA -> successCriteria.delete(id);
+            case SUCCESS_PROOF -> successProofs.delete(id);
+        }
+    }
+
     public TreeNode<?> createNode(NodeKind kind, String description, double x, double y) {
         return switch (kind) {
             case PROBLEM -> problems.create(description, x, y);
@@ -170,20 +185,6 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
     public List<Solution> getAllSolutions() { return solutions.all(); }
     public List<SuccessCriteria> getAllSuccessCriteria() { return successCriteria.all(); }
     public List<SuccessProof> getAllSuccessProofs() { return successProofs.all(); }
-
-    public Problem createProblem(String description, double x, double y) { return problems.create(description, x, y); }
-    public Goal createGoal(String description, double x, double y) { return goals.create(description, x, y); }
-    public Consequence createConsequence(String description, double x, double y) { return consequences.create(description, x, y); }
-    public Solution createSolution(String description, double x, double y) { return solutions.create(description, x, y); }
-    public SuccessCriteria createSuccessCriteria(String description, double x, double y) { return successCriteria.create(description, x, y); }
-    public SuccessProof createSuccessProof(String description, double x, double y) { return successProofs.create(description, x, y); }
-
-    public void deleteProblem(String id) { problems.delete(id); }
-    public void deleteGoal(String id) { goals.delete(id); }
-    public void deleteConsequence(String id) { consequences.delete(id); }
-    public void deleteSolution(String id) { solutions.delete(id); }
-    public void deleteSuccessCriteria(String id) { successCriteria.delete(id); }
-    public void deleteSuccessProof(String id) { successProofs.delete(id); }
 
     private static <N extends TreeNode<N>> List<N> collectAll(List<N> roots) {
         List<N> result = new ArrayList<>();
