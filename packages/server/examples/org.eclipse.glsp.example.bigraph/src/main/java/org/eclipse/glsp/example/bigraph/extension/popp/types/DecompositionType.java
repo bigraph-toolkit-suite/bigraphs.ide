@@ -1,6 +1,8 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 public enum DecompositionType {
@@ -45,4 +47,8 @@ public enum DecompositionType {
 
     public abstract List<? extends TreeNode<?>> contributingChildren(List<? extends TreeNode<?>> children,
             Predicate<TreeNode<?>> isCovered);
+
+    public static Optional<DecompositionType> fromString(String id) {
+        return Arrays.stream(values()).filter(d -> d.name().equals(id)).findFirst();
+    }
 }
