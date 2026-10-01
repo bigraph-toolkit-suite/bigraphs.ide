@@ -10,7 +10,7 @@ import type { GModelElement, Point } from '@eclipse-glsp/sprotty';
 import type { ContainerElement } from '@eclipse-glsp/client/lib/features/hints/model';
 import { createBigraphPalette } from './core/palette';
 import { createSvgExportAction } from './core/palette/svgExport';
-import { createPOPPPalette } from './popp';
+import { poppDiagramExtension } from './popp';
 import {
     BIGRAPH_CONTEXT_MENU_ELEMENT_TYPES,
     getBigraphContextMenuItems,
@@ -122,13 +122,7 @@ const extensions: IDiagramExtension[] = [
         contextMenuElementTypes: BIGRAPH_CONTEXT_MENU_ELEMENT_TYPES,
         getContextMenuItems: getBigraphContextMenuItems,
     },
-    {
-        id: 'popp',
-        name: 'Problem-Oriented Project Planning',
-        variantId: 'popp',
-        iconCodicon: 'tasklist',
-        createPalette: createPOPPPalette,
-    },
+    poppDiagramExtension,
 ];
 
 /** Returns all registered diagram extensions (read-only view). */

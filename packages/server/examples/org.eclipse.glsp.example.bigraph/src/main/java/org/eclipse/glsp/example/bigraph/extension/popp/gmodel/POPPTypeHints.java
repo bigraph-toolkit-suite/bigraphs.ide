@@ -34,6 +34,15 @@ public class POPPTypeHints {
         hints.add(or);
         hints.add(and);
 
+        EdgeTypeHint connect = hintFactory.apply(POPPGModelType.CONNECT.toString());
+        connect.setDynamic(true);
+        connect.setRepositionable(false);
+        POPPGModelType.getNodes().forEach(n -> {
+            connect.addSourceElementTypeId(n.toString());
+            connect.addTargetElementTypeId(n.toString());
+        });
+        hints.add(connect);
+
         for (POPPGModelType relation : relations){
             EdgeTypeHint relationHint = hintFactory.apply(relation.toString());
             relationHint.setDynamic(true);

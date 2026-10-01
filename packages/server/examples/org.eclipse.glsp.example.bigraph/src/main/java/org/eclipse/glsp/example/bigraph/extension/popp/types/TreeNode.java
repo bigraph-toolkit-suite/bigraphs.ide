@@ -101,6 +101,14 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
         return true;
     }
 
+    @SuppressWarnings("unchecked")
+    public boolean addChildNode(TreeNode<?> child) {
+        if (child == null || getClass() != child.getClass()) {
+            return false;
+        }
+        return addChild((T) child);
+    }
+
     public boolean removeChild(T child) {
         if (child == null || !children.contains(child)) {
             return false;

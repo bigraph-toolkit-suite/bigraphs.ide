@@ -21,11 +21,11 @@ import org.eclipse.glsp.server.operations.CreateEdgeOperation;
 /**
  * Universal "connect" tool backing the palette's single edge-drawing button:
  * links two nodes of the same kind as a decomposition parent/child, or two
- * nodes of different kinds as a cross-tree relation — whichever the two
+ * nodes of different kinds as a cross-tree relation, whichever the two
  * endpoints support. The actual GModel edge is created by
  * {@code POPPGModelSynchronizer} once the semantic model emits its event.
  */
-public class POPPConnectEdgeCreationHandler extends GModelCreateEdgeOperationHandler {
+public class POPPEdgeCreationHandler extends GModelCreateEdgeOperationHandler {
 
     @Inject
     protected POPPExtensionContext context;
@@ -33,7 +33,7 @@ public class POPPConnectEdgeCreationHandler extends GModelCreateEdgeOperationHan
     @Inject
     protected ActionDispatcher actionDispatcher;
 
-    public POPPConnectEdgeCreationHandler() {
+    public POPPEdgeCreationHandler() {
         super(List.of(POPPGModelType.CONNECT.toString()));
     }
 
@@ -48,7 +48,7 @@ public class POPPConnectEdgeCreationHandler extends GModelCreateEdgeOperationHan
         }
 
         if (source.getClass() == target.getClass()) {
-            model.addChild(source, target);
+            source.addChildNode(target);
             return;
         }
 
