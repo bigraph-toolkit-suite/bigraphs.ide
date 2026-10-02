@@ -8,14 +8,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReason;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.DomainCoverageAnalyzer;
 import org.junit.jupiter.api.Test;
 
-class CoverageAnalyzerTest {
+class DomainCoverageAnalyzerTest {
 
     @Test
     void decompositionsDetermineCoverage() {
         RelationGraph graph = new RelationGraph();
-        CoverageAnalyzer analyzer = new CoverageAnalyzer(graph);
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(graph);
         SuccessCriteria and = new SuccessCriteria("and", 0, 0);
         SuccessCriteria first = new SuccessCriteria("first", 0, 0);
         SuccessCriteria second = new SuccessCriteria("second", 0, 0);
@@ -56,7 +57,7 @@ class CoverageAnalyzerTest {
     @Test
     void followsOnlyCoveragePropagatingRelations() {
         RelationGraph graph = new RelationGraph();
-        CoverageAnalyzer analyzer = new CoverageAnalyzer(graph);
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(graph);
         SuccessProof proof = new SuccessProof("proof", 0, 0);
         SuccessCriteria criterion = new SuccessCriteria("criterion", 0, 0);
 
@@ -71,7 +72,7 @@ class CoverageAnalyzerTest {
     @Test
     void followsBackwardCoveragePropagation() {
         RelationGraph graph = new RelationGraph();
-        CoverageAnalyzer analyzer = new CoverageAnalyzer(graph);
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(graph);
         Goal goal = new Goal("goal", 0, 0);
         SuccessCriteria successCriteria = new SuccessCriteria("successCriteria", 0, 0);
         SuccessProof proof = new SuccessProof("proof", 0, 0);
@@ -88,7 +89,7 @@ class CoverageAnalyzerTest {
     @Test
     void detectsCyclicCoverageDependencies() {
         RelationGraph graph = new RelationGraph();
-        CoverageAnalyzer analyzer = new CoverageAnalyzer(graph);
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(graph);
         Problem a = new Problem("a", 0, 0);
         Problem b = new Problem("b", 0, 0);
 
