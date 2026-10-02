@@ -5,6 +5,7 @@ import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionMeta;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionState;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
@@ -53,6 +54,9 @@ public final class POPPBigraphLoader {
         load(bigraph, model);
 
         model.addListener(bigraphSynchronizer);
+
+        applyMetaData(context.getOwnState().getInitialLoadedMeta(), model);
+        context.getOwnState().setInitialLoadedMeta(null);
     }
 
     private POPPModel load(final PureBigraphMutable bigraph, POPPModel model){
@@ -142,5 +146,13 @@ public final class POPPBigraphLoader {
                 }
             });
         }
+    }
+
+    private static void applyMetaData(Map<String, POPPExtensionMeta.NodeData> metaData, POPPModel model) {
+        metaData.forEach((key, value) -> {
+            TreeNode<?> node = model.findNode(key);
+            node.setDescription(value.description());
+            node.move(value.x(), value.y());
+        });
     }
 }
