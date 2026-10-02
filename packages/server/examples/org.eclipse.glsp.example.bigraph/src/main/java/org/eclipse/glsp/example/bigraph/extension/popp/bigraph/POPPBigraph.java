@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
@@ -120,13 +121,13 @@ public class POPPBigraph {
     public BigraphEntity.NodeEntity<DynamicControl> addTreeNode(TreeNode<? extends TreeNode<?>> node){
         BigraphEntity.NodeEntity<DynamicControl> container = getOrCreatePOPPContainer();
         BigraphEntity.NodeEntity<DynamicControl> entity = addNode(container, POPPBigraphSignature.getByNodeKind(node.getKind()), node.getId());
-        rebuildDecomposition(node);
         entity.getAttributes().put("description", node.getDescription());
         entity.getAttributes().put("layout.x", node.getX());
         entity.getAttributes().put("layout.y", node.getY());
 
         mirrorContainerIfNeeded(container);
         mirrorAdd(entity, container);
+        rebuildDecomposition(node);
         return entity;
     }
 
@@ -162,21 +163,19 @@ public class POPPBigraph {
             rebuildDecomposition(oldParent, node.getId());
         }
 
-        BigraphEntity.NodeEntity<DynamicControl> mirroredParent;
         if (newParent == null) {
-            mirroredParent = getOrCreatePOPPContainer();
-        } else {
-            if (newParent.getDecompositionType() != DecompositionType.NONE) {
-                rebuildDecomposition(newParent);
-            } else {
-                bigraph.moveNode(entity, getById(newParent.getId()));
-            }
-            // The domain node may now sit under a synthetic *_DECOMP chain node (never mirrored),
-            // but visually the child should attach to its semantic parent's own mirrored GNode.
-            mirroredParent = getById(newParent.getId());
+            mirrorAttachToParent(entity, getOrCreatePOPPContainer());
+            return;
         }
 
-        mirrorReparent(entity, mirroredParent);
+        if (newParent.getDecompositionType() != DecompositionType.NONE) {
+            // rebuildDecomposition mirrors every child of newParent (including this one) onto its chain node.
+            rebuildDecomposition(newParent);
+        } else {
+            BigraphEntity.NodeEntity<DynamicControl> newParentEntity = getById(newParent.getId());
+            bigraph.moveNode(entity, newParentEntity);
+            mirrorAttachToParent(entity, newParentEntity);
+        }
     }
 
     public void removeNode(String id) {
@@ -265,23 +264,31 @@ public class POPPBigraph {
         List<String> chainIds = new ArrayList<>();
 
         if (childIds.isEmpty()) {
-            addNode(parent, control, nodeId + "_DECOMP");
+            BigraphEntity.NodeEntity<DynamicControl> chainNode = addNode(parent, control, nodeId + "_DECOMP");
             chainIds.add(nodeId + "_DECOMP");
+            mirrorAdd(chainNode, parent);
         } else if (childIds.size() == 1) {
             BigraphEntity.NodeEntity<DynamicControl> chainRoot = addNode(parent, control, nodeId + "_DECOMP");
             chainIds.add(nodeId + "_DECOMP");
-            bigraph.moveNode(getById(childIds.get(0)), chainRoot);
+            mirrorAdd(chainRoot, parent);
+            BigraphEntity.NodeEntity<DynamicControl> onlyChild = getById(childIds.get(0));
+            bigraph.moveNode(onlyChild, chainRoot);
+            mirrorAttachToParent(onlyChild, chainRoot);
         } else {
             BigraphEntity<?> currentParent = parent;
             for (int i = 0; i < childIds.size() - 1; i++) {
                 String chainId = i == 0 ? nodeId + "_DECOMP" : nodeId + "_DECOMP_" + i;
                 BigraphEntity.NodeEntity<DynamicControl> chainNode = addNode(currentParent, control, chainId);
                 chainIds.add(chainId);
-                bigraph.moveNode(getById(childIds.get(i)), chainNode);
+                mirrorAdd(chainNode, currentParent);
+                BigraphEntity.NodeEntity<DynamicControl> child = getById(childIds.get(i));
+                bigraph.moveNode(child, chainNode);
+                mirrorAttachToParent(child, chainNode);
                 currentParent = chainNode;
             }
-            bigraph.moveNode(getById(childIds.get(childIds.size() - 1)),
-                    (BigraphEntity.NodeEntity<DynamicControl>) currentParent);
+            BigraphEntity.NodeEntity<DynamicControl> lastChild = getById(childIds.get(childIds.size() - 1));
+            bigraph.moveNode(lastChild, (BigraphEntity.NodeEntity<DynamicControl>) currentParent);
+            mirrorAttachToParent(lastChild, (BigraphEntity.NodeEntity<DynamicControl>) currentParent);
         }
 
         decompChainIds.put(nodeId, chainIds);
@@ -305,6 +312,7 @@ public class POPPBigraph {
                 }
             });
             bigraph.removeNode(chainNode);
+            mirrorDelete(chainNode);
         }
     }
 
@@ -420,16 +428,41 @@ public class POPPBigraph {
                 })));
     }
 
-    /** Re-targets the mirrored node's place-edge to its new parent's mirrored GNode. */
-    private void mirrorReparent(BigraphEntity.NodeEntity<DynamicControl> entity,
-                                BigraphEntity.NodeEntity<DynamicControl> newParent) {
-        view().ifPresent(view -> view.getGModelIdForEntity(entity).ifPresent(childViewId ->
-                view.getGModelIdForEntity(newParent).ifPresent(parentViewId ->
-                        findPlaceEdgeTo(view, childViewId).ifPresent(edge -> edge.setSourceId(parentViewId)))));
+    /** Re-targets an existing place-edge to a new parent, or creates one if the child never had one. */
+    private void mirrorAttachToParent(BigraphEntity.NodeEntity<DynamicControl> child,
+                                      BigraphEntity.NodeEntity<DynamicControl> parent) {
+        view().ifPresent(view -> view.getGModelIdForEntity(child).ifPresent(childViewId ->
+                view.getGModelIdForEntity(parent).ifPresent(parentViewId -> {
+                    Optional<GEdge> existing = findPlaceEdgeTo(view, childViewId);
+                    if (existing.isPresent()) {
+                        existing.get().setSourceId(parentViewId);
+                    } else {
+                        GEdge placeEdge = GraphFactory.eINSTANCE.createGEdge();
+                        placeEdge.setId("popp_place_edge_" + UUID.randomUUID());
+                        placeEdge.setType("bigraph:place-edge");
+                        placeEdge.setSourceId(parentViewId);
+                        placeEdge.setTargetId(childViewId);
+                        placeEdge.getCssClasses().add("bigraph-place-edge");
+                        view.getOwnerRoot().getChildren().add(placeEdge);
+                    }
+                })));
     }
 
     private void mirrorRelationEdge(BigraphEntity.Edge edge, Collection<BigraphEntity<?>> points) {
-        view().ifPresent(view -> view.onAddEdge(edge, points));
+        view().ifPresent(view -> {
+            // Core's LinkRenderer only wires Port/InnerName/OuterName points, not plain stub nodes
+            // (see LinkRenderer#createLinkConnections), so the hyperedge-to-stub links are built here instead.
+            GNode hyperEdgeNode = view.onAddEdge(edge, List.of(), Optional.empty());
+            points.forEach(point -> view.getGModelIdForEntity(point).ifPresent(targetId -> {
+                GEdge linkConnection = GraphFactory.eINSTANCE.createGEdge();
+                linkConnection.setId("popp_link_conn_" + UUID.randomUUID());
+                linkConnection.setType("bigraph:link-connection");
+                linkConnection.setSourceId(hyperEdgeNode.getId());
+                linkConnection.setTargetId(targetId);
+                linkConnection.getCssClasses().add("bigraph-link-connection");
+                view.getOwnerRoot().getChildren().add(linkConnection);
+            }));
+        });
     }
 
     /** Must be called BEFORE the edge/stubs are removed from the raw bigraph (their view ids are looked up here). */
