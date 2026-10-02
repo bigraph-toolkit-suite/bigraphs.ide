@@ -5,7 +5,22 @@ import java.util.Optional;
 
 /** Discriminates the six POPP tree kinds, e.g. for event payloads and error messages. */
 public enum NodeKind {
-    PROBLEM, GOAL, CONSEQUENCE, SOLUTION, SUCCESS_CRITERIA, SUCCESS_PROOF;
+    PROBLEM(false),
+    GOAL(false),
+    CONSEQUENCE(false),
+    SOLUTION(false),
+    SUCCESS_CRITERIA(false),
+    SUCCESS_PROOF(true);
+
+    private NodeKind(boolean explicitlyCovered) {
+        this.explicitlyCovered = explicitlyCovered;
+    }
+
+    private final boolean explicitlyCovered;
+
+    public boolean isExplicitlyCovered() {
+        return explicitlyCovered;
+    }
 
     public static Optional<NodeKind> fromString(String name){
         return Arrays.stream(values()).filter(k -> k.name().equals(name)).findFirst();

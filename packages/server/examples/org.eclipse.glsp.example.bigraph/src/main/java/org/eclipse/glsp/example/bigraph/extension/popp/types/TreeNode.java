@@ -13,7 +13,6 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
     private String description;
     private double x;
     private double y;
-    private boolean explicitlyCovered = false;
     private DecompositionType decompositionType = DecompositionType.NONE;
     protected T parent;
     protected final List<T> children = new ArrayList<>();
@@ -180,13 +179,8 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
         return getClass().equals(other.getClass()) && id.equals(other.id);
     }
 
-    /** The explicit coverage fact set directly on this node (e.g. a confirmed proof), independent of any relation. */
     public boolean isExplicitlyCovered() {
-        return explicitlyCovered;
-    }
-
-    public void setExplicitlyCovered(boolean covered) {
-        this.explicitlyCovered = covered;
+        return getKind().isExplicitlyCovered();
     }
 
     public boolean setDecompositionType(DecompositionType decompositionType) {
