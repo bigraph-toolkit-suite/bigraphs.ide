@@ -186,6 +186,10 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
     public List<SuccessCriteria> getAllSuccessCriteria() { return successCriteria.all(); }
     public List<SuccessProof> getAllSuccessProofs() { return successProofs.all(); }
 
+    public Collection<TreeNode<?>> getAllNodes() {
+        return nodeRegistry.values();
+    }
+
     private static <N extends TreeNode<N>> List<N> collectAll(List<N> roots) {
         List<N> result = new ArrayList<>();
         Deque<N> pending = new ArrayDeque<>();

@@ -17,6 +17,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.example.bigraph.extensions.ExtensionStateKey;
 import org.eclipse.glsp.example.bigraph.extensions.IdeExtension;
+import org.eclipse.glsp.example.bigraph.meta.BigraphMetaInformation;
 import org.eclipse.glsp.example.bigraph.model.IBigraphModelState;
 import org.eclipse.glsp.example.bigraph.model.ModelVariant;
 import org.eclipse.glsp.graph.GDimension;
@@ -27,7 +28,9 @@ import org.eclipse.glsp.server.operations.OperationHandler;
 import org.eclipse.glsp.server.types.EdgeTypeHint;
 import org.eclipse.glsp.server.types.ShapeTypeHint;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -152,5 +155,22 @@ public class POPPExtension implements IdeExtension {
 
         node.move(newPosition.getX(), newPosition.getY());
         return true;
+    }
+
+    @Override
+    public void writeExtensionMeta(BigraphMetaInformation meta, Injector injector) {
+        POPPModel model = injector.getInstance(POPPExtensionContext.class).getOwnState().getPoppModel();
+        Map<String, POPPExtensionMeta.NodeData> data = new HashMap<>();
+        model.getAllNodes().forEach(node -> data.put(node.getId(),
+            new POPPExtensionMeta.NodeData(node.getX(), node.getY(), node.getDescription())));
+
+        meta.setExtensionSection(getId(), new POPPExtensionMeta(data).toJson());
+    }
+
+    /** Is called before onModelLoaded */
+    @Override
+    public void readExtensionMeta(BigraphMetaInformation meta, Injector injector) {
+        POPPExtensionState state = injector.getInstance(POPPExtensionContext.class).getOwnState();
+        state.setInitialLoadedMeta(POPPExtensionMeta.fromJson(meta.getExtensionSection(getId())).getNodes());
     }
 }
