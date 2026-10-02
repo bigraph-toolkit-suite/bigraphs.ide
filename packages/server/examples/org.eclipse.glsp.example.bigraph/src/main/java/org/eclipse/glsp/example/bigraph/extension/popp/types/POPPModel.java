@@ -3,11 +3,12 @@ package org.eclipse.glsp.example.bigraph.extension.popp.types;
 import java.util.*;
 
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.DomainCoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventEmitter;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
 
-public class POPPModel implements POPPEventListener, POPPEventEmitter {
+public class POPPModel extends POPPEventEmitter implements POPPEventListener {
 
     /** Creates a node of type N from its editor-facing attributes; matches every TreeNode subtype's constructor. */
     @FunctionalInterface
@@ -93,7 +94,7 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
     private final NodeRegistry<SuccessProof> successProofs = new NodeRegistry<>(SuccessProof::new, SuccessProof::new);
 
     private final RelationGraph relations = new RelationGraph();
-    private final CoverageAnalyzer coverage = new CoverageAnalyzer(relations);
+    private final CoverageAnalyzer coverage = new DomainCoverageAnalyzer(relations);
     private final List<POPPEventListener> listeners = new ArrayList<>();
 
     public RelationGraph getRelations() {
@@ -118,7 +119,7 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
         Relation existing = findRelation(a, b).orElse(null);
         RelationResult result = relations.unrelate(a, b);
         if (result == RelationResult.REMOVED && existing != null) {
-            emitEvent(new POPPEvent.RelationRemoved(existing.source(), existing.type(), existing.target()));
+            emitEvent(new POPPEvent.RelationRemoved(existing));
         }
         return result;
     }
@@ -230,9 +231,5 @@ public class POPPModel implements POPPEventListener, POPPEventEmitter {
             case SuccessProof r -> { if (becameRoot) successProofs.addRoot(r); else successProofs.removeRoot(r); }
             default -> {}
         }
-    }
-
-    private void emitEvent(final POPPEvent event) {
-        listeners.forEach(listener -> listener.onPOPPEvent(event));
     }
 }

@@ -2,13 +2,21 @@ package org.eclipse.glsp.example.bigraph.extension.popp.event;
 
 import java.util.List;
 
-public interface POPPEventEmitter {
-    List<POPPEventListener> getListeners();
+public abstract class POPPEventEmitter {
+    protected List<POPPEventListener> listeners;
 
-    default void addListener(final POPPEventListener listener) {
+    protected List<POPPEventListener> getListeners() {
+        return listeners;
+    }
+
+    public void addListener(final POPPEventListener listener) {
         getListeners().add(listener);
     }
-    default void removeListener(final POPPEventListener listener) {
+    public void removeListener(final POPPEventListener listener) {
         getListeners().remove(listener);
+    }
+
+    protected void emitEvent(final POPPEvent event) {
+        listeners.forEach(listener -> listener.onPOPPEvent(event));
     }
 }

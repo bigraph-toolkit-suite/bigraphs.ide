@@ -13,9 +13,8 @@ import java.util.Optional;
 
 /**
  * Reacts to {@link POPPEvent}s and forwards each one to the matching
- * {@link POPPBigraph} operation. All bigraph shape/mutation logic — including
- * keeping the core bigraph view mirrored — lives in {@link POPPBigraph}; this
- * class only decides which operation to call for which event.
+ * {@link POPPBigraph} operation. All bigraph shape/mutation logic lives in {@link POPPBigraph};
+ * this class only decides which operation to call for which event.
  */
 @Singleton
 public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
@@ -79,6 +78,6 @@ public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
 
     @Override
     protected void onRelationRemoved(POPPEvent.RelationRemoved e) {
-        getPoppBigraph().removeRelation(e.type(), e.source().getId(), e.target().getId());
+        getPoppBigraph().removeRelation(e.relation());
     }
 }

@@ -376,16 +376,16 @@ public class POPPBigraph {
         return edge;
     }
 
-    /** The {@link BigraphEntity.Edge} encoding a relation, by its deterministic name — see {@link #createRelation}. */
-    public Optional<BigraphEntity.Edge> findRelationEdge(RelationType type, String sourceId, String targetId) {
-        String edgeName = type + ":" + sourceId + "->" + targetId;
+    /** The {@link BigraphEntity.Edge} encoding a relation, by its deterministic name see: {@link #createRelation}. */
+    public Optional<BigraphEntity.Edge> findRelationEdge(Relation relation) {
+        String edgeName = relation.type() + ":" + relation.source().getId() + "->" + relation.target().getId();
         return bigraph.getEdges().stream()
                 .filter(e -> e.getName().equals(edgeName))
                 .findFirst();
     }
 
-    public void removeRelation(RelationType type, String sourceId, String targetId) {
-        BigraphEntity.Edge edge = findRelationEdge(type, sourceId, targetId).orElseThrow();
+    public void removeRelation(Relation relation) {
+        BigraphEntity.Edge edge = findRelationEdge(relation).orElseThrow();
         List<BigraphEntity<?>> stubs = new ArrayList<>(bigraph.getPointsFromLink(edge));
 
         mirrorDeleteRelation(edge, stubs);
@@ -411,11 +411,11 @@ public class POPPBigraph {
             if (!(point instanceof BigraphEntity.NodeEntity<?> stub)) {
                 continue;
             }
-            POPPBigraphSignature stubControl = POPPBigraphSignature.forNode((BigraphEntity.NodeEntity<DynamicControl>) stub);
+            POPPBigraphSignature stubControl = POPPBigraphSignature.forNode(stub);
             if (stubControl == null) {
                 continue;
             }
-            BigraphEntity<?> owner = bigraph.getParent((BigraphEntity.NodeEntity<DynamicControl>) stub);
+            BigraphEntity<?> owner = bigraph.getParent(stub);
             if (!(owner instanceof BigraphEntity.NodeEntity<?> ownerNode)) {
                 continue;
             }

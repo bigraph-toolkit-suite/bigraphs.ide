@@ -12,7 +12,7 @@ public sealed interface CoverageReason {
     /** The node this reason explains the coverage of. */
     TreeNode<?> node();
 
-    /** Node is covered because its explicit coverage flag was set directly (e.g. a confirmed proof). */
+    /** Node is covered because its {@link NodeKind} is inherently covered (e.g. proof). */
     record Explicit(TreeNode<?> node) implements CoverageReason {
     }
 
