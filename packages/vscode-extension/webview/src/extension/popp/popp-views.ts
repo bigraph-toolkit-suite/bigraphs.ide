@@ -15,7 +15,7 @@ import { h, VNode } from 'snabbdom';
 import { setClass } from 'sprotty';
 
 const NODE_ICONS: Record<string, string> = {
-    'popp:problem': 'warning-compact',
+    'popp:problem': 'warning',
     'popp:goal': 'target',
     'popp:consequence': 'zap',
     'popp:solution': 'lightbulb',
