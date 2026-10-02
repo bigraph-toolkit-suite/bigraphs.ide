@@ -13,38 +13,45 @@ import org.junit.jupiter.api.Test;
 class CoverageAnalyzerTest {
 
     @Test
-    void explicitCoverageAndDecompositionsDetermineCoverage() {
+    void decompositionsDetermineCoverage() {
         RelationGraph graph = new RelationGraph();
         CoverageAnalyzer analyzer = new CoverageAnalyzer(graph);
-        Problem and = new Problem("and", 0, 0);
-        Problem first = new Problem("first", 0, 0);
-        Problem second = new Problem("second", 0, 0);
+        SuccessCriteria and = new SuccessCriteria("and", 0, 0);
+        SuccessCriteria first = new SuccessCriteria("first", 0, 0);
+        SuccessCriteria second = new SuccessCriteria("second", 0, 0);
+        SuccessProof proofFirst = new SuccessProof("first", 0, 0);
+        SuccessProof proofSecond = new SuccessProof("second", 0, 0);
+
         and.addChild(first);
         and.addChild(second);
         and.setDecompositionType(DecompositionType.AND);
 
-        first.setExplicitlyCovered(true);
+        assertEquals(RelationResult.CREATED, graph.relate(first, proofFirst));
         assertFalse(analyzer.isCovered(and));
-        second.setExplicitlyCovered(true);
+        assertEquals(RelationResult.CREATED, graph.relate(second, proofSecond));
+        assertTrue(analyzer.isCovered(first));
+        assertTrue(analyzer.isCovered(second));
+
         assertTrue(analyzer.isCovered(and));
 
-        first.setExplicitlyCovered(false);
-        second.setExplicitlyCovered(false);
-        Problem or = new Problem("or", 0, 0);
+        assertEquals(RelationResult.REMOVED, graph.unrelate(first, proofFirst));
+        assertEquals(RelationResult.REMOVED, graph.unrelate(second, proofSecond));
+        SuccessCriteria or = new SuccessCriteria("or", 0, 0);
         or.addChild(first);
         or.addChild(second);
         or.setDecompositionType(DecompositionType.OR);
         assertFalse(analyzer.isCovered(or));
-        first.setExplicitlyCovered(true);
+        assertEquals(RelationResult.CREATED, graph.relate(first, proofFirst));
         assertTrue(analyzer.isCovered(or));
-        second.setExplicitlyCovered(true);
+        assertEquals(RelationResult.CREATED, graph.relate(second, proofSecond));
         assertTrue(analyzer.isCovered(or));
 
         CoverageReason.Decomposition reason = assertInstanceOf(CoverageReason.Decomposition.class,
                 analyzer.explain(or));
         assertEquals(2, reason.children().size());
-        assertInstanceOf(CoverageReason.Explicit.class, reason.children().get(0));
+        assertInstanceOf(CoverageReason.Link.class, reason.children().getFirst());
     }
+
 
     @Test
     void followsOnlyCoveragePropagatingRelations() {
@@ -52,8 +59,6 @@ class CoverageAnalyzerTest {
         CoverageAnalyzer analyzer = new CoverageAnalyzer(graph);
         SuccessProof proof = new SuccessProof("proof", 0, 0);
         SuccessCriteria criterion = new SuccessCriteria("criterion", 0, 0);
-        Solution solution = new Solution("solution", 0, 0);
-        Goal goal = new Goal("goal", 0, 0);
 
         assertTrue(proof.isExplicitlyCovered());
         assertEquals(RelationResult.CREATED, graph.relate(proof, criterion));
@@ -61,11 +66,6 @@ class CoverageAnalyzerTest {
         CoverageReason.Link link = assertInstanceOf(CoverageReason.Link.class, analyzer.explain(criterion));
         assertEquals(RelationType.VALIDATES, link.type());
         assertEquals(proof, link.coveringNode());
-
-        solution.setExplicitlyCovered(true);
-        assertEquals(RelationResult.CREATED, graph.relate(solution, goal));
-        assertFalse(analyzer.isCovered(goal));
-        assertInstanceOf(CoverageReason.NotCovered.class, analyzer.explain(goal));
     }
 
     @Test
@@ -74,30 +74,15 @@ class CoverageAnalyzerTest {
         CoverageAnalyzer analyzer = new CoverageAnalyzer(graph);
         Goal goal = new Goal("goal", 0, 0);
         SuccessCriteria successCriteria = new SuccessCriteria("successCriteria", 0, 0);
+        SuccessProof proof = new SuccessProof("proof", 0, 0);
 
-        successCriteria.setExplicitlyCovered(true);
+        graph.relate(proof, successCriteria);
+        assertTrue(analyzer.isCovered(successCriteria));
         assertEquals(RelationResult.CREATED, graph.relate(goal, successCriteria));
         assertTrue(analyzer.isCovered(goal));
         CoverageReason.Link reason = assertInstanceOf(CoverageReason.Link.class, analyzer.explain(goal));
         assertEquals(RelationType.CAUSES, reason.type());
         assertEquals(successCriteria, reason.coveringNode());
-    }
-
-    @Test
-    void ignoresProvenanceOnlyRelationsForCoverage() {
-        RelationGraph graph = new RelationGraph();
-        CoverageAnalyzer analyzer = new CoverageAnalyzer(graph);
-        Solution solution = new Solution("solution", 0, 0);
-        Goal goal = new Goal("goal", 0, 0);
-        SuccessProof proof = new SuccessProof("proof", 0, 0);
-
-        solution.setExplicitlyCovered(true);
-        assertEquals(RelationResult.CREATED, graph.relate(solution, goal));
-        assertFalse(analyzer.isCovered(goal));
-        assertInstanceOf(CoverageReason.NotCovered.class, analyzer.explain(goal));
-
-        assertEquals(RelationResult.CREATED, graph.relate(solution, proof));
-        assertFalse(analyzer.isCovered(goal));
     }
 
     @Test
