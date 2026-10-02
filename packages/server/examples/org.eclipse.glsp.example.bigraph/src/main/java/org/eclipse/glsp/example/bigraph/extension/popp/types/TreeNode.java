@@ -6,7 +6,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
 
 import java.util.*;
 
-public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListener, POPPEventEmitter {
+public abstract class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter implements POPPEventListener {
     private final List<POPPEventListener> listeners = new LinkedList<>();
     private final String id;
     private final NodeKind kind;
@@ -215,9 +215,5 @@ public abstract class TreeNode<T extends TreeNode<T>> implements POPPEventListen
     @Override
     public void onPOPPEvent(POPPEvent event) {
         emitEvent(event);
-    }
-
-    private void emitEvent(POPPEvent event){
-        new ArrayList<>(listeners).forEach(listener -> listener.onPOPPEvent(event));
     }
 }

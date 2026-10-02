@@ -79,7 +79,10 @@ public class POPPGModelSynchronizer extends POPPSpecificEventListener {
     @Override
     protected void onRelationRemoved(POPPEvent.RelationRemoved e) {
         getGModel().getRoot().getChildren().stream()
-                .filter(element -> element.getId().equals(e.source().getId() + "_" + e.type().name().toLowerCase() + "_" + e.target().getId()))
+                .filter(element -> element.getId().equals(
+                        e.relation().source().getId() + "_"
+                        + e.relation().type().name().toLowerCase() + "_"
+                        + e.relation().target().getId()))
                 .findFirst().ifPresent(oldEdge -> getGModel().getRoot().getChildren().remove(oldEdge));
     }
 }

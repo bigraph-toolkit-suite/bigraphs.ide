@@ -21,13 +21,13 @@ public sealed interface POPPEvent {
     record NodeRemoved(NodeKind kind, TreeNode<?> node) implements POPPEvent {
     }
 
-    /** There is no guarantee that node is updated before the event is handled, therefore the newParent should be used. */
+    /** There is no guarantee that node is updated before the event is handled, therefore the {@code newParent} should be used. */
     record NodeChangedParent(NodeKind kind, TreeNode<?> node, TreeNode<?> oldParent, TreeNode<?> newParent) implements POPPEvent {
     }
 
     record RelationCreated(Relation relation) implements POPPEvent {
     }
 
-    record RelationRemoved(TreeNode<?> source, RelationType type, TreeNode<?> target) implements POPPEvent {
+    record RelationRemoved(Relation relation) implements POPPEvent {
     }
 }
