@@ -7,7 +7,6 @@ import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
 import java.util.*;
 
 public abstract class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter implements POPPEventListener {
-    private final List<POPPEventListener> listeners = new LinkedList<>();
     private final String id;
     private final NodeKind kind;
     private String description;
@@ -76,11 +75,15 @@ public abstract class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter i
     }
 
     public boolean addChild(T child) {
-        if (child == null || child == self() || child == parent || children.contains(child)) {
+        if (child == null || child == self() || children.contains(child)) {
             return false;
         }
-        if (child.isChildOf(self()) || self().isChildOf(child)) {
+        if (child.isChildOf(self()) || (self().isChildOf(child) && child != parent)) {
             return false;
+        }
+
+        if (child == parent) { // Allow flipping, but no loops
+            setParent(null);
         }
 
         if (decompositionType == DecompositionType.NONE){
@@ -113,7 +116,9 @@ public abstract class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter i
             return false;
         }
         children.remove(child);
-        child.setParent(null);
+        if (child.parent == self()) { // only update if it still points to us, prevent double event dispatch
+            child.setParent(null);
+        }
         child.removeListener(this);
         return true;
     }
@@ -206,10 +211,6 @@ public abstract class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter i
     @Override
     public String toString() {
         return getClass().getSimpleName() + "[id=" + id + "]";
-    }
-
-    public List<POPPEventListener> getListeners() {
-        return listeners;
     }
 
     @Override

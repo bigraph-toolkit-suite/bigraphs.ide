@@ -2,6 +2,8 @@ package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
@@ -18,6 +20,8 @@ import java.util.Optional;
  */
 @Singleton
 public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
+    private static final Logger LOGGER = LogManager.getLogger(POPPBigraphSynchronizer.class);
+
     private final POPPBigraph poppBigraph;
 
     @Inject
@@ -44,6 +48,7 @@ public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
     @Override
     protected void onNodeCreated(POPPEvent.NodeCreated e) {
         getPoppBigraph().addTreeNode(e.node());
+        LOGGER.info("ADDED BIGRAPH NODE");
     }
 
     @Override
