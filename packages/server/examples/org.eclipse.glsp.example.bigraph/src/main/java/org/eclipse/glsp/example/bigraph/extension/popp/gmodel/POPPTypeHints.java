@@ -17,22 +17,17 @@ public class POPPTypeHints {
         List<POPPGModelType> relations = POPPGModelType.getRelations();
         List<EdgeTypeHint> hints = new ArrayList<>(2+relations.size());
 
-        EdgeTypeHint or = hintFactory.apply(POPPGModelType.OR_DECOMPOSITION.toString());
-        or.setDynamic(true);
-        or.setRepositionable(false);
-        EdgeTypeHint and = hintFactory.apply(POPPGModelType.AND_DECOMPOSITION.toString());
-        and.setDynamic(true);
-        and.setRepositionable(false);
+        EdgeTypeHint decomp = hintFactory.apply(POPPGModelType.DECOMPOSITION_EDGE.toString());
+        decomp.setDynamic(true);
+        decomp.setRepositionable(false);
 
         POPPGModelType.getNodes().forEach(n -> {
-            or.addSourceElementTypeId(n.toString());
-            or.addTargetElementTypeId(n.toString());
-            and.addSourceElementTypeId(n.toString());
-            and.addTargetElementTypeId(n.toString());
+            decomp.addSourceElementTypeId(n.toString());
+            decomp.addTargetElementTypeId(n.toString());
         });
 
-        hints.add(or);
-        hints.add(and);
+        hints.add(decomp);
+        hints.add(decomp);
 
         EdgeTypeHint connect = hintFactory.apply(POPPGModelType.CONNECT.toString());
         connect.setDynamic(true);

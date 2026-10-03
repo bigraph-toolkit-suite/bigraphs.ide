@@ -10,6 +10,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchr
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPEdgeCreationChecker;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPTypeHints;
+import org.eclipse.glsp.example.bigraph.extension.popp.handler.EditDescriptionNodeHandler;
 import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPEdgeCreationHandler;
 import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPCreateNodeOperationHandler;
 import org.eclipse.glsp.example.bigraph.extension.popp.handler.SwitchDecompositionTypeHandler;
@@ -74,7 +75,8 @@ public class POPPExtension implements IdeExtension {
     public List<Class<? extends ActionHandler>> getActionHandlers() {
         return List.of(
                 SwitchDecompositionTypeHandler.class,
-                POPPCreateNodeOperationHandler.class
+                POPPCreateNodeOperationHandler.class,
+                EditDescriptionNodeHandler.class
         );
     }
 

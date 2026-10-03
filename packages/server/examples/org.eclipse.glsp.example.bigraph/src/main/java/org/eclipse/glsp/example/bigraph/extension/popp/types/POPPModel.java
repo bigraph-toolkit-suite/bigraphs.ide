@@ -2,6 +2,8 @@ package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 import java.util.*;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.DomainCoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
@@ -9,6 +11,11 @@ import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventEmitter;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
 
 public class POPPModel extends POPPEventEmitter implements POPPEventListener {
+    private static final Logger LOGGER = LogManager.getLogger(POPPModel.class);
+
+    public POPPModel() {
+        LOGGER.info("NEW POPP MODEL CREATED");
+    }
 
     /** Creates a node of type N from its editor-facing attributes; matches every TreeNode subtype's constructor. */
     @FunctionalInterface
@@ -95,7 +102,6 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
 
     private final RelationGraph relations = new RelationGraph();
     private final CoverageAnalyzer coverage = new DomainCoverageAnalyzer(relations);
-    private final List<POPPEventListener> listeners = new ArrayList<>();
 
     public RelationGraph getRelations() {
         return relations;
@@ -203,10 +209,6 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
             }
         }
         return result;
-    }
-
-    public List<POPPEventListener> getListeners() {
-        return listeners;
     }
 
     @Override

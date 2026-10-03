@@ -19,8 +19,8 @@ public enum POPPGModelType {
     PRODUCES_RELATION("popp:produces", false, null, null, true, RelationType.PRODUCES),
     VALIDATES_RELATION("popp:validates", false, null, null, true, RelationType.VALIDATES),
     NODE_DESCRIPTION("popp:node_description", false, null, null, false, null),
-    AND_DECOMPOSITION("popp:and", false, null, null, false, null),
-    OR_DECOMPOSITION("popp:or", false, null, null, false, null),
+    DECOMPOSITION_EDGE("popp:decomposition_edge", false, null, null, false, null),
+    DECOMPOSITION_PORT("popp:decomposition_port", false, null, null, false, null),
     /** Virtual trigger type for the universal "connect" palette tool; never materialized as a GModel element. */
     CONNECT("popp:connect", false, null, null, false, null);
 
