@@ -6,19 +6,18 @@ import com.google.gson.GsonBuilder;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Responsible to serialize data which is not saved in the default xmi file */
-public final class POPPExtensionMeta {
+/**
+ * Responsible to serialize data which is not saved in the default xmi file
+ */
+public record POPPExtensionMeta(Map<String, NodeData> nodes) {
     private static final Gson GSON = new GsonBuilder().create();
 
-    public record NodeData(double x, double y, String description) {}
-
-    private final Map<String, NodeData> nodes;
+    public record NodeData(double x, double y, String description) {
+    }
 
     public POPPExtensionMeta(Map<String, NodeData> nodes) {
         this.nodes = nodes != null ? nodes : new HashMap<>();
     }
-
-    public Map<String, NodeData> getNodes() { return nodes; }
 
     public static POPPExtensionMeta fromJson(String json) {
         if (json == null || json.isBlank()) return new POPPExtensionMeta(new HashMap<>());
@@ -32,5 +31,7 @@ public final class POPPExtensionMeta {
         return GSON.toJson(p);
     }
 
-    private static final class Payload { Map<String, NodeData> nodes; }
+    private static final class Payload {
+        Map<String, NodeData> nodes;
+    }
 }

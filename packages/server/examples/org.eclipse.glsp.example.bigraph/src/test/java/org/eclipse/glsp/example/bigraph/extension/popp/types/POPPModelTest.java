@@ -61,7 +61,7 @@ class POPPModelTest {
         root.addChild(right);
         left.addChild(leftChild);
 
-        System.out.println(String.join(" ", model.getAllProblems().stream().map(p -> p.getDescription()).toList()));
+        System.out.println(String.join(" ", model.getAllProblems().stream().map(TreeNode::getDescription).toList()));
         assertEquals(Set.of(root, left, right, leftChild), Set.copyOf(model.getAllProblems()));
         assertEquals(4, model.getAllProblems().size());
     }
