@@ -2,14 +2,18 @@ package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
 import org.eclipse.glsp.graph.*;
 
 
+
 @Singleton
 public class POPPGModelSynchronizer extends POPPSpecificEventListener {
+    private static final Logger LOGGER = LogManager.getLogger(POPPGModelSynchronizer.class);
     private final POPPExtensionContext context;
     private final POPPGModelFactory factory;
 
@@ -27,28 +31,26 @@ public class POPPGModelSynchronizer extends POPPSpecificEventListener {
     protected void onNodeCreated(POPPEvent.NodeCreated e) {
         GNode newNode = factory.createTreeNode(e.node());
         getGModel().addNode(newNode.getId(), newNode);
+        LOGGER.info("ADDED GMODEL NODE");
     }
 
     @Override
     protected void onNodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {
         GNode editedNode = getGModel().getNode(e.node().getId());
-
-        GModelElement descriptionElement = editedNode.getChildren().getFirst();
-        if (POPPGModelType.NODE_DESCRIPTION.toString().equals(descriptionElement.getType()) && descriptionElement instanceof GLabel label) {
-            label.setText(e.node().getDescription());
-        }
+        factory.applyLayout(editedNode, e.node());
     }
 
     @Override
     protected void onNodeMoved(POPPEvent.NodeMoved e) {
         GNode editedNode = getGModel().getNode(e.node().getId());
-        editedNode.setPosition(factory.point(e.node().getX(), e.node().getY()));
+        factory.applyLayout(editedNode, e.node());
     }
 
     @Override
     protected void onNodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged e) {
         GNode editedNode = getGModel().getNode(e.node().getId());
         editedNode.getArgs().put("decomposition_type", e.node().getDecompositionType().toString());
+        factory.applyLayout(editedNode, e.node());
     }
 
     @Override
