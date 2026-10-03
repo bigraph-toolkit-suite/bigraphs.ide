@@ -173,6 +173,6 @@ public class POPPExtension implements IdeExtension {
     @Override
     public void readExtensionMeta(BigraphMetaInformation meta, Injector injector) {
         POPPExtensionState state = injector.getInstance(POPPExtensionContext.class).getOwnState();
-        state.setInitialLoadedMeta(POPPExtensionMeta.fromJson(meta.getExtensionSection(getId())).getNodes());
+        state.setInitialLoadedMeta(POPPExtensionMeta.fromJson(meta.getExtensionSection(getId())).nodes());
     }
 }
