@@ -308,7 +308,7 @@ public class POPPBigraph {
             BigraphEntity.NodeEntity<DynamicControl> chainRoot = addNode(parent, control, nodeId + "_DECOMP");
             chainIds.add(nodeId + "_DECOMP");
             mirrorAdd(chainRoot, parent);
-            BigraphEntity.NodeEntity<DynamicControl> onlyChild = getById(childIds.get(0));
+            BigraphEntity.NodeEntity<DynamicControl> onlyChild = getById(childIds.getFirst());
             bigraph.moveNode(onlyChild, chainRoot);
             mirrorAttachToParent(onlyChild, chainRoot);
         } else {
@@ -323,7 +323,7 @@ public class POPPBigraph {
                 mirrorAttachToParent(child, chainNode);
                 currentParent = chainNode;
             }
-            BigraphEntity.NodeEntity<DynamicControl> lastChild = getById(childIds.get(childIds.size() - 1));
+            BigraphEntity.NodeEntity<DynamicControl> lastChild = getById(childIds.getLast());
             bigraph.moveNode(lastChild, (BigraphEntity.NodeEntity<DynamicControl>) currentParent);
             mirrorAttachToParent(lastChild, (BigraphEntity.NodeEntity<DynamicControl>) currentParent);
         }
