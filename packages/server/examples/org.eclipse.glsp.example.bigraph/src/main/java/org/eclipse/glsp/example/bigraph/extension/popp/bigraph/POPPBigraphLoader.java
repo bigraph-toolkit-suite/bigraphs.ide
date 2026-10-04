@@ -12,6 +12,8 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +24,8 @@ import java.util.Map;
  */
 @SuppressWarnings("unchecked")
 public final class POPPBigraphLoader {
+    private final static Logger LOGGER = LoggerFactory.getLogger(POPPBigraphLoader.class);
+
     private final POPPExtensionContext context;
     private final POPPGModelSynchronizer gModelSynchronizer;
     private final POPPBigraphSynchronizer bigraphSynchronizer;
@@ -151,6 +155,10 @@ public final class POPPBigraphLoader {
     private static void applyMetaData(Map<String, POPPExtensionMeta.NodeData> metaData, POPPModel model) {
         metaData.forEach((key, value) -> {
             TreeNode<?> node = model.findNode(key);
+            if (node == null) {
+                LOGGER.warn("Loaded meta file contains meta data for non-existing nodes!");
+                return;
+            }
             node.setDescription(value.description());
             node.move(value.x(), value.y());
         });
