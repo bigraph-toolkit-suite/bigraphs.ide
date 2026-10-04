@@ -57,18 +57,16 @@ public class POPPGModelFactory {
     }
 
     public GNode createTreeNode(final TreeNode<?> treeNode) {
-        POPPGModelType gtype = POPPGModelType.getFromClass(treeNode.getClass()).orElseThrow();
-
-        GLabel label = new GLabelBuilder(POPPGModelType.NODE_DESCRIPTION.toString())
+        GLabel label = new GLabelBuilder(POPPGModelTypes.NODE_DESCRIPTION)
                 .id(treeNode.getId() + "_description")
                 .text(treeNode.getDescription())
                 .build();
 
-        GPort port = new GPortBuilder(POPPGModelType.DECOMPOSITION_PORT.toString())
+        GPort port = new GPortBuilder(POPPGModelTypes.DECOMPOSITION_PORT)
                 .id(portId(treeNode))
                 .build();
 
-        GNode gnode = new GNodeBuilder(gtype.toString())
+        GNode gnode = new GNodeBuilder(POPPGModelTypes.of(treeNode.getKind()))
                 .id(treeNode.getId())
                 .add(label)
                 .add(port)
@@ -103,7 +101,7 @@ public class POPPGModelFactory {
         gnode.setSize(size(width, height));
 
         gnode.getChildren().stream()
-                .filter(c -> POPPGModelType.NODE_DESCRIPTION.toString().equals(c.getType()) && c instanceof GLabel)
+                .filter(c -> POPPGModelTypes.NODE_DESCRIPTION.equals(c.getType()) && c instanceof GLabel)
                 .map(c -> (GLabel) c)
                 .findFirst()
                 .ifPresent(label -> {
@@ -113,7 +111,7 @@ public class POPPGModelFactory {
                 });
 
         gnode.getChildren().stream()
-                .filter(c -> POPPGModelType.DECOMPOSITION_PORT.toString().equals(c.getType()) && c instanceof GPort)
+                .filter(c -> POPPGModelTypes.DECOMPOSITION_PORT.equals(c.getType()) && c instanceof GPort)
                 .map(c -> (GPort) c)
                 .findFirst()
                 .ifPresent(port -> {
@@ -125,9 +123,7 @@ public class POPPGModelFactory {
 
 
     public GEdge createRelationEdge(final Relation relation) {
-        POPPGModelType gtype = POPPGModelType.getFromRelationType(relation.type()).orElseThrow();
-
-        return new GEdgeBuilder(gtype.toString())
+        return new GEdgeBuilder(POPPGModelTypes.of(relation.type()))
                 .id(relationEdgeId(relation))
                 .sourceId(relation.source().getId())
                 .targetId(relation.target().getId())
@@ -145,20 +141,11 @@ public class POPPGModelFactory {
     }
 
     public GEdge createDecompositionEdge(final TreeNode<?> parent, final TreeNode<?> child) {
-        return new GEdgeBuilder(POPPGModelType.DECOMPOSITION_EDGE.toString())
+        return new GEdgeBuilder(POPPGModelTypes.DECOMPOSITION_EDGE)
                 .id(parent.getId() + "_decomposes_" + child.getId())
                 .sourceId(portId(parent))
                 .targetId(child.getId())
                 .build();
-    }
-
-    public List<GEdge> createDecompositionEdges(final TreeNode<?> node) {
-        List<GEdge> edges = new ArrayList<>();
-        for (TreeNode<?> child : node.getChildren()) {
-            edges.add(createDecompositionEdge(node, child));
-            edges.addAll(createDecompositionEdges(child));
-        }
-        return edges;
     }
 
     public GPoint point(final double x, final double y) {

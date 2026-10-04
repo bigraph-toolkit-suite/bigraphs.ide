@@ -25,11 +25,11 @@ public final class RelationGraph extends POPPEventEmitter {
 
     /** Resolves the canonical {@code source -> target} relation for two nodes, in whichever order they're given. */
     private static Optional<Relation> resolve(TreeNode<?> a, TreeNode<?> b) {
-        RelationType asGiven = RELATION_BY_ENDPOINT_KINDS.get(new RelationType.NodeTypePair(a.getClass(), b.getClass()));
+        RelationType asGiven = RELATION_BY_ENDPOINT_KINDS.get(new RelationType.NodeTypePair(a.getKind(), b.getKind()));
         if (asGiven != null) {
             return Optional.of(new Relation(a, asGiven, b));
         }
-        RelationType reversed = RELATION_BY_ENDPOINT_KINDS.get(new RelationType.NodeTypePair(b.getClass(), a.getClass()));
+        RelationType reversed = RELATION_BY_ENDPOINT_KINDS.get(new RelationType.NodeTypePair(b.getKind(), a.getKind()));
         if (reversed != null) {
             return Optional.of(new Relation(b, reversed, a));
         }
