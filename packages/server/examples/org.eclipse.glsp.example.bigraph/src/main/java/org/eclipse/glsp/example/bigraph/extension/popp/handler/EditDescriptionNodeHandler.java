@@ -8,13 +8,14 @@ public class EditDescriptionNodeHandler extends AbstractPOPPActionHandler<ApplyL
     private final POPPGModelFactory factory = new POPPGModelFactory();
 
     @Override
-    protected void applyMutation(ApplyLabelEditOperation action) {
+    protected boolean applyMutation(ApplyLabelEditOperation action) {
         String labelId = action.getLabelId();
         if (factory.isDescriptionId(labelId)) {
-            return;
+            return false;
         }
         TreeNode<?> node = context.getOwnState().getPoppModel().findNode(factory.toNodeId(labelId));
         if (node == null) throw new POPPValidationException("Not not found");
         node.setDescription(action.getText());
+        return true;
     }
 }
