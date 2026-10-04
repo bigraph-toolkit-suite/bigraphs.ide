@@ -1,5 +1,8 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
+import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventEmitter;
+
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -9,7 +12,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Stores typed cross-tree relations; the type and its canonical direction are derived from the two node kinds given. */
-public final class RelationGraph {
+public final class RelationGraph extends POPPEventEmitter {
 
     private static final Map<RelationType.NodeTypePair, RelationType> RELATION_BY_ENDPOINT_KINDS = Arrays
         .stream(RelationType.values())
@@ -55,6 +58,7 @@ public final class RelationGraph {
         }
         outgoing.computeIfAbsent(relation.source(), n -> new LinkedHashSet<>()).add(relation);
         incoming.computeIfAbsent(relation.target(), n -> new LinkedHashSet<>()).add(relation);
+        emitEvent(new POPPEvent.RelationCreated(relation));
         return RelationResult.CREATED;
     }
 
@@ -75,6 +79,7 @@ public final class RelationGraph {
         }
         outgoing.getOrDefault(relation.source(), Set.of()).remove(relation);
         incoming.getOrDefault(relation.target(), Set.of()).remove(relation);
+        emitEvent(new POPPEvent.RelationRemoved(relation));
         return RelationResult.REMOVED;
     }
 
