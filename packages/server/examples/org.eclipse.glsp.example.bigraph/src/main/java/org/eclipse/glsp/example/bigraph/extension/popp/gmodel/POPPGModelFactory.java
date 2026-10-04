@@ -1,8 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.Relation;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationGraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.graph.*;
 import org.eclipse.glsp.graph.builder.impl.GEdgeBuilder;
@@ -10,12 +8,13 @@ import org.eclipse.glsp.graph.builder.impl.GLabelBuilder;
 import org.eclipse.glsp.graph.builder.impl.GNodeBuilder;
 import org.eclipse.glsp.graph.builder.impl.GPortBuilder;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 public class POPPGModelFactory {
+    private static final String DESCRIPTION_ID_SUFFIX = "_description";
+    private static final String DECOMPOSITION_ID_SUFFIX = "_decomp";
     private static final double CHAR_W = 6.5, LINE_H = 16, PAD_LEFT = 35, PAD_RIGHT = 10, PAD_V = 10;
     private static final double MIN_W = 180, MIN_H = 50, MAX_RATIO = 4.0;
 
@@ -42,13 +41,13 @@ public class POPPGModelFactory {
         return Math.max(MIN_H, lineCount * LINE_H + 2 * PAD_V);
     }
 
-    public String portId(final TreeNode<?> node) {
-        return node.getId() + "_decomp";
+    public String toPortId(final TreeNode<?> node) {
+        return node.getId() + DECOMPOSITION_ID_SUFFIX;
     }
 
     public String toNodeId(final String elementId) {
         if (elementId == null) return null;
-        for (String suffix : List.of("_decomp", "_description")) {
+        for (String suffix : List.of(DECOMPOSITION_ID_SUFFIX, DESCRIPTION_ID_SUFFIX)) {
             if (elementId.endsWith(suffix)) {
                 return elementId.substring(0, elementId.length() - suffix.length());
             }
@@ -56,14 +55,30 @@ public class POPPGModelFactory {
         return elementId;
     }
 
+    public String toDecompositionEdgeId(TreeNode<?> parent, TreeNode<?> child) {
+        return parent.getId() + "_decomposes_" + child.getId();
+    }
+
+    public String toDescriptionId(TreeNode<?> node){
+        return node.getId() + DESCRIPTION_ID_SUFFIX;
+    }
+
+    public boolean isDescriptionId(String id){
+        return id.endsWith(DESCRIPTION_ID_SUFFIX);
+    }
+
+    public String toRelationEdgeId(Relation relation) {
+        return relation.source().getId() + "_" + relation.type().name().toLowerCase() + "_" + relation.target().getId();
+    }
+
     public GNode createTreeNode(final TreeNode<?> treeNode) {
         GLabel label = new GLabelBuilder(POPPGModelTypes.NODE_DESCRIPTION)
-                .id(treeNode.getId() + "_description")
+                .id(toDescriptionId(treeNode))
                 .text(treeNode.getDescription())
                 .build();
 
         GPort port = new GPortBuilder(POPPGModelTypes.DECOMPOSITION_PORT)
-                .id(portId(treeNode))
+                .id(toPortId(treeNode))
                 .build();
 
         GNode gnode = new GNodeBuilder(POPPGModelTypes.of(treeNode.getKind()))
@@ -124,26 +139,16 @@ public class POPPGModelFactory {
 
     public GEdge createRelationEdge(final Relation relation) {
         return new GEdgeBuilder(POPPGModelTypes.of(relation.type()))
-                .id(relationEdgeId(relation))
+                .id(toRelationEdgeId(relation))
                 .sourceId(relation.source().getId())
                 .targetId(relation.target().getId())
                 .build();
     }
 
-    public String relationEdgeId(Relation relation) {
-        return relation.source().getId() + "_" + relation.type().name().toLowerCase() + "_" + relation.target().getId();
-    }
-
-    public List<GEdge> createRelationEdges(final RelationGraph relationGraph) {
-        return relationGraph.all().stream()
-                .map(this::createRelationEdge)
-                .collect(Collectors.toList());
-    }
-
     public GEdge createDecompositionEdge(final TreeNode<?> parent, final TreeNode<?> child) {
         return new GEdgeBuilder(POPPGModelTypes.DECOMPOSITION_EDGE)
-                .id(parent.getId() + "_decomposes_" + child.getId())
-                .sourceId(portId(parent))
+                .id(toDecompositionEdgeId(parent, child))
+                .sourceId(toPortId(parent))
                 .targetId(child.getId())
                 .build();
     }

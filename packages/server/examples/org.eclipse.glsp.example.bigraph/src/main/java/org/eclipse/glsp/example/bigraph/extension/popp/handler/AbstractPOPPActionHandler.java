@@ -36,10 +36,10 @@ public abstract class AbstractPOPPActionHandler<A extends Action> extends Abstra
     @Override
     protected final List<Action> executeAction(A action) {
         if (!variantGate.isActive(POPPExtension.POPP_VARIANT_ID)) {
-            logger.debug("POPP handler {} ignored — active variant is '{}'.",
+            logger.debug("POPP handler {} ignored: active variant is '{}'.",
                     getClass().getSimpleName(), variantGate.activeVariantId());
             BigraphNotifications.notifyError(actionDispatcher,
-                    "POPP operation ignored — current view is '"
+                    "POPP operation ignored: current view is '"
                             + variantGate.activeVariantId() + "'.");
             return List.of();
         }
