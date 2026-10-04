@@ -1,19 +1,19 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.server.features.directediting.ApplyLabelEditOperation;
 
 public class EditDescriptionNodeHandler extends AbstractPOPPActionHandler<ApplyLabelEditOperation> {
+    private final POPPGModelFactory factory = new POPPGModelFactory();
+
     @Override
     protected void applyMutation(ApplyLabelEditOperation action) {
         String labelId = action.getLabelId();
-        String suffix = "_description";
-        if (!labelId.endsWith(suffix)) {
+        if (factory.isDescriptionId(labelId)) {
             return;
         }
-        String nodeId = labelId.substring(0, labelId.length() - suffix.length());
-
-        TreeNode<?> node = context.getOwnState().getPoppModel().findNode(nodeId);
+        TreeNode<?> node = context.getOwnState().getPoppModel().findNode(factory.toNodeId(labelId));
         if (node == null) throw new POPPValidationException("Not not found");
         node.setDescription(action.getText());
     }
