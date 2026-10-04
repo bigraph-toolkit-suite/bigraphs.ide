@@ -7,7 +7,7 @@ import com.google.inject.Inject;
 
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
-import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelType;
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelTypes;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationResult;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
@@ -15,7 +15,6 @@ import org.eclipse.glsp.example.bigraph.handler.support.BigraphNotifications;
 import org.eclipse.glsp.graph.GEdge;
 import org.eclipse.glsp.graph.GModelElement;
 import org.eclipse.glsp.server.actions.ActionDispatcher;
-import org.eclipse.glsp.server.features.core.model.GModelFactory;
 import org.eclipse.glsp.server.gmodel.GModelCreateEdgeOperationHandler;
 import org.eclipse.glsp.server.model.GModelState;
 import org.eclipse.glsp.server.operations.CreateEdgeOperation;
@@ -38,7 +37,7 @@ public class POPPEdgeCreationHandler extends GModelCreateEdgeOperationHandler {
     private final POPPGModelFactory factory = new POPPGModelFactory();
 
     public POPPEdgeCreationHandler() {
-        super(List.of(POPPGModelType.CONNECT.toString()));
+        super(List.of(POPPGModelTypes.CONNECT));
     }
 
     @Override
