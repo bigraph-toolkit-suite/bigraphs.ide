@@ -6,16 +6,10 @@ import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.Relation;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
-import org.eclipse.glsp.example.bigraph.views.BigraphView;
-import org.eclipse.glsp.graph.GEdge;
-import org.eclipse.glsp.graph.GNode;
-import org.eclipse.glsp.graph.GPoint;
-import org.eclipse.glsp.graph.GraphFactory;
 
 import java.util.*;
-import java.util.function.Supplier;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Stateful wrapper around a {@link PureBigraphMutable} that owns all knowledge
@@ -25,44 +19,72 @@ import java.util.function.Supplier;
  * go through one instance of this class for every bigraph operation, so the
  * two directions can't drift apart.
  *
- * <p>Also keeps the core "bigraph" variant's {@link BigraphView} mirrored,
- * that view only ever updates through its public {@code on*} callbacks and
- * has no idea POPP exists, so every method here that changes the bigraph's
- * shape also tells the view about it. This only runs when a view is actually
- * bound (see {@link #POPPBigraph(PureBigraphMutable, DynamicSignature,
- * Supplier)}) since the read-only loader path never supplies one.</p>
+ * <p>Every structural change is announced to the registered {@link POPPBigraphObserver}s
+ * (e.g. {@link BigraphViewMirror}); this class knows nothing about views. A read-only
+ * instance simply has no observers.</p>
  *
  * <p>Holds two caches, populated only by this instance's own write operations:
- * {@code nodesById} (domain/synthetic id → bigraph node, so a node this
- * instance created can be found again without scanning) and
- * {@code decompChainIds} (which synthetic {@code *_DECOMP} chain nodes this
- * instance built for a given domain node, so they can be torn down later).
- * A read-only instance (see {@link #POPPBigraph(PureBigraphMutable)}) never
- * populates either cache, since every read method here works by direct
- * traversal of the bigraph rather than cache lookups.
+ * {@code nodesById} (domain/synthetic id → bigraph node) and {@code decompChainIds}
+ * (which synthetic {@code *_DECOMP} chain nodes this instance built for a given domain node,
+ * so they can be torn down later). Both are seeded from the existing bigraph by {@link #hydrate()}.</p>
  */
 @SuppressWarnings("unchecked")
 public class POPPBigraph {
     private final PureBigraphMutable bigraph;
     private final DynamicSignature signature;
-    private final Supplier<Optional<BigraphView>> viewSupplier;
+    private final List<POPPBigraphObserver> observers = new CopyOnWriteArrayList<>();
 
     private final Map<String, BigraphEntity.NodeEntity<DynamicControl>> nodesById = new HashMap<>();
     private final Map<String, List<String>> decompChainIds = new HashMap<>();
 
-    public POPPBigraph(PureBigraphMutable bigraph, DynamicSignature signature, Supplier<Optional<BigraphView>> viewSupplier) {
+    public POPPBigraph(PureBigraphMutable bigraph, DynamicSignature signature) {
         this.bigraph = bigraph;
         this.signature = signature;
-        this.viewSupplier = viewSupplier;
-        hydrate(); // ensure existing nodes are added to decompChainIds + nodesById
-    }
-
-    public POPPBigraph(PureBigraphMutable bigraph, DynamicSignature signature) {
-        this(bigraph, signature, Optional::empty);
+        hydrate();
     }
 
     public POPPBigraph(PureBigraphMutable bigraph) {
-        this(bigraph, bigraph.getSignature(), Optional::empty);
+        this(bigraph, bigraph.getSignature());
+    }
+
+    public void addObserver(POPPBigraphObserver observer) {
+        observers.add(observer);
+    }
+
+    public void removeObserver(POPPBigraphObserver observer) {
+        observers.remove(observer);
+    }
+
+    private void fireNodeAdded(BigraphEntity.NodeEntity<DynamicControl> node, BigraphEntity<?> parent) {
+        observers.forEach(o -> o.onNodeAdded(node, parent));
+    }
+
+    private void fireNodeRemoved(BigraphEntity.NodeEntity<DynamicControl> node) {
+        observers.forEach(o -> o.onNodeRemoved(node));
+    }
+
+    private void fireNodeReparented(BigraphEntity.NodeEntity<DynamicControl> child,
+                                    BigraphEntity.NodeEntity<DynamicControl> newParent) {
+        observers.forEach(o -> o.onNodeReparented(child, newParent));
+    }
+
+    private void firePositionChanged(BigraphEntity.NodeEntity<DynamicControl> node, double x, double y) {
+        observers.forEach(o -> o.onPositionChanged(node, x, y));
+    }
+
+    private void fireRelationAdded(BigraphEntity.Edge edge, List<? extends BigraphEntity<?>> stubs) {
+        observers.forEach(o -> o.onRelationAdded(edge, stubs));
+    }
+
+    private void fireRelationRemoving(BigraphEntity.Edge edge, List<? extends BigraphEntity<?>> stubs) {
+        observers.forEach(o -> o.onRelationRemoving(edge, stubs));
+    }
+
+    /** Moves {@code child} in the raw bigraph and tells observers. */
+    private void moveAndNotify(BigraphEntity.NodeEntity<DynamicControl> child,
+                               BigraphEntity.NodeEntity<DynamicControl> newParent) {
+        bigraph.moveNode(child, newParent);
+        fireNodeReparented(child, newParent);
     }
 
     public PureBigraphMutable getBigraph() {
@@ -128,7 +150,7 @@ public class POPPBigraph {
         return null;
     }
 
-    public BigraphEntity.NodeEntity<DynamicControl> getOrCreatePOPPContainer() {
+    private BigraphEntity.NodeEntity<DynamicControl> getOrCreatePOPPContainer() {
         BigraphEntity.RootEntity root = getDefaultRoot();
         BigraphEntity.NodeEntity<DynamicControl> existing = findPOPPContainer(root);
         if (existing != null) {
@@ -138,77 +160,84 @@ public class POPPBigraph {
         return addNode(root, POPPBigraphSignature.POPP, "POPP");
     }
 
-    public BigraphEntity.NodeEntity<DynamicControl> addNode(BigraphEntity<?> parent, POPPBigraphSignature control, String id) {
+    /** Raw add: registers the node in the cache but does NOT notify observers, callers do that once the node is fully set up. */
+    private BigraphEntity.NodeEntity<DynamicControl> addNode(BigraphEntity<?> parent, POPPBigraphSignature control, String id) {
         DynamicControl ctrl = requireSignature().getControlByName(control.controlName());
         BigraphEntity.NodeEntity<DynamicControl> entity = bigraph.addNode(parent, ctrl, id);
         nodesById.put(id, entity);
         return entity;
     }
 
-    public BigraphEntity.NodeEntity<DynamicControl> addTreeNode(TreeNode<? extends TreeNode<?>> node){
+
+    public BigraphEntity.NodeEntity<DynamicControl> addTreeNode(TreeNode<? extends TreeNode<?>> node) {
         BigraphEntity.NodeEntity<DynamicControl> container = getOrCreatePOPPContainer();
-        BigraphEntity.NodeEntity<DynamicControl> entity = addNode(container, POPPBigraphSignature.getByNodeKind(node.getKind()), node.getId());
+        BigraphEntity.NodeEntity<DynamicControl> entity =
+                addNode(container, POPPBigraphSignature.getByNodeKind(node.getKind()), node.getId());
         entity.getAttributes().put("description", node.getDescription());
         entity.getAttributes().put("layout.x", node.getX());
         entity.getAttributes().put("layout.y", node.getY());
 
-        mirrorContainerIfNeeded(container);
-        mirrorAdd(entity, container);
+        fireNodeAdded(container, getDefaultRoot()); // idempotent, covers the lazily created container
+        fireNodeAdded(entity, container);
         rebuildDecomposition(node);
         return entity;
     }
 
     public void deleteTreeNode(String id) {
-        BigraphEntity.NodeEntity<DynamicControl> entity = getById(id);
         clearDecompositionChain(id);
-        removeNode(id);
-        if (entity != null) {
-            mirrorDelete(entity);
-        }
+        removeNode(id).ifPresent(this::fireNodeRemoved);
     }
 
     public void updatePosition(String id, double x, double y) {
-        BigraphEntity.NodeEntity<DynamicControl> entity = getById(id);
+        BigraphEntity.NodeEntity<DynamicControl> entity = requireNode(id);
         entity.getAttributes().put("layout.x", x);
         entity.getAttributes().put("layout.y", y);
-        mirrorPosition(entity, x, y);
+        firePositionChanged(entity, x, y);
     }
 
     public void updateDescription(String id, String description) {
-        getById(id).getAttributes().put("description", description);
+        requireNode(id).getAttributes().put("description", description);
     }
 
     public void reparentTreeNode(TreeNode<?> node, TreeNode<?> oldParent, TreeNode<?> newParent) {
-        BigraphEntity.NodeEntity<DynamicControl> entity = getById(node.getId());
-        bigraph.moveNode(entity, getOrCreatePOPPContainer());
+        BigraphEntity.NodeEntity<DynamicControl> entity = getOrAdd(node);
+        BigraphEntity.NodeEntity<DynamicControl> container = getOrCreatePOPPContainer();
+        bigraph.moveNode(entity, container);
 
         if (oldParent != null) {
             rebuildDecomposition(oldParent, node.getId());
         }
 
         if (newParent == null) {
-            mirrorAttachToParent(entity, getOrCreatePOPPContainer());
+            fireNodeReparented(entity, container);
             return;
         }
 
         if (newParent.getDecompositionType() != DecompositionType.NONE) {
             rebuildDecomposition(newParent, null, node.getId());
         } else {
-            BigraphEntity.NodeEntity<DynamicControl> newParentEntity = getById(newParent.getId());
-            bigraph.moveNode(entity, newParentEntity);
-            mirrorAttachToParent(entity, newParentEntity);
+            moveAndNotify(entity, getOrAdd(newParent));
         }
     }
 
-    public void removeNode(String id) {
-        BigraphEntity.NodeEntity<DynamicControl> node = nodesById.remove(id);
-        if (node != null) {
+    /** Raw removal from bigraph + cache. Does not notify observers. */
+    private Optional<BigraphEntity.NodeEntity<DynamicControl>> removeNode(String id) {
+        return Optional.ofNullable(nodesById.remove(id)).map(node -> {
             bigraph.removeNode(node);
-        }
+            return node;
+        });
     }
 
-    public BigraphEntity.NodeEntity<DynamicControl> getById(String id) {
-        return nodesById.get(id);
+    public Optional<BigraphEntity.NodeEntity<DynamicControl>> getById(String id) {
+        return Optional.ofNullable(nodesById.get(id));
+    }
+
+    private BigraphEntity.NodeEntity<DynamicControl> requireNode(String id) {
+        return getById(id).orElseThrow(() -> new IllegalStateException("No bigraph node for " + id));
+    }
+
+    private BigraphEntity.NodeEntity<DynamicControl> getOrAdd(TreeNode<?> node) {
+        return getById(node.getId()).orElseGet(() -> addTreeNode(node));
     }
 
     private boolean isDecompChainNode(BigraphEntity.NodeEntity<?> node) {
@@ -283,81 +312,71 @@ public class POPPBigraph {
             childIds.add(includeChildId);
         }
 
+        BigraphEntity.NodeEntity<DynamicControl> parent = getOrAdd(node);
         DecompositionType type = node.getDecompositionType();
+
         if (type == DecompositionType.NONE) {
-            BigraphEntity.NodeEntity<DynamicControl> parentEntity = getById(nodeId);
             for (String childId : childIds) {
-                BigraphEntity.NodeEntity<DynamicControl> child = getById(childId);
-                if (child != null && !Objects.equals(bigraph.getParent(child), parentEntity)) {
-                    bigraph.moveNode(child, parentEntity);
-                    mirrorAttachToParent(child, parentEntity);
+                BigraphEntity.NodeEntity<DynamicControl> child = requireNode(childId);
+                if (!Objects.equals(bigraph.getParent(child), parent)) {
+                    moveAndNotify(child, parent);
                 }
             }
             return;
         }
 
         POPPBigraphSignature control = POPPBigraphSignature.getByDecompositionType(type);
-        BigraphEntity<?> parent = getById(nodeId);
         List<String> chainIds = new ArrayList<>();
 
         if (childIds.isEmpty()) {
             BigraphEntity.NodeEntity<DynamicControl> chainNode = addNode(parent, control, nodeId + "_DECOMP");
             chainIds.add(nodeId + "_DECOMP");
-            mirrorAdd(chainNode, parent);
+            fireNodeAdded(chainNode, parent);
         } else if (childIds.size() == 1) {
             BigraphEntity.NodeEntity<DynamicControl> chainRoot = addNode(parent, control, nodeId + "_DECOMP");
             chainIds.add(nodeId + "_DECOMP");
-            mirrorAdd(chainRoot, parent);
-            BigraphEntity.NodeEntity<DynamicControl> onlyChild = getById(childIds.getFirst());
-            bigraph.moveNode(onlyChild, chainRoot);
-            mirrorAttachToParent(onlyChild, chainRoot);
+            fireNodeAdded(chainRoot, parent);
+            moveAndNotify(requireNode(childIds.getFirst()), chainRoot);
         } else {
-            BigraphEntity<?> currentParent = parent;
+            BigraphEntity.NodeEntity<DynamicControl> currentParent = parent;
             for (int i = 0; i < childIds.size() - 1; i++) {
                 String chainId = i == 0 ? nodeId + "_DECOMP" : nodeId + "_DECOMP_" + i;
                 BigraphEntity.NodeEntity<DynamicControl> chainNode = addNode(currentParent, control, chainId);
                 chainIds.add(chainId);
-                mirrorAdd(chainNode, currentParent);
-                BigraphEntity.NodeEntity<DynamicControl> child = getById(childIds.get(i));
-                bigraph.moveNode(child, chainNode);
-                mirrorAttachToParent(child, chainNode);
+                fireNodeAdded(chainNode, currentParent);
+                moveAndNotify(requireNode(childIds.get(i)), chainNode);
                 currentParent = chainNode;
             }
-            BigraphEntity.NodeEntity<DynamicControl> lastChild = getById(childIds.getLast());
-            bigraph.moveNode(lastChild, (BigraphEntity.NodeEntity<DynamicControl>) currentParent);
-            mirrorAttachToParent(lastChild, (BigraphEntity.NodeEntity<DynamicControl>) currentParent);
+            moveAndNotify(requireNode(childIds.getLast()), currentParent);
         }
 
         decompChainIds.put(nodeId, chainIds);
     }
 
-    public void clearDecompositionChain(String nodeId) {
+    private void clearDecompositionChain(String nodeId) {
         List<String> chainIds = decompChainIds.remove(nodeId);
         if (chainIds == null) {
             return;
         }
         BigraphEntity.NodeEntity<DynamicControl> container = getOrCreatePOPPContainer();
         for (int i = chainIds.size() - 1; i >= 0; i--) {
-            String chainId = chainIds.get(i);
-            BigraphEntity.NodeEntity<DynamicControl> chainNode = nodesById.remove(chainId);
+            BigraphEntity.NodeEntity<DynamicControl> chainNode = nodesById.remove(chainIds.get(i));
             if (chainNode == null) {
                 continue;
             }
             new ArrayList<>(bigraph.getChildrenOf(chainNode)).forEach(child -> {
                 if (child instanceof BigraphEntity.NodeEntity<?> n) {
-                    BigraphEntity.NodeEntity<DynamicControl> typed = (BigraphEntity.NodeEntity<DynamicControl>) n;
-                    bigraph.moveNode(typed, container);
-                    mirrorAttachToParent(typed, container);
+                    moveAndNotify((BigraphEntity.NodeEntity<DynamicControl>) n, container);
                 }
             });
             bigraph.removeNode(chainNode);
-            mirrorDelete(chainNode);
+            fireNodeRemoved(chainNode);
         }
     }
 
     public BigraphEntity.Edge createRelation(Relation relation) {
-        BigraphEntity.NodeEntity<DynamicControl> source = getById(relation.source().getId());
-        BigraphEntity.NodeEntity<DynamicControl> target = getById(relation.target().getId());
+        BigraphEntity.NodeEntity<DynamicControl> source = getOrAdd(relation.source());
+        BigraphEntity.NodeEntity<DynamicControl> target = getOrAdd(relation.target());
         POPPBigraphSignature sourceStubControl = POPPBigraphSignature.getSourceStub(relation);
         POPPBigraphSignature targetStubControl = POPPBigraphSignature.getTargetStub(relation);
 
@@ -370,9 +389,9 @@ public class POPPBigraph {
         bigraph.connectNodeToLink(sourceStub, edge);
         bigraph.connectNodeToLink(targetStub, edge);
 
-        mirrorAdd(sourceStub, source);
-        mirrorAdd(targetStub, target);
-        mirrorRelationEdge(edge, List.of(sourceStub, targetStub));
+        fireNodeAdded(sourceStub, source);
+        fireNodeAdded(targetStub, target);
+        fireRelationAdded(edge, List.of(sourceStub, targetStub));
         return edge;
     }
 
@@ -388,7 +407,7 @@ public class POPPBigraph {
         BigraphEntity.Edge edge = findRelationEdge(relation).orElseThrow();
         List<BigraphEntity<?>> stubs = new ArrayList<>(bigraph.getPointsFromLink(edge));
 
-        mirrorDeleteRelation(edge, stubs);
+        fireRelationRemoving(edge, stubs); // before removal: observers still need to resolve the entities
 
         stubs.forEach(stub -> {
             if (stub instanceof BigraphEntity.NodeEntity<?> node) {
@@ -430,80 +449,5 @@ public class POPPBigraph {
             return Optional.empty();
         }
         return Optional.of(new RelationEndpoints(source, target));
-    }
-
-    private Optional<BigraphView> view() {
-        return viewSupplier.get();
-    }
-
-    /** Mirrors the (lazily created) POPP container node into the view the first time it's needed. */
-    private void mirrorContainerIfNeeded(BigraphEntity.NodeEntity<DynamicControl> container) {
-        view().ifPresent(view -> {
-            if (view.getGModelIdForEntity(container).isEmpty()) {
-                view.onAddNode(container, getDefaultRoot(), container.getControl());
-            }
-        });
-    }
-
-    private void mirrorAdd(BigraphEntity.NodeEntity<DynamicControl> entity, BigraphEntity<?> parent) {
-        view().ifPresent(view -> {
-            if (view.getGModelIdForEntity(entity).isEmpty()) {
-                view.onAddNode(entity, parent, entity.getControl());
-            }
-        });
-    }
-
-    private void mirrorDelete(BigraphEntity.NodeEntity<DynamicControl> entity) {
-        view().ifPresent(view -> view.getGModelIdForEntity(entity).ifPresent(view::onDeleteNode));
-    }
-
-    private void mirrorPosition(BigraphEntity.NodeEntity<DynamicControl> entity, double x, double y) {
-        view().ifPresent(view -> view.getGModelIdForEntity(entity).ifPresent(viewId ->
-                findGNode(view, viewId).ifPresent(gNode -> {
-                    GPoint point = GraphFactory.eINSTANCE.createGPoint();
-                    point.setX(x);
-                    point.setY(y);
-                    gNode.setPosition(point);
-                })));
-    }
-
-    /** Re-targets an existing place-edge to a new parent, or creates one if the child never had one. */
-    private void mirrorAttachToParent(BigraphEntity.NodeEntity<DynamicControl> child, BigraphEntity.NodeEntity<DynamicControl> parent) {
-        view().ifPresent(view -> view.getGModelIdForEntity(child).ifPresent(childId ->
-                view.getGModelIdForEntity(parent).ifPresent(parentId ->
-                        view.onMoveNode(childId, parentId))));
-    }
-
-    private void mirrorRelationEdge(BigraphEntity.Edge edge, Collection<BigraphEntity<?>> points) {
-        view().ifPresent(view -> {
-            // Core's LinkRenderer only wires Port/InnerName/OuterName points, not plain stub nodes
-            // (see LinkRenderer#createLinkConnections), so the hyperedge-to-stub links are built here instead.
-            GNode hyperEdgeNode = view.onAddEdge(edge, List.of(), Optional.empty());
-            points.forEach(point -> view.getGModelIdForEntity(point).ifPresent(targetId -> {
-                GEdge linkConnection = GraphFactory.eINSTANCE.createGEdge();
-                linkConnection.setId("popp_link_conn_" + UUID.randomUUID());
-                linkConnection.setType("bigraph:link-connection");
-                linkConnection.setSourceId(hyperEdgeNode.getId());
-                linkConnection.setTargetId(targetId);
-                linkConnection.getCssClasses().add("bigraph-link-connection");
-                view.getOwnerRoot().getChildren().add(linkConnection);
-            }));
-        });
-    }
-
-    /** Must be called BEFORE the edge/stubs are removed from the raw bigraph (their view ids are looked up here). */
-    private void mirrorDeleteRelation(BigraphEntity.Edge edge, Collection<BigraphEntity<?>> points) {
-        view().ifPresent(view -> {
-            view.getGModelIdForEntity(edge).ifPresent(view::onDeleteEdge);
-            points.forEach(point -> view.getGModelIdForEntity(point).ifPresent(view::onDeleteNode));
-        });
-    }
-
-    private Optional<GNode> findGNode(final BigraphView view, final String gModelId) {
-        return view.getOwnerRoot().getChildren().stream()
-                .filter(GNode.class::isInstance)
-                .map(GNode.class::cast)
-                .filter(n -> n.getId().equals(gModelId))
-                .findFirst();
     }
 }
