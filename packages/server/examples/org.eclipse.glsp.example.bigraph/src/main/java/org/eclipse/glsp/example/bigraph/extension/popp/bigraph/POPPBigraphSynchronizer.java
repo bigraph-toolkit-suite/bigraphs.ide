@@ -27,10 +27,11 @@ public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
     @Inject
     public POPPBigraphSynchronizer(final POPPExtensionContext context) {
         PureBigraphMutable bigraph = context.getBigraphModelState().getMutableBigraph();
-        this.poppBigraph = new POPPBigraph(bigraph, bigraph.getSignature(), () ->
-                context.getBigraphModelState() instanceof BigraphModelState bigraphModelState
-                        ? Optional.ofNullable(bigraphModelState.getActiveView())
-                        : Optional.empty());
+        this.poppBigraph = new POPPBigraph(bigraph, bigraph.getSignature());
+        this.poppBigraph.addObserver(new BigraphViewMirror(() ->
+                context.getBigraphModelState() instanceof BigraphModelState s
+                        ? Optional.ofNullable(s.getActiveView())
+                        : Optional.empty()));
     }
 
     public DynamicSignature getSignature() {
