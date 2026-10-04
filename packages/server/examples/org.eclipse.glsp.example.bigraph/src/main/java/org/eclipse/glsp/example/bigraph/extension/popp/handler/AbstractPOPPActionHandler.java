@@ -46,8 +46,9 @@ public abstract class AbstractPOPPActionHandler<A extends Action> extends Abstra
 
         POPPExtensionState state = state();
 
+        boolean updatedRequired = false;
         try {
-            applyMutation(action);
+            updatedRequired = applyMutation(action);
         } catch (POPPValidationException ve) {
             logger.warn("POPP operation rejected: {}", ve.getMessage());
             BigraphNotifications.notifyError(actionDispatcher,
@@ -60,10 +61,13 @@ public abstract class AbstractPOPPActionHandler<A extends Action> extends Abstra
             return List.of();
         }
 
-        actionDispatcher.dispatch(new SetDirtyStateAction(true, "operation"));
+        if (updatedRequired){
+            actionDispatcher.dispatch(new SetDirtyStateAction(true, "operation"));
 
-        return List.of(new UpdateModelAction(state.getGModel().getRoot(), false));
+            return List.of(new UpdateModelAction(state.getGModel().getRoot(), false));
+        }
+        return List.of();
     }
 
-    protected abstract void applyMutation(A action);
+    protected abstract boolean applyMutation(A action);
 }

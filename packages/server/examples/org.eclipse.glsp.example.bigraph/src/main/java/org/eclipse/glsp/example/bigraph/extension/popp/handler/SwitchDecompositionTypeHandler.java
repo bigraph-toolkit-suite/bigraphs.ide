@@ -8,7 +8,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 public class SwitchDecompositionTypeHandler extends AbstractPOPPActionHandler<SwitchDecompositionTypeOperation> {
 
     @Override
-    protected void applyMutation(final SwitchDecompositionTypeOperation action) {
+    protected boolean applyMutation(final SwitchDecompositionTypeOperation action) {
         POPPModel model = state().getPoppModel();
 
         TreeNode<?> node = model.findNode(action.getNodeId());
@@ -18,11 +18,12 @@ public class SwitchDecompositionTypeHandler extends AbstractPOPPActionHandler<Sw
 
         DecompositionType requested = action.getNewType();
         if (requested == DecompositionType.NONE) {
-            return;
+            return false;
         }
 
         if (!node.setDecompositionType(requested)) {
             throw new POPPValidationException("Cannot switch decomposition type of '" + node.getId() + "'");
         }
+        return true;
     }
 }
