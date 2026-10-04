@@ -2,18 +2,13 @@ package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
 import org.eclipse.glsp.graph.*;
 
-
-
 @Singleton
 public class POPPGModelSynchronizer extends POPPSpecificEventListener {
-    private static final Logger LOGGER = LogManager.getLogger(POPPGModelSynchronizer.class);
     private final POPPExtensionContext context;
     private final POPPGModelFactory factory;
 
@@ -31,7 +26,6 @@ public class POPPGModelSynchronizer extends POPPSpecificEventListener {
     protected void onNodeCreated(POPPEvent.NodeCreated e) {
         GNode newNode = factory.createTreeNode(e.node());
         getGModel().addNode(newNode.getId(), newNode);
-        LOGGER.info("ADDED GMODEL NODE");
     }
 
     @Override
@@ -62,7 +56,7 @@ public class POPPGModelSynchronizer extends POPPSpecificEventListener {
     protected void onNodeChangedParent(POPPEvent.NodeChangedParent e) {
         if (e.oldParent() != null) {
             getGModel().getRoot().getChildren().stream()
-                    .filter(element -> element.getId().equals(e.oldParent().getId() + "_decomposes_" + e.node().getId()))
+                    .filter(element -> element.getId().equals(factory.toDecompositionEdgeId(e.oldParent(), e.node())))
                     .findFirst().ifPresent(oldEdge -> getGModel().getRoot().getChildren().remove(oldEdge));
         }
 
@@ -81,10 +75,7 @@ public class POPPGModelSynchronizer extends POPPSpecificEventListener {
     @Override
     protected void onRelationRemoved(POPPEvent.RelationRemoved e) {
         getGModel().getRoot().getChildren().stream()
-                .filter(element -> element.getId().equals(
-                        e.relation().source().getId() + "_"
-                        + e.relation().type().name().toLowerCase() + "_"
-                        + e.relation().target().getId()))
+                .filter(element -> element.getId().equals(factory.toRelationEdgeId(e.relation())))
                 .findFirst().ifPresent(oldEdge -> getGModel().getRoot().getChildren().remove(oldEdge));
     }
 }
