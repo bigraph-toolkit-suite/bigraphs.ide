@@ -11,10 +11,20 @@ import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventEmitter;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
 
 public class POPPModel extends POPPEventEmitter implements POPPEventListener {
-    private static final Logger LOGGER = LogManager.getLogger(POPPModel.class);
+    private final Map<String, TreeNode<?>> nodeRegistry = new HashMap<>();
+
+    private final NodeRegistry<Problem> problems = new NodeRegistry<>(Problem::new, Problem::new);
+    private final NodeRegistry<Goal> goals = new NodeRegistry<>(Goal::new, Goal::new);
+    private final NodeRegistry<Consequence> consequences = new NodeRegistry<>(Consequence::new, Consequence::new);
+    private final NodeRegistry<Solution> solutions = new NodeRegistry<>(Solution::new, Solution::new);
+    private final NodeRegistry<SuccessCriteria> successCriteria = new NodeRegistry<>(SuccessCriteria::new, SuccessCriteria::new);
+    private final NodeRegistry<SuccessProof> successProofs = new NodeRegistry<>(SuccessProof::new, SuccessProof::new);
+
+    private final RelationGraph relations = new RelationGraph();
+    private final CoverageAnalyzer coverage = new DomainCoverageAnalyzer(relations);
 
     public POPPModel() {
-        LOGGER.info("NEW POPP MODEL CREATED");
+        relations.addListener(this);
     }
 
     /** Creates a node of type N from its editor-facing attributes; matches every TreeNode subtype's constructor. */
@@ -91,18 +101,6 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         }
     }
 
-    private final Map<String, TreeNode<?>> nodeRegistry = new HashMap<>();
-
-    private final NodeRegistry<Problem> problems = new NodeRegistry<>(Problem::new, Problem::new);
-    private final NodeRegistry<Goal> goals = new NodeRegistry<>(Goal::new, Goal::new);
-    private final NodeRegistry<Consequence> consequences = new NodeRegistry<>(Consequence::new, Consequence::new);
-    private final NodeRegistry<Solution> solutions = new NodeRegistry<>(Solution::new, Solution::new);
-    private final NodeRegistry<SuccessCriteria> successCriteria = new NodeRegistry<>(SuccessCriteria::new, SuccessCriteria::new);
-    private final NodeRegistry<SuccessProof> successProofs = new NodeRegistry<>(SuccessProof::new, SuccessProof::new);
-
-    private final RelationGraph relations = new RelationGraph();
-    private final CoverageAnalyzer coverage = new DomainCoverageAnalyzer(relations);
-
     public RelationGraph getRelations() {
         return relations;
     }
@@ -113,29 +111,11 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
 
     /** Creates a typed cross-tree relation, rejecting node-kind combinations the POPP metamodel disallows. */
     public RelationResult relate(TreeNode<?> a, TreeNode<?> b) {
-        RelationResult result = relations.relate(a, b);
-        if (result == RelationResult.CREATED) {
-            findRelation(a, b).ifPresent(
-                    relation -> emitEvent(new POPPEvent.RelationCreated(relation)));
-        }
-        return result;
+        return relations.relate(a, b);
     }
 
     public RelationResult unrelate(TreeNode<?> a, TreeNode<?> b) {
-        Relation existing = findRelation(a, b).orElse(null);
-        RelationResult result = relations.unrelate(a, b);
-        if (result == RelationResult.REMOVED && existing != null) {
-            emitEvent(new POPPEvent.RelationRemoved(existing));
-        }
-        return result;
-    }
-
-    private Optional<Relation> findRelation(TreeNode<?> a, TreeNode<?> b) {
-        if (a == null || b == null) {
-            return Optional.empty();
-        }
-        return relations.outgoing(a).stream().filter(relation -> relation.target() == b || relation.source() == b)
-                .findFirst();
+        return relations.unrelate(a, b);
     }
 
     public TreeNode<?> findNode(String id) {
