@@ -11,7 +11,7 @@ public class POPPCreateNodeOperationHandler extends AbstractPOPPActionHandler<Cr
     private final POPPGModelFactory factory = new POPPGModelFactory();
 
     @Override
-    protected void applyMutation(CreateNodeOperation action) {
+    protected boolean applyMutation(CreateNodeOperation action) {
         String nodeTypeStr = null;
         if (action.getArgs() != null) {
             nodeTypeStr = action.getArgs().get("nodeType");
@@ -24,5 +24,6 @@ public class POPPCreateNodeOperationHandler extends AbstractPOPPActionHandler<Cr
 
         POPPModel model = context.getOwnState().getPoppModel();
         model.createNode(nodeKind, "Double click to edit", location.getX(), location.getY());
+        return true;
     }
 }
