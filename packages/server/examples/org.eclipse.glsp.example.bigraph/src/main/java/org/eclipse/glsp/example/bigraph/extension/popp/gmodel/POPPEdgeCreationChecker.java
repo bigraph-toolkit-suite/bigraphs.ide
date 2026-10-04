@@ -3,6 +3,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
 import com.google.inject.Singleton;
 import com.google.inject.Inject;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationGraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.graph.GModelElement;
@@ -21,12 +22,8 @@ public class POPPEdgeCreationChecker implements EdgeCreationChecker {
 
     @Override
     public boolean isValidSource(String edgeType, GModelElement sourceElement) {
-        Optional<POPPGModelType> sourceTypeUnpacked = POPPGModelType.getFromId(sourceElement.getType());
-        if (sourceTypeUnpacked.isEmpty()) return false;
-        POPPGModelType sourceType = sourceTypeUnpacked.get();
-
-        if (!sourceType.isNodeType()) return false;
-        return true;
+        Optional<NodeKind> nodeKind = POPPGModelTypes.nodeKindOf(sourceElement.getType());
+        return nodeKind.isPresent() || sourceElement.getType().equals(POPPGModelTypes.NODE_DESCRIPTION);
     }
 
     @Override
