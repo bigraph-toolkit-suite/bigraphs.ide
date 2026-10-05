@@ -75,7 +75,7 @@ public class POPPExtension implements IdeExtension {
                 CreateNodeOperationHandler.class,
                 EditDescriptionNodeHandler.class,
                 InspectionActionHandler.class,
-                TraceabilityReportHandler.class
+                CoverageReportHandler.class
         );
     }
 

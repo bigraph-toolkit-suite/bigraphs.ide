@@ -14,7 +14,7 @@ import java.util.Map;
  * Whole-model report: root coverage per tree (are Problems covered by Goals and proofs, Goals by criteria?),
  * link ratios per metamodel relation, and tree size metrics. Derived from the metamodel, nothing hardcoded per kind.
  */
-public final class TraceabilityReportBuilder {
+public final class CoverageReportBuilder {
 
     public record RootStatus(String id, String kind, String description, String coverage) {
     }
@@ -28,15 +28,15 @@ public final class TraceabilityReportBuilder {
     public record TreeMetrics(int roots, int nodes, int height, int width, int maxBranching) {
     }
 
-    public record TraceabilityReport(String mode, List<RootStatus> roots,
-                                     Map<String, Map<String, Integer>> coverageByKind,
-                                     List<LayerReport> layers, Map<String, TreeMetrics> trees) {
+    public record CoverageReport(String mode, List<RootStatus> roots,
+                                 Map<String, Map<String, Integer>> coverageByKind,
+                                 List<LayerReport> layers, Map<String, TreeMetrics> trees) {
     }
 
-    private TraceabilityReportBuilder() {
+    private CoverageReportBuilder() {
     }
 
-    public static TraceabilityReport build(POPPModel model, CoverageMode mode) {
+    public static CoverageReport build(POPPModel model, CoverageMode mode) {
         CoverageSession session = model.getCoverage().session(mode);
         List<TreeNode<?>> nodes = new ArrayList<>(model.getAllNodes());
 
@@ -53,7 +53,7 @@ public final class TraceabilityReportBuilder {
             }
         }
 
-        return new TraceabilityReport(mode.name(), roots, byKind, layers(model, nodes), metrics(nodes));
+        return new CoverageReport(mode.name(), roots, byKind, layers(model, nodes), metrics(nodes));
     }
 
     private static List<LayerReport> layers(POPPModel model, List<TreeNode<?>> nodes) {
