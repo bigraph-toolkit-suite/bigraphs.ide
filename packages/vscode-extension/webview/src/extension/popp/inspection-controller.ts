@@ -46,7 +46,7 @@ export class InspectionController extends MouseListener implements IActionHandle
     @inject(TYPES.IFeedbackActionDispatcher) protected readonly feedback!: IFeedbackActionDispatcher;
 
     protected active = false;
-    protected mode: PoppCoverageMode = 'PLANNED';
+    protected mode: PoppCoverageMode = 'PLANNING';
     protected inspectedNodeId?: string;
     protected rootId?: string;
     protected highlighted: string[] = [];
