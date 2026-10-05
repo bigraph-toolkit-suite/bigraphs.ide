@@ -153,14 +153,11 @@ public final class POPPBigraphLoader {
     }
 
     private static void applyMetaData(Map<String, POPPExtensionMeta.NodeData> metaData, POPPModel model) {
-        metaData.forEach((key, value) -> {
-            TreeNode<?> node = model.findNode(key);
-            if (node == null) {
-                LOGGER.warn("Loaded meta file contains meta data for non-existing nodes!");
-                return;
+        metaData.forEach((id, data) -> {
+            TreeNode<?> node = model.findNode(id);
+            if (node != null) {
+                data.restoreInfo(node);
             }
-            node.setDescription(value.description());
-            node.move(value.x(), value.y());
         });
     }
 }

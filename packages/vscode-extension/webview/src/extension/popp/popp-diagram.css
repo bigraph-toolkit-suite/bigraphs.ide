@@ -1,0 +1,6 @@
+.sprotty .popp-decomp-diamond {
+    stroke: var(--vscode-editor-foreground);
+    stroke-width: 1.5;
+}
+.sprotty .popp-decomp-and { fill: var(--vscode-editor-foreground); }  /* composition: filled */
+.sprotty .popp-decomp-or  { fill: var(--vscode-editor-background); }  /* aggregation: hollow */

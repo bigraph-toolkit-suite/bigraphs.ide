@@ -1,6 +1,7 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
 
 import org.eclipse.glsp.example.bigraph.extension.popp.types.Relation;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.SuccessProof;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.graph.*;
 import org.eclipse.glsp.graph.builder.impl.GEdgeBuilder;
@@ -81,13 +82,13 @@ public class POPPGModelFactory {
                 .id(toPortId(treeNode))
                 .build();
 
-        GNode gnode = new GNodeBuilder(POPPGModelTypes.of(treeNode.getKind()))
+        GNodeBuilder builder = new GNodeBuilder(POPPGModelTypes.of(treeNode.getKind()))
                 .id(treeNode.getId())
                 .add(label)
                 .add(port)
-                .addArgument("decomposition_type", treeNode.getDecompositionType().toString())
-                .build();
+                .addArgument("decomposition_type", treeNode.getDecompositionType().toString());
 
+        GNode gnode = builder.build();
         applyLayout(gnode, treeNode);
         return gnode;
     }
