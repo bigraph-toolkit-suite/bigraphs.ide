@@ -4,7 +4,7 @@ import type { Action, Operation, RequestAction, ResponseAction } from '@eclipse-
 export const POPP_CONNECT_ELEMENT_TYPE_ID = 'popp:connect';
 
 export type PoppDecompositionType = 'AND' | 'OR';
-export type PoppCoverageMode = 'PLANNED' | 'VERIFIED';
+export type PoppCoverageMode = 'PLANNING' | 'VERIFY';
 export type PoppCoverage = 'COVERED' | 'PARTIAL' | 'UNCOVERED';
 
 // ---------------------------------------------------------------------------
