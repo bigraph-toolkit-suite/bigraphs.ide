@@ -9,10 +9,10 @@ import { POPP_VARIANT_ID } from '../diagramExtension';
 import {
     POPP_CONNECT_ELEMENT_TYPE_ID,
     PoppCoverageMode,
-    RequestTraceabilityReportAction,
+    RequestCoverageReportAction,
     SetInspectionAction,
-    TraceabilityReport,
-    TraceabilityReportAction
+    CoverageReport,
+    CoverageReportAction
 } from '../popp-actions';
 import { poppToolEvents } from './popp-tool-events';
 import type { IVariantPalette, PaletteHostApi, VariantPaletteFactory } from '../../palette-types';
@@ -30,7 +30,7 @@ class PoppVariantPalette implements IVariantPalette {
     private connectCard: HTMLElement | null = null;
     private inspectCard: HTMLElement | null = null;
     private inspectActive = false;
-    private mode: PoppCoverageMode = 'PLANNED';
+    private mode: PoppCoverageMode = 'PLANNING';
 
     private lastEscape = Number.NEGATIVE_INFINITY;
     private lastRearm = Number.NEGATIVE_INFINITY;
@@ -151,7 +151,7 @@ class PoppVariantPalette implements IVariantPalette {
         const toggle = root.querySelector<HTMLInputElement>('[data-popp-mode-toggle]');
         if (toggle) {
             toggle.onchange = () => {
-                this.mode = toggle.checked ? 'VERIFIED' : 'PLANNED';
+                this.mode = toggle.checked ? 'VERIFY' : 'PLANNING';
                 root.querySelectorAll<HTMLElement>('[data-popp-mode-label]').forEach(label =>
                     label.classList.toggle('active', label.dataset.poppModeLabel === this.mode));
                 this.pushInspection();
@@ -181,12 +181,12 @@ class PoppVariantPalette implements IVariantPalette {
     }
 
     private async loadReport(): Promise<void> {
-        const response = await this.host.dispatcher.request<TraceabilityReportAction>(
-            RequestTraceabilityReportAction.create(this.mode));
+        const response = await this.host.dispatcher.request<CoverageReportAction>(
+            RequestCoverageReportAction.create(this.mode));
         this.renderReport(response.report);
     }
 
-    private renderReport(report: TraceabilityReport): void {
+    private renderReport(report: CoverageReport): void {
         const target = this.container?.querySelector<HTMLElement>('[data-popp-report]');
         if (!target) {
             return;

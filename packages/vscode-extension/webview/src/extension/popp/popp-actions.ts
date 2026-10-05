@@ -57,7 +57,7 @@ export interface InspectionResultAction extends ResponseAction {
     result: InspectionResult;
 }
 
-export interface TraceabilityReport {
+export interface CoverageReport {
     mode: PoppCoverageMode;
     roots: { id: string; kind: string; description: string; coverage: PoppCoverage }[];
     coverageByKind: Record<string, Partial<Record<PoppCoverage, number>>>;
@@ -76,20 +76,20 @@ export interface TraceabilityReport {
     trees: Record<string, { roots: number; nodes: number; height: number; width: number; maxBranching: number }>;
 }
 
-export interface RequestTraceabilityReportAction extends RequestAction<TraceabilityReportAction> {
-    kind: 'popp.requestTraceabilityReport';
+export interface RequestCoverageReportAction extends RequestAction<CoverageReportAction> {
+    kind: 'popp.requestCoverageReport';
     mode: PoppCoverageMode;
 }
-export const RequestTraceabilityReportAction = {
-    KIND: 'popp.requestTraceabilityReport' as const,
-    create(mode: PoppCoverageMode): RequestTraceabilityReportAction {
-        return { kind: 'popp.requestTraceabilityReport', requestId: '', mode };
+export const RequestCoverageReportAction = {
+    KIND: 'popp.requestCoverageReport' as const,
+    create(mode: PoppCoverageMode): RequestCoverageReportAction {
+        return { kind: 'popp.requestCoverageReport', requestId: '', mode };
     }
 };
 
-export interface TraceabilityReportAction extends ResponseAction {
-    kind: 'popp.traceabilityReport';
-    report: TraceabilityReport;
+export interface CoverageReportAction extends ResponseAction {
+    kind: 'popp.coverageReport';
+    report: CoverageReport;
 }
 
 /** Client-only: palette -> inspection controller. */
