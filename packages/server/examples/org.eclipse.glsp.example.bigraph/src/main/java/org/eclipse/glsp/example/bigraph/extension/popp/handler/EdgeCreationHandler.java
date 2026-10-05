@@ -26,7 +26,7 @@ import org.eclipse.glsp.server.operations.CreateEdgeOperation;
  * endpoints support. The actual GModel edge is created by
  * {@code POPPGModelSynchronizer} once the semantic model emits its event.
  */
-public class POPPEdgeCreationHandler extends GModelCreateEdgeOperationHandler {
+public class EdgeCreationHandler extends GModelCreateEdgeOperationHandler {
 
     @Inject
     protected POPPExtensionContext context;
@@ -36,7 +36,7 @@ public class POPPEdgeCreationHandler extends GModelCreateEdgeOperationHandler {
 
     private final POPPGModelFactory factory = new POPPGModelFactory();
 
-    public POPPEdgeCreationHandler() {
+    public EdgeCreationHandler() {
         super(List.of(POPPGModelTypes.CONNECT));
     }
 

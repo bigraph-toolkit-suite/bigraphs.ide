@@ -20,10 +20,10 @@ import java.util.function.Supplier;
  *
  * <p>The view is looked up lazily on every event since it can come and go (variant switches).</p>
  */
-public class BigraphViewMirror implements POPPBigraphObserver {
+public class POPPBigraphViewMirror implements POPPBigraphObserver {
     private final Supplier<Optional<BigraphView>> viewSupplier;
 
-    public BigraphViewMirror(final Supplier<Optional<BigraphView>> viewSupplier) {
+    public POPPBigraphViewMirror(final Supplier<Optional<BigraphView>> viewSupplier) {
         this.viewSupplier = viewSupplier;
     }
 
