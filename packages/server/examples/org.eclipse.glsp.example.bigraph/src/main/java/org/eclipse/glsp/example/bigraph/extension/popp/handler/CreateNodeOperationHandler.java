@@ -6,7 +6,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.graph.GPoint;
 import org.eclipse.glsp.server.operations.CreateNodeOperation;
 
-public class POPPCreateNodeOperationHandler extends AbstractPOPPActionHandler<CreateNodeOperation> {
+public class CreateNodeOperationHandler extends AbstractPOPPActionHandler<CreateNodeOperation> {
 
     private final POPPGModelFactory factory = new POPPGModelFactory();
 
