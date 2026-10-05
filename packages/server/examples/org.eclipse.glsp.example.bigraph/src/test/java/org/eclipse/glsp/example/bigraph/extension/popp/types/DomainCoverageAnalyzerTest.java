@@ -1,15 +1,9 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReason;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.DomainCoverageAnalyzer;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.*;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class DomainCoverageAnalyzerTest {
 
@@ -22,10 +16,14 @@ class DomainCoverageAnalyzerTest {
         SuccessCriteria second = new SuccessCriteria("second", 0, 0);
         SuccessProof proofFirst = new SuccessProof("first", 0, 0);
         SuccessProof proofSecond = new SuccessProof("second", 0, 0);
+        Solution solution = new Solution("solution", 0, 0);
 
         and.addChild(first);
         and.addChild(second);
         and.setDecompositionType(DecompositionType.AND);
+
+        assertEquals(RelationResult.CREATED, graph.relate(proofFirst, solution));
+        assertEquals(RelationResult.CREATED, graph.relate(proofSecond, solution));
 
         assertEquals(RelationResult.CREATED, graph.relate(first, proofFirst));
         assertFalse(analyzer.isCovered(and));
@@ -53,22 +51,6 @@ class DomainCoverageAnalyzerTest {
         assertInstanceOf(CoverageReason.Link.class, reason.children().getFirst());
     }
 
-
-    @Test
-    void followsOnlyCoveragePropagatingRelations() {
-        RelationGraph graph = new RelationGraph();
-        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(graph);
-        SuccessProof proof = new SuccessProof("proof", 0, 0);
-        SuccessCriteria criterion = new SuccessCriteria("criterion", 0, 0);
-
-        assertTrue(proof.isIntrinsicallyCovered());
-        assertEquals(RelationResult.CREATED, graph.relate(proof, criterion));
-        assertTrue(analyzer.isCovered(criterion));
-        CoverageReason.Link link = assertInstanceOf(CoverageReason.Link.class, analyzer.explain(criterion));
-        assertEquals(RelationType.VALIDATES, link.type());
-        assertEquals(proof, link.coveringNode());
-    }
-
     @Test
     void followsBackwardCoveragePropagation() {
         RelationGraph graph = new RelationGraph();
@@ -76,7 +58,9 @@ class DomainCoverageAnalyzerTest {
         Goal goal = new Goal("goal", 0, 0);
         SuccessCriteria successCriteria = new SuccessCriteria("successCriteria", 0, 0);
         SuccessProof proof = new SuccessProof("proof", 0, 0);
+        Solution solution = new Solution("solution", 0, 0);
 
+        graph.relate(solution, proof);
         graph.relate(proof, successCriteria);
         assertTrue(analyzer.isCovered(successCriteria));
         assertEquals(RelationResult.CREATED, graph.relate(goal, successCriteria));
@@ -101,5 +85,35 @@ class DomainCoverageAnalyzerTest {
         a.parent = b;
 
         assertThrows(IllegalStateException.class, () -> analyzer.isCovered(a));
+    }
+
+    @Test
+    void intrinsicCoverageBasedOnMode(){
+        RelationGraph graph = new RelationGraph();
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(graph);
+        Solution s = new Solution("", 0, 0);
+
+        SuccessCriteria sc = new SuccessCriteria("", 0, 0);
+        assertEquals(new CoverageReason.Intrinsic(sc, Coverage.COVERED), analyzer.explain(sc, CoverageMode.PLANNING));
+        assertTrue(analyzer.isCovered(sc, CoverageMode.PLANNING));
+        assertEquals(Coverage.COVERED, analyzer.coverage(sc, CoverageMode.PLANNING));
+        assertEquals(CoverageReason.NotCovered.class, analyzer.explain(sc, CoverageMode.VERIFY).getClass());
+        assertFalse(analyzer.isCovered(sc, CoverageMode.VERIFY));
+        assertEquals(Coverage.UNCOVERED, analyzer.coverage(sc, CoverageMode.VERIFY));
+
+        assertEquals(new CoverageReason.Intrinsic(s, Coverage.COVERED), analyzer.explain(s, CoverageMode.PLANNING));
+        assertTrue(analyzer.isCovered(s, CoverageMode.PLANNING));
+        assertEquals(Coverage.COVERED, analyzer.coverage(s, CoverageMode.PLANNING));
+        assertEquals(CoverageReason.Intrinsic.class, analyzer.explain(s, CoverageMode.VERIFY).getClass());
+        assertTrue(analyzer.isCovered(s, CoverageMode.VERIFY));
+        assertEquals(Coverage.COVERED, analyzer.coverage(s, CoverageMode.VERIFY));
+
+        SuccessProof sp = new SuccessProof("", 0, 0);
+        graph.relate(s, sp);
+        graph.relate(sp, sc);
+
+        assertEquals(CoverageReason.Link.class, analyzer.explain(sc, CoverageMode.VERIFY).getClass());
+        assertTrue(analyzer.isCovered(sc, CoverageMode.VERIFY));
+        assertEquals(Coverage.COVERED, analyzer.coverage(sc, CoverageMode.VERIFY));
     }
 }
