@@ -44,6 +44,14 @@
     cursor: pointer;
 }
 
+.popp-relation-label rect {
+    fill: var(--vscode-input-background);
+}
+
+.popp-arrow {
+    fill: var(--vscode-editor-foreground);
+}
+
 .popp-report-clickable:hover {
     background: var(--vscode-list-hoverBackground);
 }
