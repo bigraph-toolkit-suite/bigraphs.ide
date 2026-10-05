@@ -66,6 +66,14 @@ public abstract class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter i
         emitEvent(event);
     }
 
+    /** Template method to enable future node types to store custom data. */
+    public Map<String, String> exportProperties() {
+        return Map.of();
+    }
+
+    /** Template method to enable future node types to load custom data. */
+    public void importProperties(Map<String, String> properties) {}
+
     public Optional<T> getParent() {
         return Optional.ofNullable(parent);
     }
@@ -184,8 +192,8 @@ public abstract class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter i
         return getClass().equals(other.getClass()) && id.equals(other.id);
     }
 
-    public boolean isExplicitlyCovered() {
-        return getKind().isExplicitlyCovered();
+    public boolean isIntrinsicallyCovered() {
+        return getKind().isIntrinsicallyCovered();
     }
 
     public boolean setDecompositionType(DecompositionType decompositionType) {

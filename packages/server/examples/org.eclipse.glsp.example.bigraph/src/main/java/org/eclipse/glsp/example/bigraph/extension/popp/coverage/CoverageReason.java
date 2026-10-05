@@ -1,30 +1,49 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.Relation;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
 import java.util.List;
 
-/** Result of {@link CoverageAnalyzer#explain}, used to drive the inspect/highlight mode. */
+/** Result of {@link CoverageSession#explain}: a reason tree that follows the evidence down to its end. */
 public sealed interface CoverageReason {
 
-    /** The node this reason explains the coverage of. */
     TreeNode<?> node();
 
-    /** Node is covered because its {@link org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind} is inherently covered (e.g. proof). */
-    record Explicit(TreeNode<?> node) implements CoverageReason {
+    Coverage coverage();
+
+    /** Inherently covered kind (proof); COVERED unless it is only planned in VERIFIED mode. */
+    record Explicit(TreeNode<?> node, Coverage coverage) implements CoverageReason {
     }
 
-    /** Node is covered because its AND/OR decomposition over {@code children} is satisfied. */
-    record Decomposition(TreeNode<?> node, DecompositionType type, List<CoverageReason> children) implements CoverageReason {
+    /**
+     * AND/OR decomposition. When COVERED, {@code children} are only the contributing ones; otherwise all
+     * children are listed so the gaps underneath stay visible.
+     */
+    record Decomposition(TreeNode<?> node, Coverage coverage, DecompositionType type, List<CoverageReason> children)
+            implements CoverageReason {
     }
 
-    /** Node is covered because a {@code type} relation connects it to the already-covered {@code coveringNode}. */
-    record Link(TreeNode<?> node, RelationType type, TreeNode<?> coveringNode, CoverageReason coveringReason) implements CoverageReason {
+    /** Best propagating relation to a neighbour; {@code coveringReason} explains that neighbour. */
+    record Link(TreeNode<?> node, Coverage coverage, Relation relation, CoverageReason coveringReason)
+            implements CoverageReason {
+        public RelationType type() {
+            return relation.type();
+        }
+
+        public TreeNode<?> coveringNode() {
+            return coveringReason.node();
+        }
     }
 
-    /** Node is not covered. */
-    record NotCovered(TreeNode<?> node) implements CoverageReason {
+    /** Nothing to follow: no children and no propagating relation. {@code gaps} says what could fix that. */
+    record NotCovered(TreeNode<?> node, List<CoverageGap> gaps) implements CoverageReason {
+        @Override
+        public Coverage coverage() {
+            return Coverage.UNCOVERED;
+        }
     }
 }
+

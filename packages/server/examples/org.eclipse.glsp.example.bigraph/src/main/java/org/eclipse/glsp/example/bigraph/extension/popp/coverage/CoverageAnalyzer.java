@@ -3,12 +3,22 @@ package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
 public interface CoverageAnalyzer {
-    public boolean isCovered(TreeNode<?> node);
+    CoverageSession session(CoverageMode mode);
 
-    /**
-     * Explains why {@code node} is (or isn't) covered as a small, on-demand reason tree. Only the
-     * nodes that actually contribute to the result are visited (e.g. a single satisfying relation,
-     * or only the children an OR-decomposition needed), so this stays cheap even for interactive use.
-     */
-    public CoverageReason explain(TreeNode<?> node);
+    default Coverage coverage(TreeNode<?> node, CoverageMode mode) {
+        return session(mode).coverage(node);
+    }
+
+    /** Fully covered by verified proofs only (the original semantics). */
+    default boolean isCovered(TreeNode<?> node) {
+        return coverage(node, CoverageMode.VERIFIED) == Coverage.COVERED;
+    }
+
+    default CoverageReason explain(TreeNode<?> node) {
+        return explain(node, CoverageMode.VERIFIED);
+    }
+
+    default CoverageReason explain(TreeNode<?> node, CoverageMode mode) {
+        return session(mode).explain(node);
+    }
 }
