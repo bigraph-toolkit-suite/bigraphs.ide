@@ -12,8 +12,8 @@ public enum RelationType {
         new NodeTypePair(NodeKind.PROBLEM, NodeKind.GOAL)),
     /** Solution to Goal, the goal means relationship; provenance only, does not imply coverage. */
     REALIZES(CoveragePropagation.NONE, new NodeTypePair(NodeKind.SOLUTION, NodeKind.GOAL)),
-    /** Solution to SuccessProof, produced once the solution is tested; provenance only. */
-    PRODUCES(CoveragePropagation.NONE, new NodeTypePair(NodeKind.SOLUTION, NodeKind.SUCCESS_PROOF)),
+    /** Solution to SuccessProof, produced once the solution is tested. */
+    PRODUCES(CoveragePropagation.FORWARD, new NodeTypePair(NodeKind.SOLUTION, NodeKind.SUCCESS_PROOF)),
     /** SuccessProof to SuccessCriteria, the proof confirms the criterion. */
     VALIDATES(CoveragePropagation.FORWARD, new NodeTypePair(NodeKind.SUCCESS_PROOF, NodeKind.SUCCESS_CRITERIA));
 

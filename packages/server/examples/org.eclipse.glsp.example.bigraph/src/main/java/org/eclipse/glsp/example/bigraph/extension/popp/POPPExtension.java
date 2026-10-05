@@ -10,10 +10,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchr
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPEdgeCreationChecker;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPTypeHints;
-import org.eclipse.glsp.example.bigraph.extension.popp.handler.EditDescriptionNodeHandler;
-import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPEdgeCreationHandler;
-import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPCreateNodeOperationHandler;
-import org.eclipse.glsp.example.bigraph.extension.popp.handler.SwitchDecompositionTypeHandler;
+import org.eclipse.glsp.example.bigraph.extension.popp.handler.*;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.example.bigraph.extensions.ExtensionStateKey;
@@ -76,7 +73,9 @@ public class POPPExtension implements IdeExtension {
         return List.of(
                 SwitchDecompositionTypeHandler.class,
                 POPPCreateNodeOperationHandler.class,
-                EditDescriptionNodeHandler.class
+                EditDescriptionNodeHandler.class,
+                InspectionActionHandler.class,
+                TraceabilityReportHandler.class
         );
     }
 
@@ -163,9 +162,7 @@ public class POPPExtension implements IdeExtension {
     public void writeExtensionMeta(BigraphMetaInformation meta, Injector injector) {
         POPPModel model = injector.getInstance(POPPExtensionContext.class).getOwnState().getPoppModel();
         Map<String, POPPExtensionMeta.NodeData> data = new HashMap<>();
-        model.getAllNodes().forEach(node -> data.put(node.getId(),
-            new POPPExtensionMeta.NodeData(node.getX(), node.getY(), node.getDescription())));
-
+        model.getAllNodes().forEach(node -> data.put(node.getId(), POPPExtensionMeta.NodeData.extractInfo(node)));
         meta.setExtensionSection(getId(), new POPPExtensionMeta(data).toJson());
     }
 

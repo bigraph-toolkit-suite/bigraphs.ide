@@ -61,7 +61,7 @@ class DomainCoverageAnalyzerTest {
         SuccessProof proof = new SuccessProof("proof", 0, 0);
         SuccessCriteria criterion = new SuccessCriteria("criterion", 0, 0);
 
-        assertTrue(proof.isExplicitlyCovered());
+        assertTrue(proof.isIntrinsicallyCovered());
         assertEquals(RelationResult.CREATED, graph.relate(proof, criterion));
         assertTrue(analyzer.isCovered(criterion));
         CoverageReason.Link link = assertInstanceOf(CoverageReason.Link.class, analyzer.explain(criterion));

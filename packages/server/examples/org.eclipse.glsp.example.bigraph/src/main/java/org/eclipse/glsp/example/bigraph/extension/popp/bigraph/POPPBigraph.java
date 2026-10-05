@@ -4,9 +4,7 @@ import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.Relation;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -423,31 +421,11 @@ public class POPPBigraph {
     }
 
     public Optional<RelationEndpoints> decodeRelation(BigraphEntity.Edge edge) {
-        BigraphEntity.NodeEntity<DynamicControl> source = null;
-        BigraphEntity.NodeEntity<DynamicControl> target = null;
-
-        for (BigraphEntity<?> point : bigraph.getPointsFromLink(edge)) {
-            if (!(point instanceof BigraphEntity.NodeEntity<?> stub)) {
-                continue;
-            }
-            POPPBigraphSignature stubControl = POPPBigraphSignature.forNode(stub);
-            if (stubControl == null) {
-                continue;
-            }
-            BigraphEntity<?> owner = bigraph.getParent(stub);
-            if (!(owner instanceof BigraphEntity.NodeEntity<?> ownerNode)) {
-                continue;
-            }
-            if (POPPBigraphSignature.isOutgoingStub(stubControl)) {
-                source = (BigraphEntity.NodeEntity<DynamicControl>) ownerNode;
-            } else if (POPPBigraphSignature.isIncomingStub(stubControl)) {
-                target = (BigraphEntity.NodeEntity<DynamicControl>) ownerNode;
-            }
-        }
-
-        if (source == null || target == null) {
-            return Optional.empty();
-        }
-        return Optional.of(new RelationEndpoints(source, target));
+        String name = edge.getName();
+        int colon = name.indexOf(':');
+        int arrow = name.indexOf("->", colon + 1);
+        if (colon < 0 || arrow < 0) return Optional.empty();
+        return getById(name.substring(colon + 1, arrow)).flatMap(source ->
+                getById(name.substring(arrow + 2)).map(target -> new RelationEndpoints(source, target)));
     }
 }

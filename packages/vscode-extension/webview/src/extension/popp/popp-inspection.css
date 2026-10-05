@@ -1,0 +1,32 @@
+/* ---- Inspection overlay (applied via CSS-class feedback, never stored in the model) ---- */
+
+/* Everything fades except the evidence path */
+.popp-inspecting .popp-node:not(.popp-inspect-path),
+.popp-inspecting .sprotty-edge:not(.popp-inspect-path) {
+    opacity: 0.2;
+}
+
+.popp-inspect-path .popp-node-box {
+    stroke-width: 2.5px;
+}
+
+.popp-inspect-covered .popp-node-box {
+    stroke: var(--vscode-testing-iconPassed, #3fb950);
+}
+
+.popp-inspect-partial .popp-node-box {
+    stroke: var(--vscode-editorWarning-foreground, #d29922);
+}
+
+.popp-inspect-uncovered .popp-node-box {
+    stroke: var(--vscode-editorError-foreground, #f85149);
+}
+
+/* The node being inspected */
+.popp-inspect-root .popp-node-box {
+    stroke-dasharray: 6 3;
+}
+
+.sprotty-edge.popp-inspect-path path {
+    stroke-width: 2.5px;
+}

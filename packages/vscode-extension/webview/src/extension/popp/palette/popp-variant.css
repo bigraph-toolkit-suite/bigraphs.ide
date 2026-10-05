@@ -22,3 +22,147 @@
     font-size: 11px;
     margin-top: 4px;
 }
+
+.popp-report {
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.popp-report-heading {
+    margin: 8px 0 4px;
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+.popp-report-row {
+    padding: 2px 6px;
+    border-left: 3px solid transparent;
+    overflow-wrap: anywhere;
+}
+
+.popp-report-clickable {
+    cursor: pointer;
+}
+
+.popp-report-clickable:hover {
+    background: var(--vscode-list-hoverBackground);
+}
+
+.popp-report-covered {
+    border-left-color: var(--vscode-testing-iconPassed, #3fb950);
+}
+
+.popp-report-partial {
+    border-left-color: var(--vscode-editorWarning-foreground, #d29922);
+}
+
+.popp-report-uncovered {
+    border-left-color: var(--vscode-editorError-foreground, #f85149);
+}
+
+.popp-report-muted {
+    opacity: 0.7;
+}
+
+/* ---- Planned / Verified toggle ---- */
+
+.popp-mode-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.popp-mode-label {
+    opacity: 0.6;
+}
+
+.popp-mode-label.active {
+    opacity: 1;
+    font-weight: 600;
+}
+
+.popp-switch {
+    position: relative;
+    display: inline-block;
+    width: 32px;
+    height: 16px;
+    flex: none;
+}
+
+.popp-switch input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.popp-switch-slider {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    border-radius: 16px;
+    border: 1px solid var(--vscode-widget-border, #888);
+    background: var(--vscode-input-background);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.popp-switch-slider::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--vscode-foreground);
+    transition: transform 0.15s;
+}
+
+.popp-switch input:checked + .popp-switch-slider {
+    background: var(--vscode-button-background);
+}
+
+.popp-switch input:checked + .popp-switch-slider::before {
+    transform: translateX(16px);
+}
+
+.popp-switch input:focus-visible + .popp-switch-slider {
+    outline: 1px solid var(--vscode-focusBorder);
+}
+
+.popp-info {
+    margin-left: auto;
+    cursor: help;
+    opacity: 0.7;
+}
+
+.popp-info:hover,
+.popp-info:focus {
+    opacity: 1;
+}
+
+.popp-tooltip {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    padding: 6px 8px;
+    z-index: 10;
+    line-height: 1.4;
+    font-family: var(--vscode-font-family);
+    background: var(--vscode-editorHoverWidget-background);
+    color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
+    border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-widget-border));
+    border-radius: 4px;
+}
+
+.popp-info:hover .popp-tooltip,
+.popp-info:focus .popp-tooltip {
+    display: block;
+}
