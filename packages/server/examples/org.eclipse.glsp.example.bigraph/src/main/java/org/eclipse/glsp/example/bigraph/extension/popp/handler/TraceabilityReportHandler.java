@@ -18,7 +18,7 @@ public class TraceabilityReportHandler extends AbstractActionHandler<RequestTrac
 
     @Override
     protected List<Action> executeAction(final RequestTraceabilityReportAction action) {
-        CoverageMode mode = CoverageMode.fromString(action.getMode()).orElse(CoverageMode.PLANNED);
+        CoverageMode mode = CoverageMode.fromString(action.getMode()).orElse(CoverageMode.PLANNING);
         POPPModel model = context.getOwnState().getPoppModel();
 
         TraceabilityReportAction response = new TraceabilityReportAction(TraceabilityReportBuilder.build(model, mode));

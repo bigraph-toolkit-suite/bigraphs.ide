@@ -103,10 +103,10 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
             }
         }
 
-        /** Covered with no further evidence: an inherently-evidential kind, or a planned item while in PLANNED mode. */
+        /** Covered with no further evidence: an inherently-evidential kind, or a planned item while in PLANNING mode. */
         private boolean isIntrinsicallyCovered(TreeNode<?> node) {
             return node.isIntrinsicallyCovered()
-                    || (mode == CoverageMode.PLANNED && node.getKind().isCoveredWhenPlanned());
+                    || (mode == CoverageMode.PLANNING && node.getKind().isCoveredWhenPlanned());
         }
 
         private Coverage compute(TreeNode<?> node) {
@@ -130,7 +130,7 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
         @Override
         public CoverageReason explain(TreeNode<?> node) {
             if (isIntrinsicallyCovered(node)) {
-                return new CoverageReason.Explicit(node, Coverage.COVERED);
+                return new CoverageReason.Intrinsic(node, Coverage.COVERED);
             }
 
             List<? extends TreeNode<?>> children = node.getChildren();
