@@ -18,7 +18,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * two directions can't drift apart.
  *
  * <p>Every structural change is announced to the registered {@link POPPBigraphObserver}s
- * (e.g. {@link BigraphViewMirror}); this class knows nothing about views. A read-only
+ * (e.g. {@link POPPBigraphViewMirror}); this class knows nothing about views. A read-only
  * instance simply has no observers.</p>
  *
  * <p>Holds two caches, populated only by this instance's own write operations:

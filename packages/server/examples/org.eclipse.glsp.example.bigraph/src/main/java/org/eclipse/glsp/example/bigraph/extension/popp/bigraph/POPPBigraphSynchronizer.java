@@ -28,7 +28,7 @@ public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
     public POPPBigraphSynchronizer(final POPPExtensionContext context) {
         PureBigraphMutable bigraph = context.getBigraphModelState().getMutableBigraph();
         this.poppBigraph = new POPPBigraph(bigraph, bigraph.getSignature());
-        this.poppBigraph.addObserver(new BigraphViewMirror(() ->
+        this.poppBigraph.addObserver(new POPPBigraphViewMirror(() ->
                 context.getBigraphModelState() instanceof BigraphModelState s
                         ? Optional.ofNullable(s.getActiveView())
                         : Optional.empty()));

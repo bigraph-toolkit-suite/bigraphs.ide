@@ -72,7 +72,7 @@ public class POPPExtension implements IdeExtension {
     public List<Class<? extends ActionHandler>> getActionHandlers() {
         return List.of(
                 SwitchDecompositionTypeHandler.class,
-                POPPCreateNodeOperationHandler.class,
+                CreateNodeOperationHandler.class,
                 EditDescriptionNodeHandler.class,
                 InspectionActionHandler.class,
                 TraceabilityReportHandler.class
@@ -82,7 +82,7 @@ public class POPPExtension implements IdeExtension {
     @Override
     public List<Class<? extends OperationHandler<?>>> getOperationHandlers() {
         return List.of(
-                POPPEdgeCreationHandler.class
+                EdgeCreationHandler.class
         );
     }
 
