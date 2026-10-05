@@ -44,3 +44,35 @@
         </div>
     </div>
 </div>
+<div data-section="popp-inspection">
+    <div class="bp-section-hdr">
+        <span class="bp-section-title">Inspection</span>
+    </div>
+    <div class="bp-section-content">
+        <div class="popp-card-grid">
+            <div class="popp-card" data-popp-inspect title="Click a node to trace the evidence behind its coverage">
+                <div class="popp-card-icon"><span class="codicon codicon-search"></span></div>
+                <div class="popp-card-name">Inspect</div>
+            </div>
+            <div class="popp-card" data-popp-report-refresh title="Compute the traceability report">
+                <div class="popp-card-icon"><span class="codicon codicon-graph"></span></div>
+                <div class="popp-card-name">Report</div>
+            </div>
+        </div>
+        <div class="popp-mode-row">
+            <span class="popp-mode-label active" data-popp-mode-label="PLANNED">Planned</span>
+            <label class="popp-switch">
+                <input type="checkbox" data-popp-mode-toggle aria-label="Verified coverage mode">
+                <span class="popp-switch-slider"></span>
+            </label>
+            <span class="popp-mode-label" data-popp-mode-label="VERIFIED">Verified</span>
+            <span class="popp-info codicon codicon-info" tabindex="0" aria-describedby="popp-mode-tip">
+                <span class="popp-tooltip" id="popp-mode-tip" role="tooltip">
+                    <b>Planned:</b> every proof node counts, even if nothing has produced it yet. Use this while planning.<br>
+                    <b>Verified:</b> a proof only counts once a solution produces it (draw solution &rarr; proof).
+                </span>
+            </span>
+        </div>
+        <div class="popp-report" data-popp-report></div>
+    </div>
+</div>
