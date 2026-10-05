@@ -2,11 +2,11 @@ package org.eclipse.glsp.example.bigraph.extension.popp.actions;
 
 import org.eclipse.glsp.server.actions.RequestAction;
 
-public class RequestTraceabilityReportAction extends RequestAction<TraceabilityReportAction> {
-    public static final String KIND = "popp.requestTraceabilityReport";
+public class RequestCoverageReportAction extends RequestAction<CoverageReportAction> {
+    public static final String KIND = "popp.requestCoverageReport";
     private String mode;
 
-    public RequestTraceabilityReportAction() {
+    public RequestCoverageReportAction() {
         super(KIND);
     }
 
