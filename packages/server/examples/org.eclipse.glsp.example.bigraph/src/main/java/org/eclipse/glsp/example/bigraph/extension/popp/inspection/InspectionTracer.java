@@ -38,7 +38,7 @@ public final class InspectionTracer {
         coverage.put(id, reason.coverage().name());
 
         switch (reason) {
-            case CoverageReason.Explicit e -> {
+            case CoverageReason.Intrinsic e -> {
             }
             case CoverageReason.Decomposition d -> {
                 for (CoverageReason child : d.children()) {

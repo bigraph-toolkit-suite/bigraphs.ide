@@ -11,11 +11,15 @@ public interface CoverageAnalyzer {
 
     /** Fully covered by verified proofs only (the original semantics). */
     default boolean isCovered(TreeNode<?> node) {
-        return coverage(node, CoverageMode.VERIFIED) == Coverage.COVERED;
+        return isCovered(node, CoverageMode.VERIFY);
+    }
+
+    default boolean isCovered(TreeNode<?> node, CoverageMode mode) {
+        return coverage(node, mode) == Coverage.COVERED;
     }
 
     default CoverageReason explain(TreeNode<?> node) {
-        return explain(node, CoverageMode.VERIFIED);
+        return explain(node, CoverageMode.VERIFY);
     }
 
     default CoverageReason explain(TreeNode<?> node, CoverageMode mode) {

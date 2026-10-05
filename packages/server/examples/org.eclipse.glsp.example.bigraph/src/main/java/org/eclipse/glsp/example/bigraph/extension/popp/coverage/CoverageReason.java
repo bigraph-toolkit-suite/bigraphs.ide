@@ -14,8 +14,8 @@ public sealed interface CoverageReason {
 
     Coverage coverage();
 
-    /** Inherently covered kind (proof); COVERED unless it is only planned in VERIFIED mode. */
-    record Explicit(TreeNode<?> node, Coverage coverage) implements CoverageReason {
+    /** Inherently covered kind (solution, criteria); COVERED unless it is only planned in VERIFY mode. */
+    record Intrinsic(TreeNode<?> node, Coverage coverage) implements CoverageReason {
     }
 
     /**

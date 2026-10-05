@@ -24,7 +24,7 @@ public class InspectionActionHandler extends AbstractActionHandler<RequestInspec
 
     @Override
     protected List<Action> executeAction(final RequestInspectionAction action) {
-        CoverageMode mode = CoverageMode.fromString(action.getMode()).orElse(CoverageMode.PLANNED);
+        CoverageMode mode = CoverageMode.fromString(action.getMode()).orElse(CoverageMode.PLANNING);
         POPPModel model = context.getOwnState().getPoppModel();
         TreeNode<?> node = model == null ? null : model.findNode(action.getNodeId());
 
