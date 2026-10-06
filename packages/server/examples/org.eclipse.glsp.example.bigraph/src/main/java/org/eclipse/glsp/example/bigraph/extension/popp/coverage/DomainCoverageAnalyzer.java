@@ -27,20 +27,20 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
 
     /** Whether a node of this kind has anything to be covered by; Consequence and Solution have no incoming evidence. */
     public static boolean isCoverable(TreeNode<?> node) {
-        return !gapsFor(node.getKind()).isEmpty();
+        return !remediesFor(node.getKind()).isEmpty();
     }
 
     /** All the ways a node of the given kind could be covered through a relation, derived from the metamodel. */
-    public static List<CoverageGap> gapsFor(NodeKind kind) {
-        List<CoverageGap> gaps = new ArrayList<>();
+    public static List<CoverageGap.CoverageRemedy> remediesFor(NodeKind kind) {
+        List<CoverageGap.CoverageRemedy> gaps = new ArrayList<>();
         for (RelationType type : RelationType.values()) {
             for (RelationType.NodeTypePair pair : type.getSupportedNodeTypePair()) {
                 switch (type.getCoveragePropagation()) {
                     case FORWARD -> {
-                        if (pair.to().equals(kind)) gaps.add(new CoverageGap(type, pair.from(), true));
+                        if (pair.to().equals(kind)) gaps.add(new CoverageGap.CoverageRemedy(type, pair.from(), true));
                     }
                     case BACKWARD -> {
-                        if (pair.from().equals(kind)) gaps.add(new CoverageGap(type, pair.to(), false));
+                        if (pair.from().equals(kind)) gaps.add(new CoverageGap.CoverageRemedy(type, pair.to(), false));
                     }
                     default -> {
                     }
@@ -158,7 +158,32 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
             if (best != null) {
                 return new CoverageReason.Link(node, bestCoverage, best.relation(), explain(best.node()));
             }
-            return new CoverageReason.NotCovered(node, gapsFor(node.getKind()));
+            return new CoverageReason.NotCovered(node, remediesFor(node.getKind()));
+        }
+
+        @Override
+        public CoverageGap.CoverageGaps gaps(Collection<? extends TreeNode<?>> scope) {
+            List<CoverageGap> out = new ArrayList<>();
+            for (TreeNode<?> node : scope) {
+                Coverage c = coverage(node);
+                if (c == Coverage.COVERED) {
+                    continue;
+                }
+                boolean root = !hasUncoveredBlocker(node);
+                out.add(new CoverageGap(node, c, root, root ? remediesFor(node.getKind()) : List.of()));
+            }
+            return new CoverageGap.CoverageGaps(List.copyOf(out));
+        }
+
+        /** Whether something under or behind this node is itself not covered, i.e. the real problem lies elsewhere. */
+        private boolean hasUncoveredBlocker(TreeNode<?> node) {
+            for (TreeNode<?> child : node.getChildren()) {
+                if (coverage(child) != Coverage.COVERED) return true;
+            }
+            for (Candidate candidate : candidates(node)) {
+                if (coverage(candidate.node()) != Coverage.COVERED) return true;
+            }
+            return false;
         }
     }
 }

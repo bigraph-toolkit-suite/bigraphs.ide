@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.junit.jupiter.api.Test;
 
@@ -73,9 +74,9 @@ class POPPModelTest {
         SuccessCriteria criterion = new SuccessCriteria("criterion", 0, 0);
 
         assertEquals(RelationResult.CREATED, model.relate(proof, criterion));
-        assertTrue(model.getCoverage().isCovered(criterion));
+        assertTrue(model.getCoverage().isCovered(criterion, CoverageMode.VERIFY));
         assertEquals(RelationResult.REMOVED, model.unrelate(criterion, proof));
-        assertFalse(model.getCoverage().isCovered(criterion));
+        assertFalse(model.getCoverage().isCovered(criterion, CoverageMode.VERIFY));
         assertTrue(model.getRelations().all().isEmpty());
     }
 

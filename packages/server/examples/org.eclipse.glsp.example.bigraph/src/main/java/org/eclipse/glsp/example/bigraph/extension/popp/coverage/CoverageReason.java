@@ -39,7 +39,7 @@ public sealed interface CoverageReason {
     }
 
     /** Nothing to follow: no children and no propagating relation. {@code gaps} says what could fix that. */
-    record NotCovered(TreeNode<?> node, List<CoverageGap> gaps) implements CoverageReason {
+    record NotCovered(TreeNode<?> node, List<CoverageGap.CoverageRemedy> gaps) implements CoverageReason {
         @Override
         public Coverage coverage() {
             return Coverage.UNCOVERED;
