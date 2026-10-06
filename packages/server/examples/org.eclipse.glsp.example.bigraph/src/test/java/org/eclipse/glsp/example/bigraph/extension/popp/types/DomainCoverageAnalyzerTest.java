@@ -26,12 +26,12 @@ class DomainCoverageAnalyzerTest {
         assertEquals(RelationResult.CREATED, graph.relate(proofSecond, solution));
 
         assertEquals(RelationResult.CREATED, graph.relate(first, proofFirst));
-        assertFalse(analyzer.isCovered(and));
+        assertFalse(analyzer.isCovered(and, CoverageMode.VERIFY));
         assertEquals(RelationResult.CREATED, graph.relate(second, proofSecond));
-        assertTrue(analyzer.isCovered(first));
-        assertTrue(analyzer.isCovered(second));
+        assertTrue(analyzer.isCovered(first, CoverageMode.VERIFY));
+        assertTrue(analyzer.isCovered(second, CoverageMode.VERIFY));
 
-        assertTrue(analyzer.isCovered(and));
+        assertTrue(analyzer.isCovered(and, CoverageMode.VERIFY));
 
         assertEquals(RelationResult.REMOVED, graph.unrelate(first, proofFirst));
         assertEquals(RelationResult.REMOVED, graph.unrelate(second, proofSecond));
@@ -39,14 +39,14 @@ class DomainCoverageAnalyzerTest {
         or.addChild(first);
         or.addChild(second);
         or.setDecompositionType(DecompositionType.OR);
-        assertFalse(analyzer.isCovered(or));
+        assertFalse(analyzer.isCovered(or, CoverageMode.VERIFY));
         assertEquals(RelationResult.CREATED, graph.relate(first, proofFirst));
-        assertTrue(analyzer.isCovered(or));
+        assertTrue(analyzer.isCovered(or, CoverageMode.VERIFY));
         assertEquals(RelationResult.CREATED, graph.relate(second, proofSecond));
-        assertTrue(analyzer.isCovered(or));
+        assertTrue(analyzer.isCovered(or, CoverageMode.VERIFY));
 
         CoverageReason.Decomposition reason = assertInstanceOf(CoverageReason.Decomposition.class,
-                analyzer.explain(or));
+                analyzer.explain(or, CoverageMode.VERIFY));
         assertEquals(2, reason.children().size());
         assertInstanceOf(CoverageReason.Link.class, reason.children().getFirst());
     }
@@ -62,10 +62,10 @@ class DomainCoverageAnalyzerTest {
 
         graph.relate(solution, proof);
         graph.relate(proof, successCriteria);
-        assertTrue(analyzer.isCovered(successCriteria));
+        assertTrue(analyzer.isCovered(successCriteria, CoverageMode.VERIFY));
         assertEquals(RelationResult.CREATED, graph.relate(goal, successCriteria));
-        assertTrue(analyzer.isCovered(goal));
-        CoverageReason.Link reason = assertInstanceOf(CoverageReason.Link.class, analyzer.explain(goal));
+        assertTrue(analyzer.isCovered(goal, CoverageMode.VERIFY));
+        CoverageReason.Link reason = assertInstanceOf(CoverageReason.Link.class, analyzer.explain(goal, CoverageMode.VERIFY));
         assertEquals(RelationType.CAUSES, reason.type());
         assertEquals(successCriteria, reason.coveringNode());
     }
@@ -84,7 +84,7 @@ class DomainCoverageAnalyzerTest {
         b.children.add(a);
         a.parent = b;
 
-        assertThrows(IllegalStateException.class, () -> analyzer.isCovered(a));
+        assertThrows(IllegalStateException.class, () -> analyzer.isCovered(a, CoverageMode.VERIFY));
     }
 
     @Test
