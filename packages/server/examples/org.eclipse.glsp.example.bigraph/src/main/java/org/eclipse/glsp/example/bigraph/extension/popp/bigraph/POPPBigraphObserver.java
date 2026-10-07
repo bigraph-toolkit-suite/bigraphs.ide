@@ -9,6 +9,15 @@ import java.util.List;
  * Notified by {@link POPPBigraph} after (or, where noted, just before) it changes the shape of the
  * underlying bigraph. All methods are no-ops by default so implementations override only what they need.
  *
+ * <p>Every bigraph node is announced, including the marker nodes (kind, role) that live as children of
+ * tree nodes: the observer's picture is meant to match the stored bigraph exactly.</p>
+ *w
+ * <p>Ordering guarantees:</p>
+ * <ul>
+ *   <li>A node is announced after its parent, so {@code parent} is always already known.</li>
+ *   <li>A node's children (markers, stubs) are removed, and announced as removed, before the node itself.</li>
+ * </ul>
+ *
  * <p>Notifications may repeat for the same entity (e.g. the POPP container is announced on every
  * node creation), so implementations must be idempotent.</p>
  */

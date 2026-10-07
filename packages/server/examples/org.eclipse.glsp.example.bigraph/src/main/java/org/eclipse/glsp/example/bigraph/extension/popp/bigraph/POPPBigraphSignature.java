@@ -9,6 +9,9 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.Relation;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 import static org.bigraphs.framework.core.factory.BigraphFactory.kindBuilder;
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureSignatureBuilder;
 
@@ -28,7 +31,9 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureSignatureBu
 public enum POPPBigraphSignature {
 
     POPP("POPP", 0),
+    TREE_NODE("TreeNode", 0),
 
+    // Node kind markers
     PROBLEM("Problem", 0),
     GOAL("Goal", 0),
     CONSEQUENCE("Consequence", 0),
@@ -36,8 +41,10 @@ public enum POPPBigraphSignature {
     SUCCESS_CRITERIA("SuccessCriteria", 0),
     SUCCESS_PROOF("SuccessProof", 0),
 
-    AND_DECOMP("AndDecomp", 0),
-    OR_DECOMP("OrDecomp", 0),
+    // Role markers
+    DOM("Dom", 0), // actual domain TreeNode (with children + parent)
+    AND_DECOMP("AndDecomp", 0), // pseudo node to propagate coverage state/reason
+    OR_DECOMP("OrDecomp", 0), // pseudo node to propagate coverage state/reason
 
     CAUSES_INCOMING("CausesIncoming", 1),
     CAUSES_OUTGOING("CausesOutgoing", 1),
@@ -88,13 +95,12 @@ public enum POPPBigraphSignature {
         return control == AND_DECOMP || control == OR_DECOMP;
     }
 
-    public static boolean isIncomingStub(POPPBigraphSignature control) {
-        return control != null && control.name().endsWith("_INCOMING");
-    }
+    private static final Set<POPPBigraphSignature> KIND_MARKERS = EnumSet.of(
+            PROBLEM, GOAL, CONSEQUENCE, SOLUTION, SUCCESS_CRITERIA, SUCCESS_PROOF);
 
-    public static boolean isOutgoingStub(POPPBigraphSignature control) {
-        return control != null && control.name().endsWith("_OUTGOING");
-    }
+    public static boolean isKindMarker(POPPBigraphSignature c) { return c != null && KIND_MARKERS.contains(c); }
+    public static boolean isRoleMarker(POPPBigraphSignature c) { return c == DOM || isDecompControl(c); }
+    public static boolean isMarker(POPPBigraphSignature c)     { return isKindMarker(c) || isRoleMarker(c); }
 
     /** The control for the given {@link NodeKind}. */
     public static POPPBigraphSignature getByNodeKind(final NodeKind kind) {
