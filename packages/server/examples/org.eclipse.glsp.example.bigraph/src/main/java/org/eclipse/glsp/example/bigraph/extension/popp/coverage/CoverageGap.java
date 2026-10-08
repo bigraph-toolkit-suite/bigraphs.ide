@@ -4,6 +4,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -39,5 +40,28 @@ public record CoverageGap(TreeNode<?> node, Coverage coverage, boolean rootCause
         public String describe() {
             return "needs a " + missingKind.getName() + " (" + type.name().toLowerCase() + ")";
         }
+    }
+
+    /** All the ways a node of the given kind could be covered through a relation, derived from the metamodel. */
+    public static List<CoverageGap.CoverageRemedy> remediesFor(NodeKind kind) {
+        List<CoverageGap.CoverageRemedy> remedies = new ArrayList<>();
+        for (RelationType type : RelationType.values()) {
+            for (RelationType.NodeTypePair pair : type.getSupportedNodeTypePair()) {
+                switch (type.getCoveragePropagation()) {
+                    case FORWARD -> {
+                        if (pair.to().equals(kind)) {
+                            remedies.add(new CoverageGap.CoverageRemedy(type, pair.from(), true));
+                        }
+                    }
+                    case BACKWARD -> {
+                        if (pair.from().equals(kind)) {
+                            remedies.add(new CoverageGap.CoverageRemedy(type, pair.to(), false));
+                        }
+                    }
+                    default -> {}
+                }
+            }
+        }
+        return remedies;
     }
 }

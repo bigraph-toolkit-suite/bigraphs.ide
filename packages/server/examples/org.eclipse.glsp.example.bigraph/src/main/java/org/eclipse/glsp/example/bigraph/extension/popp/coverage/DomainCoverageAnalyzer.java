@@ -3,16 +3,12 @@ package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 import java.util.*;
-import java.util.function.Predicate;
 
 /**
  * Three-valued coverage over a {@link RelationGraph}. Stateless; all memoization lives in the
- * short-lived {@link CoverageSession}. The dependency graph is acyclic by construction (see MetamodelTest),
- * the visiting guard is only a last-resort tripwire for metamodel changes.
+ * short-lived {@link CoverageSession}.
  */
 public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
-
-    private record Candidate(Relation relation, TreeNode<?> node) {}
 
     private final RelationGraph relations;
 
@@ -22,67 +18,15 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
 
     @Override
     public CoverageSession session(CoverageMode mode) {
-        return new Session(mode);
+        return new Session(mode, relations);
     }
 
-    /** Whether a node of this kind has anything to be covered by; Consequence and Solution have no incoming evidence. */
-    public static boolean isCoverable(TreeNode<?> node) {
-        return !remediesFor(node.getKind()).isEmpty();
-    }
-
-    /** All the ways a node of the given kind could be covered through a relation, derived from the metamodel. */
-    public static List<CoverageGap.CoverageRemedy> remediesFor(NodeKind kind) {
-        List<CoverageGap.CoverageRemedy> gaps = new ArrayList<>();
-        for (RelationType type : RelationType.values()) {
-            for (RelationType.NodeTypePair pair : type.getSupportedNodeTypePair()) {
-                switch (type.getCoveragePropagation()) {
-                    case FORWARD -> {
-                        if (pair.to().equals(kind)) gaps.add(new CoverageGap.CoverageRemedy(type, pair.from(), true));
-                    }
-                    case BACKWARD -> {
-                        if (pair.from().equals(kind)) gaps.add(new CoverageGap.CoverageRemedy(type, pair.to(), false));
-                    }
-                    default -> {
-                    }
-                }
-            }
-        }
-        return gaps;
-    }
-
-    private List<Candidate> candidates(TreeNode<?> node) {
-        List<Candidate> out = new ArrayList<>();
-        for (Relation r : relations.incoming(node)) {
-            if (r.type().getCoveragePropagation() == RelationType.CoveragePropagation.FORWARD) {
-                out.add(new Candidate(r, r.source()));
-            }
-        }
-        for (Relation r : relations.outgoing(node)) {
-            if (r.type().getCoveragePropagation() == RelationType.CoveragePropagation.BACKWARD) {
-                out.add(new Candidate(r, r.target()));
-            }
-        }
-        return out;
-    }
-
-    private static Coverage aggregate(DecompositionType type, List<Coverage> children) {
-        boolean all = children.stream().allMatch(c -> c == Coverage.COVERED);
-        boolean any = all || children.stream().anyMatch(c -> c == Coverage.COVERED);
-        boolean some = children.stream().anyMatch(c -> c != Coverage.UNCOVERED);
-        return switch (type) {
-            case AND -> all ? Coverage.COVERED : some ? Coverage.PARTIAL : Coverage.UNCOVERED;
-            case OR -> any ? Coverage.COVERED : some ? Coverage.PARTIAL : Coverage.UNCOVERED;
-            case NONE -> Coverage.UNCOVERED;
-        };
-    }
-
-    private final class Session implements CoverageSession {
-        private final CoverageMode mode;
+    private final class Session extends AbstractCoverageSession {
         private final Map<TreeNode<?>, Coverage> memo = new HashMap<>();
         private final Set<TreeNode<?>> visiting = new HashSet<>();
 
-        Session(CoverageMode mode) {
-            this.mode = mode;
+        Session(CoverageMode mode, RelationGraph relations) {
+            super(mode, relations);
         }
 
         @Override
@@ -103,14 +47,8 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
             }
         }
 
-        /** Covered with no further evidence: an inherently-evidential kind, or a planned item while in PLANNING mode. */
-        private boolean isIntrinsicallyCovered(TreeNode<?> node) {
-            return node.isIntrinsicallyCovered()
-                    || (mode == CoverageMode.PLANNING && node.getKind().isCoveredWhenPlanned());
-        }
-
         private Coverage compute(TreeNode<?> node) {
-            if (isIntrinsicallyCovered(node)) {
+            if (node.isIntrinsicallyCovered()) {
                 return Coverage.COVERED;
             }
             Coverage result = Coverage.UNCOVERED;
@@ -129,7 +67,7 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
 
         @Override
         public CoverageReason explain(TreeNode<?> node) {
-            if (isIntrinsicallyCovered(node)) {
+            if (node.isIntrinsicallyCovered()) {
                 return new CoverageReason.Intrinsic(node, Coverage.COVERED);
             }
 
@@ -148,42 +86,12 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
             }
 
             if (!children.isEmpty() && decomposition.compareTo(bestCoverage) >= 0) {
-                Predicate<TreeNode<?>> isCovered = n -> coverage(n) == Coverage.COVERED;
-                List<? extends TreeNode<?>> shown = decomposition == Coverage.COVERED
-                        ? node.getDecompositionType().contributingChildren(children, isCovered)
-                        : children;
-                return new CoverageReason.Decomposition(node, decomposition, node.getDecompositionType(),
-                        shown.stream().map(this::explain).toList());
+                return decompositionReason(node, decomposition);
             }
             if (best != null) {
-                return new CoverageReason.Link(node, bestCoverage, best.relation(), explain(best.node()));
+                return linkReason(node, bestCoverage, best.relation(), best.node());
             }
-            return new CoverageReason.NotCovered(node, remediesFor(node.getKind()));
-        }
-
-        @Override
-        public CoverageGap.CoverageGaps gaps(Collection<? extends TreeNode<?>> scope) {
-            List<CoverageGap> out = new ArrayList<>();
-            for (TreeNode<?> node : scope) {
-                Coverage c = coverage(node);
-                if (c == Coverage.COVERED) {
-                    continue;
-                }
-                boolean root = !hasUncoveredBlocker(node);
-                out.add(new CoverageGap(node, c, root, root ? remediesFor(node.getKind()) : List.of()));
-            }
-            return new CoverageGap.CoverageGaps(List.copyOf(out));
-        }
-
-        /** Whether something under or behind this node is itself not covered, i.e. the real problem lies elsewhere. */
-        private boolean hasUncoveredBlocker(TreeNode<?> node) {
-            for (TreeNode<?> child : node.getChildren()) {
-                if (coverage(child) != Coverage.COVERED) return true;
-            }
-            for (Candidate candidate : candidates(node)) {
-                if (coverage(candidate.node()) != Coverage.COVERED) return true;
-            }
-            return false;
+            return new CoverageReason.NotCovered(node, CoverageGap.remediesFor(node.getKind()));
         }
     }
 }

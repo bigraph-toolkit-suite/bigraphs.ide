@@ -1,5 +1,7 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
+
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -12,20 +14,24 @@ public enum NodeKind {
     SUCCESS_CRITERIA(false, true),
     SUCCESS_PROOF(false, false);
 
-    private NodeKind(boolean explicitlyCovered, boolean coveredWhenPlanned) {
+    private NodeKind(boolean explicitlyCovered, boolean coveredWhenPlanning) {
         this.explicitlyCovered = explicitlyCovered;
-        this.coveredWhenPlanned = coveredWhenPlanned;
+        this.coveredWhenPlanning = coveredWhenPlanning;
     }
 
     private final boolean explicitlyCovered;
-    private final boolean coveredWhenPlanned;
+    private final boolean coveredWhenPlanning;
 
     public boolean isIntrinsicallyCovered() {
         return explicitlyCovered;
     }
 
-    public boolean isCoveredWhenPlanned() {
-        return coveredWhenPlanned;
+    public boolean isIntrinsicallyCovered(CoverageMode mode) {
+        return explicitlyCovered || (mode == CoverageMode.PLANNING && coveredWhenPlanning);
+    }
+
+    public boolean isCoveredWhenPlanning() {
+        return coveredWhenPlanning;
     }
 
     public static Optional<NodeKind> fromString(String name){

@@ -1,10 +1,13 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
 
+import org.apache.commons.logging.LogFactory;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -20,6 +23,8 @@ import java.util.function.Predicate;
  */
 @SuppressWarnings("unchecked")
 public class POPPBigraph {
+    private final static Logger logger = LoggerFactory.getLogger(POPPBigraph.class);
+
     private final PureBigraphMutable bigraph;
     private final DynamicSignature signature;
     private final List<POPPBigraphObserver> observers = new CopyOnWriteArrayList<>();
@@ -143,6 +148,9 @@ public class POPPBigraph {
         var chain = addNode(parent, POPPBigraphSignature.TREE_NODE, id);
         fireNodeAdded(chain, parent);
         addMarker(chain, POPPBigraphSignature.getByDecompositionType(type));
+        if (isDomainChild(parent)) { // first chain node of a decomposition
+            addMarker(chain, POPPBigraphSignature.CHAIN_ROOT);
+        }
         return chain;
     }
 
