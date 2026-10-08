@@ -43,6 +43,7 @@ public enum POPPBigraphSignature {
 
     // Role markers
     DOM("Dom", 0), // actual domain TreeNode (with children + parent)
+    CHAIN_ROOT("ChainRoot", 0), // pseudo decomp with a dom treenode as parent (additional to AND/OR_DEDCOMP)
     AND_DECOMP("AndDecomp", 0), // pseudo node to propagate coverage state/reason
     OR_DECOMP("OrDecomp", 0), // pseudo node to propagate coverage state/reason
 
@@ -100,7 +101,10 @@ public enum POPPBigraphSignature {
 
     public static boolean isKindMarker(POPPBigraphSignature c) { return c != null && KIND_MARKERS.contains(c); }
     public static boolean isRoleMarker(POPPBigraphSignature c) { return c == DOM || isDecompControl(c); }
-    public static boolean isMarker(POPPBigraphSignature c)     { return isKindMarker(c) || isRoleMarker(c); }
+    public static boolean isChainRootMarker(POPPBigraphSignature c) { return c == CHAIN_ROOT; }
+    public static boolean isMarker(POPPBigraphSignature c) {
+        return isKindMarker(c) || isRoleMarker(c) || isChainRootMarker(c);
+    }
 
     /** The control for the given {@link NodeKind}. */
     public static POPPBigraphSignature getByNodeKind(final NodeKind kind) {
