@@ -22,11 +22,17 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
     }
 
     private final class Session extends AbstractCoverageSession {
+        private final CoverageMode mode;
         private final Map<TreeNode<?>, Coverage> memo = new HashMap<>();
         private final Set<TreeNode<?>> visiting = new HashSet<>();
 
         Session(CoverageMode mode, RelationGraph relations) {
             super(mode, relations);
+            this.mode = mode;
+        }
+
+        private boolean isIntrinsicallyCovered(TreeNode<?> node) {
+            return node.getKind().isIntrinsicallyCovered(mode);
         }
 
         @Override
@@ -48,7 +54,7 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
         }
 
         private Coverage compute(TreeNode<?> node) {
-            if (node.isIntrinsicallyCovered()) {
+            if (isIntrinsicallyCovered(node)) {
                 return Coverage.COVERED;
             }
             Coverage result = Coverage.UNCOVERED;
@@ -67,7 +73,7 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
 
         @Override
         public CoverageReason explain(TreeNode<?> node) {
-            if (node.isIntrinsicallyCovered()) {
+            if (isIntrinsicallyCovered(node)) {
                 return new CoverageReason.Intrinsic(node, Coverage.COVERED);
             }
 

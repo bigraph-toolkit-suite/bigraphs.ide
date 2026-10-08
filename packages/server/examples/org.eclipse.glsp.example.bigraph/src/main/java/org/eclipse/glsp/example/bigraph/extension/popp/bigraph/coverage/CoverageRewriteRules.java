@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 
 public final class CoverageRewriteRules {
+    private static final Logger logger = LoggerFactory.getLogger(CoverageRewriteRules.class);
 
     record P(String control, String link, List<P> kids) {
         static final P SITE = new P(null, null, List.of());
@@ -31,10 +32,39 @@ public final class CoverageRewriteRules {
         static P n(String control, String link, P... kids) { return new P(control, link, List.of(kids)); }
     }
 
-    record Spec(String name, List<P> redex, List<P> reactum, Map<P, P> pairs) {
-        public Spec(String name, List<P> redex, List<P> reactum) {
-            this(name, redex, reactum, Map.of());
+    /**
+     * What a rule does, stated once and explicitly: the redex node whose state cell is upgraded
+     * ({@code receiver}), the redex node it takes the coverage from over a link ({@code giver}, only link rules),
+     * the state it is upgraded to and the reason marker that justifies it.
+     * The matcher-only session applies this instead of building the reactum.
+     */
+    record Effect(P receiver, P giver, Coverage target, CoverageMarker reason,
+                         RelationType relation, Coverage giverState, Coverage receiverState) {
+        /** Non-link rules: no relation guard. */
+        public Effect(P receiver, P giver, Coverage target, CoverageMarker reason) {
+            this(receiver, giver, target, reason, null, null, null);
         }
+    }
+
+    record Spec(String name, List<P> redex, List<P> reactum, Map<P, P> pairs, Effect effect) {
+        public Spec(String name, List<P> redex, List<P> reactum) {
+            this(name, redex, reactum, Map.of(), null);
+        }
+        public Spec(String name, List<P> redex, List<P> reactum, Map<P, P> pairs) {
+            this(name, redex, reactum, pairs, null);
+        }
+    }
+
+    /**
+     * A rule ready for matching. {@code receiverNode} / {@code giverNode} are node names in the redex
+     * bigraph; look them up in the match's redex-to-agent node embedding to find the agent nodes.
+     */
+    public record CompiledRule(String name, ParametricReactionRule<PureBigraph> rule,
+                               String receiverNode, String giverNode,
+                               Coverage target, CoverageMarker reason,
+                               RelationType relation, Coverage giverState, Coverage receiverState) {
+        /** Link rules only: can any relation of this type currently have a giver/receiver in the states the redex needs? */
+        public boolean isLinkRule() { return relation != null; }
     }
 
     private static Map<P, P> pair(P redexNode, P reactumNode) {
@@ -69,10 +99,14 @@ public final class CoverageRewriteRules {
         return (t == DecompositionType.AND ? POPPBigraphSignature.AND_DECOMP : POPPBigraphSignature.OR_DECOMP).controlName();
     }
 
-    private static P why(Coverage target, boolean link) {
+    private static CoverageMarker whyMarker(Coverage target, boolean link) {
         boolean cov = target == Coverage.COVERED;
-        CoverageMarker m = link ? (cov ? CoverageMarker.COV_LINK : CoverageMarker.PART_LINK)
+        return link ? (cov ? CoverageMarker.COV_LINK : CoverageMarker.PART_LINK)
                 : (cov ? CoverageMarker.COV_DECOMP : CoverageMarker.PART_DECOMP);
+    }
+
+    private static P why(Coverage target, boolean link) {
+        CoverageMarker m = whyMarker(target, link);
         return link ? P.n(m.controlName(), "x") : P.n(m.controlName());
     }
 
@@ -105,7 +139,8 @@ public final class CoverageRewriteRules {
         P redexNode   = treeNode(concat(redexKids, slotPatterns));
         P reactumNode = treeNode(concat(reactumKids, slotPatterns));
         out.add(new Spec("chain-" + (root ? "root-" : "") + type + "-" + cur + "-" + slots,
-                List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode)));
+                List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
+                new Effect(redexNode, null, target, whyMarker(target, false))));
     }
 
     private static void collect(PureBigraph b, BigraphEntity<?> parent, List<P> ps, IdentityHashMap<P, String> out) {
@@ -152,7 +187,8 @@ public final class CoverageRewriteRules {
                     P redexNode   = treeNode(state(c), P.SITE, chain);
                     P reactumNode = treeNode(state(s), why(s, false), P.SITE, chain);
                     out.add(new Spec("lift-" + type + "-" + c + "-" + s,
-                            List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode)));
+                            List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
+                            new Effect(redexNode, null, s, whyMarker(s, false))));
                 }
             }
         }
@@ -177,26 +213,40 @@ public final class CoverageRewriteRules {
                     P reactumRecv = treeNode(state(target), why(target, true), recv, P.SITE);
 
                     out.add(new Spec("link-" + t + "-" + g + "-" + c,
-                            List.of(giver, redexRecv), List.of(giver, reactumRecv), pair(redexRecv, reactumRecv)));
+                            List.of(giver, redexRecv), List.of(giver, reactumRecv), pair(redexRecv, reactumRecv),
+                            new Effect(redexRecv, giver, target, whyMarker(target, true), t, g, c)));
                 }
             }
         }
     }
 
-    public static List<ParametricReactionRule<PureBigraph>> build() {
+    /** Rules for the matcher-only session: the rule plus where to find receiver/giver in a match. */
+    public static List<CompiledRule> compile() {
         DynamicSignature sig = CoverageSignature.get();
-        List<ParametricReactionRule<PureBigraph>> rules = new ArrayList<>();
+        List<CompiledRule> out = new ArrayList<>();
         for (Spec s : specs()) {
+            Effect fx = Objects.requireNonNull(s.effect(), "Spec without effect: " + s.name());
             try {
                 PureBigraph redex = side(sig, s.redex()), reactum = side(sig, s.reactum());
-                var rule = new ParametricReactionRule<>(redex, reactum);
+                ParametricReactionRule<PureBigraph> rule = new ParametricReactionRule<>(redex, reactum);
+                // Not needed by the matcher-only session; kept so a rule can still be executed through
+                // PureReactiveSystem.buildParametricReaction (e.g. to cross-check the effect on a flat agent).
                 rule.withTrackingMap(trackingMap(s, redex, reactum));
-                rules.add(rule);
+                var redexNames = names(redex, s.redex());
+                out.add(new CompiledRule(s.name(), rule,
+                        redexNames.get(fx.receiver()),
+                        fx.giver() == null ? null : redexNames.get(fx.giver()),
+                        fx.target(), fx.reason(), fx.relation(), fx.giverState(), fx.receiverState()));
             } catch (InvalidReactionRuleException e) {
                 throw new IllegalStateException("Invalid coverage rule " + s.name(), e);
             }
+            logger.debug(toBigrapher(s));
         }
-        return List.copyOf(rules);
+        return List.copyOf(out);
+    }
+
+    public static List<ParametricReactionRule<PureBigraph>> build() {
+        return compile().stream().map(CompiledRule::rule).toList();
     }
 
     static PureBigraph side(DynamicSignature sig, List<P> roots) {

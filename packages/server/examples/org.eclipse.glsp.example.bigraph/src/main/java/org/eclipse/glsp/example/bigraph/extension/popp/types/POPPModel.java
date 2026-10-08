@@ -1,9 +1,11 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CachingCoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.DomainCoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
@@ -21,7 +23,9 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
     private final NodeRegistry<SuccessProof> successProofs = new NodeRegistry<>(SuccessProof::new, SuccessProof::new);
 
     private final RelationGraph relations = new RelationGraph();
-    private final CoverageAnalyzer coverage = new DomainCoverageAnalyzer(relations);
+    /** Bumped after every event that can change coverage; see {@link #publish}. */
+    private final AtomicLong version = new AtomicLong();
+    private final CoverageAnalyzer coverage = new CachingCoverageAnalyzer(new DomainCoverageAnalyzer(relations), version::get);
 
     public POPPModel() {
         relations.addListener(this);
@@ -60,7 +64,7 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         N create(String description, double x, double y) {
             N node = factory.create(description, x, y);
             addRoot(node); // Created with no parent
-            emitEvent(new POPPEvent.NodeCreated(node.getKind(), node));
+            publish(new POPPEvent.NodeCreated(node.getKind(), node));
             nodeRegistry.put(node.getId(), node);
             return node;
         }
@@ -69,7 +73,7 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         N restore(String id, String description, double x, double y) {
             N node = restoreFactory.create(id, description, x, y);
             addRoot(node); // Registered as a root until/unless a subsequent addChild reparents it
-            emitEvent(new POPPEvent.NodeCreated(node.getKind(), node));
+            publish(new POPPEvent.NodeCreated(node.getKind(), node));
             nodeRegistry.put(node.getId(), node);
             return node;
         }
@@ -85,7 +89,7 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
             nodeRegistry.remove(node.getId());
             relations.incoming(node).forEach(relation -> unrelate(relation.source(), node));
             relations.outgoing(node).forEach(relation -> unrelate(node, relation.target()));
-            emitEvent(new POPPEvent.NodeRemoved(node.getKind(), node));
+            publish(new POPPEvent.NodeRemoved(node.getKind(), node));
         }
 
         void addRoot(N node) {
@@ -107,6 +111,26 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
 
     public CoverageAnalyzer getCoverage() {
         return coverage;
+    }
+
+    /** Changes with every model change that can affect coverage. Cached coverage sessions are valid for one version. */
+    public long getVersion() {
+        return version.get();
+    }
+
+    /**
+     * Emits the event to all listeners, then bumps the version. The bump comes last so that listeners such as the
+     * bigraph synchronizer have already applied the change when a cache sees the new version. Moves and description
+     * edits do not affect coverage and leave the version alone.
+     */
+    private void publish(POPPEvent event) {
+        try {
+            emitEvent(event);
+        } finally {
+            if (!(event instanceof POPPEvent.NodeMoved || event instanceof POPPEvent.NodeDescriptionChanged)) {
+                version.incrementAndGet();
+            }
+        }
     }
 
     /** Creates a typed cross-tree relation, rejecting node-kind combinations the POPP metamodel disallows. */
@@ -196,7 +220,7 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         if (Objects.requireNonNull(event) instanceof POPPEvent.NodeChangedParent e) {
             handleParentChange(e);
         }
-        emitEvent(event);
+        publish(event);
     }
 
     private void handleParentChange(POPPEvent.NodeChangedParent event) {

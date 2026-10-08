@@ -1,11 +1,18 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageTestModels.Tree;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class DomainCoverageAnalyzerTest {
+
+    // ---- behaviour
 
     @Test
     void decompositionsDetermineCoverage() {
@@ -51,74 +58,175 @@ class DomainCoverageAnalyzerTest {
         assertInstanceOf(CoverageReason.Link.class, reason.children().getFirst());
     }
 
+    // ---- planning mode (regression: the mode decides which kinds are intrinsically covered)
+
     @Test
-    void followsBackwardCoveragePropagation() {
+    void planningModeCoversPlannedKindsAndVerifyModeDoesNot() {
         POPPModel model = new POPPModel();
         CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
+        Solution solution = (Solution) model.createNode(NodeKind.SOLUTION, "", 0, 0);
+        SuccessCriteria criteria = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
+
+        // a planned success criteria counts as covered while planning ...
+        assertEquals(new CoverageReason.Intrinsic(criteria, Coverage.COVERED), analyzer.explain(criteria, CoverageMode.PLANNING));
+        assertTrue(analyzer.isCovered(criteria, CoverageMode.PLANNING));
+        assertEquals(Coverage.COVERED, analyzer.coverage(criteria, CoverageMode.PLANNING));
+        // ... but needs evidence when verifying
+        assertInstanceOf(CoverageReason.NotCovered.class, analyzer.explain(criteria, CoverageMode.VERIFY));
+        assertFalse(analyzer.isCovered(criteria, CoverageMode.VERIFY));
+        assertEquals(Coverage.UNCOVERED, analyzer.coverage(criteria, CoverageMode.VERIFY));
+
+        // a solution is evidence in both modes
+        assertEquals(new CoverageReason.Intrinsic(solution, Coverage.COVERED), analyzer.explain(solution, CoverageMode.PLANNING));
+        assertInstanceOf(CoverageReason.Intrinsic.class, analyzer.explain(solution, CoverageMode.VERIFY));
+        assertEquals(Coverage.COVERED, analyzer.coverage(solution, CoverageMode.PLANNING));
+        assertEquals(Coverage.COVERED, analyzer.coverage(solution, CoverageMode.VERIFY));
+
+        // evidence turns the verified criteria covered, through a link
+        SuccessProof proof = (SuccessProof) model.createNode(NodeKind.SUCCESS_PROOF, "", 0, 0);
+        model.relate(solution, proof);
+        model.relate(proof, criteria);
+        assertInstanceOf(CoverageReason.Link.class, analyzer.explain(criteria, CoverageMode.VERIFY));
+        assertEquals(Coverage.COVERED, analyzer.coverage(criteria, CoverageMode.VERIFY));
+    }
+
+    @Test
+    void sessionsOfDifferentModesDoNotShareState() {
+        POPPModel model = new POPPModel();
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
+        SuccessCriteria criteria = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
+
+        CoverageSession planning = analyzer.session(CoverageMode.PLANNING);
+        CoverageSession verify = analyzer.session(CoverageMode.VERIFY);
+        assertEquals(Coverage.COVERED, planning.coverage(criteria));
+        assertEquals(Coverage.UNCOVERED, verify.coverage(criteria));
+        assertEquals(Coverage.COVERED, planning.coverage(criteria)); // asking VERIFY in between changed nothing
+    }
+
+    // ---- gaps
+
+    @Test
+    void gapsSeparateRootCausesFromAffectedNodes() {
+        POPPModel model = new POPPModel();
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
+        Problem problem = (Problem) model.createNode(NodeKind.PROBLEM, "problem", 0, 0);
         Goal goal = (Goal) model.createNode(NodeKind.GOAL, "goal", 0, 0);
-        SuccessCriteria successCriteria = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "successCriteria", 0, 0);
+        SuccessCriteria criteria = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "criteria", 0, 0);
+        assertEquals(RelationResult.CREATED, model.relate(problem, goal));
+        assertEquals(RelationResult.CREATED, model.relate(goal, criteria));
+
+        // nothing proves the criteria: it is the actionable gap, the goal and the problem only wait for it
+        CoverageGap.CoverageGaps gaps = analyzer.gaps(model, CoverageMode.VERIFY);
+        assertFalse(gaps.isEmpty());
+        assertEquals(java.util.List.of(criteria), gaps.rootCauses().stream().map(CoverageGap::node).toList());
+        assertFalse(gaps.rootCauses().getFirst().missing().isEmpty());
+        assertEquals(java.util.Set.of(problem, goal), gaps.affected().stream().map(CoverageGap::node).collect(java.util.stream.Collectors.toSet()));
+        assertTrue(gaps.affected().stream().allMatch(g -> g.missing().isEmpty()));
+
+        // evidence closes every gap
         SuccessProof proof = (SuccessProof) model.createNode(NodeKind.SUCCESS_PROOF, "proof", 0, 0);
         Solution solution = (Solution) model.createNode(NodeKind.SOLUTION, "solution", 0, 0);
-
-        model.relate(solution, proof);
-        model.relate(proof, successCriteria);
-        assertTrue(analyzer.isCovered(successCriteria, CoverageMode.VERIFY));
-        assertEquals(RelationResult.CREATED, model.relate(goal, successCriteria));
-        assertTrue(analyzer.isCovered(goal, CoverageMode.VERIFY));
-        CoverageReason.Link reason = assertInstanceOf(CoverageReason.Link.class, analyzer.explain(goal, CoverageMode.VERIFY));
-        assertEquals(RelationType.CAUSES, reason.type());
-        assertEquals(successCriteria, reason.coveringNode());
+        assertEquals(RelationResult.CREATED, model.relate(criteria, proof));
+        assertEquals(RelationResult.CREATED, model.relate(proof, solution));
+        assertTrue(analyzer.gaps(model, CoverageMode.VERIFY).isEmpty());
     }
 
     @Test
-    void testLinkBasedPropagation(){
+    void anUnprovenDecompositionChildIsTheRootCauseOfItsParent() {
         POPPModel model = new POPPModel();
         CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
-        Problem p = (Problem) model.createNode(NodeKind.PROBLEM, "", 0, 0);
-        Goal g = (Goal) model.createNode(NodeKind.GOAL, "", 0, 0);
-        SuccessCriteria sc = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
-        SuccessProof sp = (SuccessProof) model.createNode(NodeKind.SUCCESS_PROOF, "", 0, 0);
-        Solution s = (Solution) model.createNode(NodeKind.SOLUTION, "", 0, 0);
+        SuccessCriteria and = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "and", 0, 0);
+        SuccessCriteria proven = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "proven", 0, 0);
+        SuccessCriteria unproven = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "unproven", 0, 0);
+        SuccessProof proof = (SuccessProof) model.createNode(NodeKind.SUCCESS_PROOF, "proof", 0, 0);
+        Solution solution = (Solution) model.createNode(NodeKind.SOLUTION, "solution", 0, 0);
+        and.addChild(proven);
+        and.addChild(unproven);
+        and.setDecompositionType(DecompositionType.AND);
+        model.relate(proof, solution);
+        model.relate(proven, proof);
 
-        assertEquals(RelationResult.CREATED, model.relate(p, g));
-        assertEquals(RelationResult.CREATED, model.relate(g, sc));
-        assertEquals(RelationResult.CREATED, model.relate(sc, sp));
-        assertEquals(RelationResult.CREATED, model.relate(sp, s));
-
-        assertEquals(Coverage.COVERED, analyzer.coverage(p, CoverageMode.VERIFY));
-        assertEquals(CoverageReason.Link.class, analyzer.explain(p, CoverageMode.VERIFY).getClass());
-        assertEquals(CoverageReason.Link.class, analyzer.explain(g, CoverageMode.VERIFY).getClass());
-        assertEquals(CoverageReason.Link.class, analyzer.explain(sc, CoverageMode.VERIFY).getClass());
-        assertEquals(CoverageReason.Link.class, analyzer.explain(sp, CoverageMode.VERIFY).getClass());
+        CoverageGap.CoverageGaps gaps = analyzer.gaps(model, CoverageMode.VERIFY);
+        assertEquals(java.util.List.of(unproven), gaps.rootCauses().stream().map(CoverageGap::node).toList());
+        assertEquals(java.util.List.of(and), gaps.affected().stream().map(CoverageGap::node).toList());
+        assertEquals(Coverage.PARTIAL, gaps.affected().getFirst().coverage());
     }
 
     @Test
-    void intrinsicCoverageBasedOnMode(){
+    void planningModeHasNoGapsForPlannedCriteria() {
         POPPModel model = new POPPModel();
         CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
-        Solution s = (Solution) model.createNode(NodeKind.SOLUTION, "", 0, 0);
+        model.createNode(NodeKind.SUCCESS_CRITERIA, "planned", 0, 0);
 
-        SuccessCriteria sc = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
-        assertEquals(new CoverageReason.Intrinsic(sc, Coverage.COVERED), analyzer.explain(sc, CoverageMode.PLANNING));
-        assertTrue(analyzer.isCovered(sc, CoverageMode.PLANNING));
-        assertEquals(Coverage.COVERED, analyzer.coverage(sc, CoverageMode.PLANNING));
-        assertEquals(CoverageReason.NotCovered.class, analyzer.explain(sc, CoverageMode.VERIFY).getClass());
-        assertFalse(analyzer.isCovered(sc, CoverageMode.VERIFY));
-        assertEquals(Coverage.UNCOVERED, analyzer.coverage(sc, CoverageMode.VERIFY));
+        assertTrue(analyzer.gaps(model, CoverageMode.PLANNING).isEmpty());
+        assertFalse(analyzer.gaps(model, CoverageMode.VERIFY).isEmpty());
+    }
 
-        assertEquals(new CoverageReason.Intrinsic(s, Coverage.COVERED), analyzer.explain(s, CoverageMode.PLANNING));
-        assertTrue(analyzer.isCovered(s, CoverageMode.PLANNING));
-        assertEquals(Coverage.COVERED, analyzer.coverage(s, CoverageMode.PLANNING));
-        assertEquals(CoverageReason.Intrinsic.class, analyzer.explain(s, CoverageMode.VERIFY).getClass());
-        assertTrue(analyzer.isCovered(s, CoverageMode.VERIFY));
-        assertEquals(Coverage.COVERED, analyzer.coverage(s, CoverageMode.VERIFY));
+    // ---- responsiveness
+    //
+    // Requirement: every user-visible action, including inspecting coverage, answers in under 500 ms. The GLSP
+    // handlers, serialization and the browser take part of that, so each action must cost only a fraction here.
 
-        SuccessProof sp = (SuccessProof) model.createNode(NodeKind.SUCCESS_PROOF,"", 0, 0);
-        model.relate(s, sp);
-        model.relate(sp, sc);
+    private static final double REQUIREMENT_MS = 500;
+    private static final double BUDGET_MS = REQUIREMENT_MS / 5;
+    private static final int SAMPLES = 5;
 
-        assertEquals(CoverageReason.Link.class, analyzer.explain(sc, CoverageMode.VERIFY).getClass());
-        assertTrue(analyzer.isCovered(sc, CoverageMode.VERIFY));
-        assertEquals(Coverage.COVERED, analyzer.coverage(sc, CoverageMode.VERIFY));
+    /** Success criteria trees of 16, 64, 256 and 1024 leaves, i.e. up to about 3000 POPP nodes. */
+    @ParameterizedTest(name = "depth {0}")
+    @ValueSource(ints = {4, 6, 8, 10})
+    void everyActionStaysWellBelowTheResponsivenessRequirement(int depth) {
+        POPPModel model = new POPPModel();
+        Tree tree = CoverageTestModels.balancedTree(model, depth, true);
+        CoverageAnalyzer analyzer = model.getCoverage();
+        System.out.printf("[responsiveness] depth=%d leaves=%d popp nodes=%d (budget %.0f ms per action)%n",
+                depth, tree.leaves().size(), model.getAllNodes().size(), BUDGET_MS);
+
+        stage(depth, "inspect root coverage", () ->
+                assertEquals(Coverage.COVERED, analyzer.coverage(tree.root(), CoverageMode.VERIFY)));
+
+        stage(depth, "inspect root coverage (planning)", () ->
+                assertEquals(Coverage.COVERED, analyzer.coverage(tree.root(), CoverageMode.PLANNING)));
+
+        stage(depth, "inspect every node", () -> {
+            CoverageSession session = analyzer.session(CoverageMode.VERIFY);
+            for (TreeNode<?> node : model.getAllNodes()) session.coverage(node);
+        });
+
+        stage(depth, "explain root", () ->
+                assertInstanceOf(CoverageReason.Decomposition.class, analyzer.explain(tree.root(), CoverageMode.VERIFY)));
+
+        stage(depth, "coverage report", () ->
+                assertNotNull(CoverageReportBuilder.build(model, CoverageMode.VERIFY)));
+
+        SuccessCriteria leaf = tree.leaves().getFirst();
+        SuccessProof proof = tree.proofs().getFirst();
+        stage(depth, "edit relation, inspect root, undo", () -> {
+            assertEquals(RelationResult.REMOVED, model.unrelate(leaf, proof));
+            analyzer.coverage(tree.root(), CoverageMode.VERIFY);
+            assertEquals(RelationResult.CREATED, model.relate(leaf, proof));
+        });
+
+        stage(depth, "create node, relate, inspect, delete", () -> {
+            SuccessProof extra = (SuccessProof) model.createNode(NodeKind.SUCCESS_PROOF, "extra", 0, 0);
+            model.relate(extra, tree.solution());
+            analyzer.coverage(extra, CoverageMode.VERIFY);
+            model.deleteNode(extra.getId());
+        });
+    }
+
+    /** One warm-up run (JIT), then the median of {@link #SAMPLES}; fails when the median exceeds the budget. */
+    private static void stage(int depth, String name, Runnable action) {
+        action.run();
+        double[] ms = new double[SAMPLES];
+        for (int i = 0; i < SAMPLES; i++) {
+            long start = System.nanoTime();
+            action.run();
+            ms[i] = (System.nanoTime() - start) / 1_000_000.0;
+        }
+        Arrays.sort(ms);
+        double median = ms[SAMPLES / 2];
+        System.out.printf("[responsiveness]   depth=%d %-40s %8.2f ms%n", depth, name, median);
+        assertTrue(median < BUDGET_MS,
+                name + " at depth " + depth + " took " + median + " ms, budget " + BUDGET_MS + " ms");
     }
 }
