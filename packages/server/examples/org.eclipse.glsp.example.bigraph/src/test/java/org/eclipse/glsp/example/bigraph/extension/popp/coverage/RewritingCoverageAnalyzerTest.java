@@ -1,24 +1,22 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
-import org.bigraphs.framework.core.impl.pure.PureBigraph;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
-import org.bigraphs.framework.core.reactivesystem.ParametricReactionRule;
-import org.bigraphs.framework.simulation.matching.AbstractBigraphMatcher;
-import org.bigraphs.framework.simulation.matching.pure.PureReactiveSystem;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageBigraph;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageRewriteRules;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageTestModels.Tree;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.StreamSupport;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 import static org.junit.jupiter.api.Assertions.*;
@@ -53,19 +51,21 @@ class RewritingCoverageAnalyzerTest {
     final class SyncedPOPP {
         final POPPModel model = new POPPModel();
         final POPPBigraph bigraph;
+        final CoverageAnalyzer analyzer;
 
         SyncedPOPP() {
             DynamicSignature sig = POPPBigraphSignature.create();
             PureBigraphMutable mutable = pureBuilder(sig).createMutable();
             this.bigraph = new POPPBigraph(mutable, sig);
             model.addListener(new POPPBigraphForwarder(bigraph));
+            this.analyzer = new RewritingCoverageAnalyzer(() -> bigraph, model.getRelations());
         }
     }
 
     @Test
     void decompositionsDetermineCoverage() {
         SyncedPOPP popp = new SyncedPOPP();
-        CoverageAnalyzer analyzer = new RewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations());
+        CoverageAnalyzer analyzer = popp.analyzer;
 
         SuccessCriteria and = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "and", 0, 0);
         SuccessCriteria first = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "first", 0, 0);
@@ -110,7 +110,7 @@ class RewritingCoverageAnalyzerTest {
     @Test
     void followsBackwardCoveragePropagation() {
         SyncedPOPP popp = new SyncedPOPP();
-        CoverageAnalyzer analyzer = new RewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations());
+        CoverageAnalyzer analyzer = popp.analyzer;
         Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL,"goal", 0, 0);
         SuccessCriteria successCriteria = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "successCriteria", 0, 0);
         SuccessProof proof = (SuccessProof) popp.model.createNode(NodeKind.SUCCESS_PROOF, "proof", 0, 0);
@@ -129,7 +129,7 @@ class RewritingCoverageAnalyzerTest {
     @Test
     void testLinkBasedPropagation(){
         SyncedPOPP popp = new SyncedPOPP();
-        CoverageAnalyzer analyzer = new RewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations());
+        CoverageAnalyzer analyzer = popp.analyzer;
         Problem p = (Problem) popp.model.createNode(NodeKind.PROBLEM, "", 0, 0);
         Goal g = (Goal) popp.model.createNode(NodeKind.GOAL, "", 0, 0);
         SuccessCriteria sc = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
@@ -151,7 +151,7 @@ class RewritingCoverageAnalyzerTest {
     @Test
     void intrinsicCoverageBasedOnMode() {
         SyncedPOPP popp = new SyncedPOPP();
-        CoverageAnalyzer analyzer = new RewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations());
+        CoverageAnalyzer analyzer = popp.analyzer;
         Solution s = (Solution) popp.model.createNode(NodeKind.SOLUTION, "", 0, 0);
 
         SuccessCriteria sc = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
@@ -176,5 +176,138 @@ class RewritingCoverageAnalyzerTest {
         assertEquals(CoverageReason.Link.class, analyzer.explain(sc, CoverageMode.VERIFY).getClass());
         assertTrue(analyzer.isCovered(sc, CoverageMode.VERIFY));
         assertEquals(Coverage.COVERED, analyzer.coverage(sc, CoverageMode.VERIFY));
+    }
+
+    @Test
+    void sessionsOfDifferentModesDoNotShareState() {
+        SyncedPOPP popp = new SyncedPOPP();
+        SuccessCriteria criteria = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
+
+        CoverageSession planning = popp.analyzer.session(CoverageMode.PLANNING);
+        CoverageSession verify = popp.analyzer.session(CoverageMode.VERIFY);
+        assertEquals(Coverage.COVERED, planning.coverage(criteria));
+        assertEquals(Coverage.UNCOVERED, verify.coverage(criteria));
+        assertEquals(Coverage.COVERED, planning.coverage(criteria));
+    }
+
+    // ---- gaps (same scenarios as DomainCoverageAnalyzerTest)
+
+    @Test
+    void gapsSeparateRootCausesFromAffectedNodes() {
+        SyncedPOPP popp = new SyncedPOPP();
+        CoverageAnalyzer analyzer = popp.analyzer;
+        Problem problem = (Problem) popp.model.createNode(NodeKind.PROBLEM, "problem", 0, 0);
+        Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "goal", 0, 0);
+        SuccessCriteria criteria = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "criteria", 0, 0);
+        assertEquals(RelationResult.CREATED, popp.model.relate(problem, goal));
+        assertEquals(RelationResult.CREATED, popp.model.relate(goal, criteria));
+
+        CoverageGap.CoverageGaps gaps = analyzer.gaps(popp.model, CoverageMode.VERIFY);
+        assertNotNull(gaps, "gaps() is not implemented for this analyzer's session");
+        assertFalse(gaps.isEmpty());
+        assertEquals(List.of(criteria), gaps.rootCauses().stream().map(CoverageGap::node).toList());
+        assertFalse(gaps.rootCauses().getFirst().missing().isEmpty());
+        assertEquals(Set.of(problem, goal), gaps.affected().stream().map(CoverageGap::node).collect(Collectors.toSet()));
+        assertTrue(gaps.affected().stream().allMatch(g -> g.missing().isEmpty()));
+
+        SuccessProof proof = (SuccessProof) popp.model.createNode(NodeKind.SUCCESS_PROOF, "proof", 0, 0);
+        Solution solution = (Solution) popp.model.createNode(NodeKind.SOLUTION, "solution", 0, 0);
+        assertEquals(RelationResult.CREATED, popp.model.relate(criteria, proof));
+        assertEquals(RelationResult.CREATED, popp.model.relate(proof, solution));
+        assertTrue(analyzer.gaps(popp.model, CoverageMode.VERIFY).isEmpty());
+    }
+
+    @Test
+    void anUnprovenDecompositionChildIsTheRootCauseOfItsParent() {
+        SyncedPOPP popp = new SyncedPOPP();
+        CoverageAnalyzer analyzer = popp.analyzer;
+        SuccessCriteria and = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "and", 0, 0);
+        SuccessCriteria proven = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "proven", 0, 0);
+        SuccessCriteria unproven = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "unproven", 0, 0);
+        SuccessProof proof = (SuccessProof) popp.model.createNode(NodeKind.SUCCESS_PROOF, "proof", 0, 0);
+        Solution solution = (Solution) popp.model.createNode(NodeKind.SOLUTION, "solution", 0, 0);
+        and.addChild(proven);
+        and.addChild(unproven);
+        and.setDecompositionType(DecompositionType.AND);
+        popp.model.relate(proof, solution);
+        popp.model.relate(proven, proof);
+
+        CoverageGap.CoverageGaps gaps = analyzer.gaps(popp.model, CoverageMode.VERIFY);
+        assertNotNull(gaps, "gaps() is not implemented for this analyzer's session");
+        assertEquals(List.of(unproven), gaps.rootCauses().stream().map(CoverageGap::node).toList());
+        assertEquals(List.of(and), gaps.affected().stream().map(CoverageGap::node).toList());
+        assertEquals(Coverage.PARTIAL, gaps.affected().getFirst().coverage());
+    }
+
+    @Test
+    void planningModeHasNoGapsForPlannedCriteria() {
+        SyncedPOPP popp = new SyncedPOPP();
+        popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "planned", 0, 0);
+
+        assertTrue(popp.analyzer.gaps(popp.model, CoverageMode.PLANNING).isEmpty());
+        assertFalse(popp.analyzer.gaps(popp.model, CoverageMode.VERIFY).isEmpty());
+    }
+
+    // ---- agreement with the domain analyzer, which is the oracle
+    //
+    // The rewriting analyzer is a reference model of the coverage rules and is far too slow for interactive use
+    // (see its class comment), so these tests are about correctness; the responsiveness stages are in
+    // DomainCoverageAnalyzerTest.
+
+    private static void assertAgree(SyncedPOPP popp, CoverageMode mode, String context) {
+        CoverageSession expected = new DomainCoverageAnalyzer(popp.model.getRelations()).session(mode);
+        long start = System.nanoTime();
+        CoverageSession actual = popp.analyzer.session(mode);
+        long ms = (System.nanoTime() - start) / 1_000_000;
+        for (TreeNode<?> node : popp.model.getAllNodes()) {
+            assertEquals(expected.coverage(node), actual.coverage(node), "Analyzers disagree on " + node + " (" + context + ")");
+        }
+        System.out.printf("[rewriting] %-48s %4d popp nodes %6d ms%n", context, popp.model.getAllNodes().size(), ms);
+    }
+
+    @ParameterizedTest(name = "depth {0}, all leaves proven = {1}, {2}")
+    @CsvSource({
+            "1, true, VERIFY", "1, false, VERIFY", "1, true, PLANNING", "1, false, PLANNING",
+            "2, true, VERIFY", "2, false, VERIFY", "2, true, PLANNING", "2, false, PLANNING",
+            "3, true, VERIFY", "3, false, VERIFY", "3, true, PLANNING", "3, false, PLANNING",
+    })
+    void agreesWithTheDomainAnalyzerOnBalancedTrees(int depth, boolean proveAll, CoverageMode mode) {
+        SyncedPOPP popp = new SyncedPOPP();
+        Tree tree = CoverageTestModels.balancedTree(popp.model, depth, proveAll);
+        assertAgree(popp, mode, "depth " + depth + ", proveAll " + proveAll + ", " + mode);
+        if (proveAll) assertEquals(Coverage.COVERED, popp.analyzer.coverage(tree.root(), mode));
+    }
+
+    /** The expensive end: ~3-4 s per session, so it only runs on demand (-DrunSlowCoverageTests=true). */
+    @ParameterizedTest(name = "depth 4, all leaves proven = {0}")
+    @CsvSource({"true", "false"})
+    @EnabledIfSystemProperty(named = "runSlowCoverageTests", matches = "true")
+    void agreesWithTheDomainAnalyzerOnTheLargestTrees(boolean proveAll) {
+        agreesWithTheDomainAnalyzerOnBalancedTrees(4, proveAll, CoverageMode.VERIFY);
+    }
+
+    /** Regression for mode handling: which kinds are intrinsically covered must match in every mode. */
+    @ParameterizedTest(name = "{0}")
+    @EnumSource(CoverageMode.class)
+    void agreesWithTheDomainAnalyzerOnEveryKindInIsolation(CoverageMode mode) {
+        for (NodeKind kind : NodeKind.values()) {
+            SyncedPOPP popp = new SyncedPOPP();
+            TreeNode<?> node = popp.model.createNode(kind, "lonely " + kind, 0, 0);
+            CoverageAnalyzer domain = new DomainCoverageAnalyzer(popp.model.getRelations());
+
+            assertEquals(domain.coverage(node, mode), popp.analyzer.coverage(node, mode), kind + " in " + mode);
+            assertEquals(domain.explain(node, mode).getClass(), popp.analyzer.explain(node, mode).getClass(),
+                    "reason for " + kind + " in " + mode);
+        }
+    }
+
+    @Test
+    void explanationsExistForEveryNodeOfALargerModel() {
+        SyncedPOPP popp = new SyncedPOPP();
+        CoverageTestModels.balancedTree(popp.model, 3, true);
+        CoverageSession session = popp.analyzer.session(CoverageMode.VERIFY);
+        for (TreeNode<?> node : popp.model.getAllNodes()) {
+            assertNotNull(session.explain(node), "No explanation for " + node);
+        }
     }
 }
