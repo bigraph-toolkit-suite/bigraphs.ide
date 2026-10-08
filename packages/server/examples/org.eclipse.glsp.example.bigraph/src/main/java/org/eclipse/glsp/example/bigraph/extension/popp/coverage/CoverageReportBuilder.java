@@ -10,31 +10,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Whole-model report: root coverage per tree (are Problems covered by Goals and proofs, Goals by criteria?),
- * link ratios per metamodel relation, and tree size metrics. Derived from the metamodel, nothing hardcoded per kind.
- */
 public final class CoverageReportBuilder {
 
-    public record RootStatus(String id, String kind, String description, String coverage) {
-    }
+    public record RootStatus(String id, String kind, String description, String coverage) {}
 
-    /** One relation type between two kinds. Only the side whose coverage depends on the link is restricted to leaves. */
     public record LayerReport(String label, String relationType, String fromKind, String toKind,
                               int fromTotal, int fromLinked, int toTotal, int toLinked,
-                              List<String> fromUnlinked, List<String> toUnlinked) {
-    }
+                              List<String> fromUnlinked, List<String> toUnlinked) {}
 
-    public record TreeMetrics(int roots, int nodes, int height, int width, int maxBranching) {
-    }
+    public record TreeMetrics(int roots, int nodes, int height, int width, int maxBranching) {}
 
     public record CoverageReport(String mode, List<RootStatus> roots,
                                  Map<String, Map<String, Integer>> coverageByKind,
-                                 List<LayerReport> layers, Map<String, TreeMetrics> trees) {
-    }
+                                 List<LayerReport> layers, Map<String, TreeMetrics> trees) {}
 
-    private CoverageReportBuilder() {
-    }
+    private CoverageReportBuilder() {}
 
     public static CoverageReport build(POPPModel model, CoverageMode mode) {
         CoverageSession session = model.getCoverage().session(mode);
@@ -43,7 +33,7 @@ public final class CoverageReportBuilder {
         List<RootStatus> roots = new ArrayList<>();
         Map<String, Map<String, Integer>> byKind = new HashMap<>();
         for (TreeNode<?> n : nodes) {
-            if (!DomainCoverageAnalyzer.isCoverable(n)) {
+            if (!Coverage.isCoverable(n)) {
                 continue;
             }
             Coverage c = session.coverage(n);
@@ -102,4 +92,3 @@ public final class CoverageReportBuilder {
         return trees;
     }
 }
-
