@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.eclipse.glsp</groupId>
@@ -19,6 +19,7 @@
 
     <properties>
         <bigraph.version>2.4.1</bigraph.version>
+        <jmh.version>1.37</jmh.version>
         <package-type>jar</package-type>
     </properties>
 
@@ -91,6 +92,14 @@
             <version>${junit.jupiter.engine.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- Benchmarking (src/test/java/.../coverage/CoverageBenchmark); test scope, not part of the shaded jar -->
+        <dependency>
+            <groupId>org.openjdk.jmh</groupId>
+            <artifactId>jmh-core</artifactId>
+            <version>${jmh.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -121,7 +130,7 @@
                             </filters>
                             <transformers>
                                 <transformer
-                                    implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                        implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>
                                         org.eclipse.glsp.example.bigraph.BigraphXMIServerLauncher</mainClass>
 
@@ -138,7 +147,24 @@
                     <source>21</source>
                     <target>21</target>
                 </configuration>
+                <executions>
+                    <!-- JMH generates META-INF/BenchmarkList from the @Benchmark methods. Only the test compilation
+                         runs the processor, so the main code is compiled exactly as before. Naming it explicitly
+                         also keeps it working on JDK 23+, where implicit annotation processing is off by default. -->
+                    <execution>
+                        <id>default-testCompile</id>
+                        <configuration>
+                            <annotationProcessorPaths>
+                                <path>
+                                    <groupId>org.openjdk.jmh</groupId>
+                                    <artifactId>jmh-generator-annprocess</artifactId>
+                                    <version>${jmh.version}</version>
+                                </path>
+                            </annotationProcessorPaths>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
-</project> 
+</project>

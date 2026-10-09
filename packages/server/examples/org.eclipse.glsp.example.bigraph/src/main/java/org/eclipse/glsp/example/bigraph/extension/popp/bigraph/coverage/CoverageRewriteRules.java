@@ -13,6 +13,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignat
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.AbstractCoverageSession;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.Coverage;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,8 +78,20 @@ public final class CoverageRewriteRules {
     private static final List<Coverage> UPGRADABLE = List.of(Coverage.UNCOVERED, Coverage.PARTIAL);
     private static final List<Coverage> PARTIAL_OR_COVERED = List.of(Coverage.PARTIAL, Coverage.COVERED);
 
-    private static final String TREE = POPPBigraphSignature.TREE_NODE.controlName();
-
+    /**
+     * The coverage rules for the per-kind encoding of {@link POPPBigraphSignature}. A redex cannot say "any tree
+     * node", so every pattern that mentions a tree node is written once per control that node can have. The
+     * expansions are the minimal sound set, i.e. only combinations that can occur in a model:
+     * <ul>
+     *   <li><b>chain rules</b>: a chain node holds its state, {@code PartDecomp} when it is PARTIAL, and its slots
+     *       exactly (no site, so the slot count is exact). A slot is a domain node of kind K or the next chain node;
+     *       all domain slots of one chain share the kind K of the decomposed node (a tree holds a single kind), so per
+     *       kind: one K slot, two K slots, or one K slot and one chain-node slot;</li>
+     *   <li><b>lift rules</b>: a domain node of kind K takes the state of its chain node. The chain node directly
+     *       under a domain node is always the first one of the chain, so no extra marker is needed;</li>
+     *   <li><b>link rules</b>: per supported (from, to) kind pair of the relation type.</li>
+     * </ul>
+     */
     static List<Spec> specs() {
         List<Spec> out = new ArrayList<>();
         chainRules(out);
@@ -87,16 +100,12 @@ public final class CoverageRewriteRules {
         return out;
     }
 
-    private static P treeNode(P... kids) { return P.n(TREE, kids); }
     private static P state(Coverage c) { return P.n(CoverageMarker.of(c).controlName()); }
 
-    private static P[] concat(List<P> head, P... tail) {
-        List<P> all = new ArrayList<>(head);
-        all.addAll(List.of(tail));
-        return all.toArray(P[]::new);
-    }
+    private static String kind(NodeKind k) { return POPPBigraphSignature.getByNodeKind(k).controlName(); }
+
     private static String gate(DecompositionType t) {
-        return (t == DecompositionType.AND ? POPPBigraphSignature.AND_DECOMP : POPPBigraphSignature.OR_DECOMP).controlName();
+        return POPPBigraphSignature.getByDecompositionType(t).controlName();
     }
 
     private static CoverageMarker whyMarker(Coverage target, boolean link) {
@@ -110,36 +119,51 @@ public final class CoverageRewriteRules {
         return link ? P.n(m.controlName(), "x") : P.n(m.controlName());
     }
 
+    /** One slot of a chain node: a node with {@code control} in {@code state}, and whatever else it contains. */
+    private record Slot(String control, Coverage state) {}
+
     private static void chainRules(List<Spec> out) {
-        for (boolean root : new boolean[]{true, false})
-            for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR))
-                for (Coverage cur : UPGRADABLE)
-                    for (int i = 0; i < ALL.size(); i++) {
-                        if (root) addChain(out, type, cur, true, List.of(ALL.get(i)));
+        for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR)) {
+            String g = gate(type);
+            for (Coverage cur : UPGRADABLE) {
+                for (NodeKind nk : NodeKind.values()) {
+                    String k = kind(nk);
+                    // one child
+                    for (Coverage s : ALL) addChain(out, type, cur, nk, List.of(new Slot(k, s)));
+                    // two domain children
+                    for (int i = 0; i < ALL.size(); i++)
                         for (int j = i; j < ALL.size(); j++)
-                            addChain(out, type, cur, root, List.of(ALL.get(i), ALL.get(j)));
-                    }
+                            addChain(out, type, cur, nk, List.of(new Slot(k, ALL.get(i)), new Slot(k, ALL.get(j))));
+                    // one domain child and the next chain node
+                    for (Coverage a : ALL)
+                        for (Coverage b : ALL)
+                            addChain(out, type, cur, nk, List.of(new Slot(k, a), new Slot(g, b)));
+                }
+            }
+        }
     }
 
-    private static void addChain(List<Spec> out, DecompositionType type, Coverage cur, boolean root, List<Coverage> slots) {
-        Coverage target = AbstractCoverageSession.aggregate(type, slots);
+    private static void addChain(List<Spec> out, DecompositionType type, Coverage cur, NodeKind nk, List<Slot> slots) {
+        Coverage target = AbstractCoverageSession.aggregate(type, slots.stream().map(Slot::state).toList());
         if (target.compareTo(cur) <= 0) return;
-        P[] slotPatterns = slots.stream().map(s -> treeNode(state(s), P.SITE)).toArray(P[]::new);
-        P g = P.n(gate(type));
+        P[] slotPatterns = slots.stream().map(s -> P.n(s.control(), state(s.state()), P.SITE)).toArray(P[]::new);
 
         List<P> kept = new ArrayList<>();
-        if (root) kept.add(P.n(POPPBigraphSignature.CHAIN_ROOT.controlName()));
         if (cur == Coverage.PARTIAL) kept.add(P.n(CoverageMarker.PART_DECOMP.controlName()));
 
         List<P> redexKids = new ArrayList<>(List.of(state(cur)));
-        redexKids.addAll(kept); redexKids.add(g);
+        redexKids.addAll(kept);
+        redexKids.addAll(List.of(slotPatterns));
         List<P> reactumKids = new ArrayList<>(List.of(state(target)));
-        reactumKids.addAll(kept); reactumKids.add(why(target, false)); reactumKids.add(g);
+        reactumKids.addAll(kept);
+        reactumKids.add(why(target, false));
+        reactumKids.addAll(List.of(slotPatterns));
 
-        P redexNode   = treeNode(concat(redexKids, slotPatterns));
-        P reactumNode = treeNode(concat(reactumKids, slotPatterns));
-        out.add(new Spec("chain-" + (root ? "root-" : "") + type + "-" + cur + "-" + slots,
-                List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
+        P redexNode = P.n(gate(type), redexKids.toArray(P[]::new));
+        P reactumNode = P.n(gate(type), reactumKids.toArray(P[]::new));
+        String name = "chain-" + type + "-" + nk + "-" + cur + "-"
+                + slots.stream().map(s -> s.control() + "_" + s.state()).collect(Collectors.joining("+"));
+        out.add(new Spec(name, List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
                 new Effect(redexNode, null, target, whyMarker(target, false))));
     }
 
@@ -180,15 +204,18 @@ public final class CoverageRewriteRules {
 
     private static void liftRules(List<Spec> out) {
         for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR)) {
-            for (Coverage s : PARTIAL_OR_COVERED) {
-                for (Coverage c : UPGRADABLE) {
-                    if (s.compareTo(c) <= 0) continue;
-                    P chain = treeNode(state(s), P.n(POPPBigraphSignature.CHAIN_ROOT.controlName()), P.n(gate(type)), P.SITE);
-                    P redexNode   = treeNode(state(c), P.SITE, chain);
-                    P reactumNode = treeNode(state(s), why(s, false), P.SITE, chain);
-                    out.add(new Spec("lift-" + type + "-" + c + "-" + s,
-                            List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
-                            new Effect(redexNode, null, s, whyMarker(s, false))));
+            for (NodeKind nk : NodeKind.values()) {
+                String k = kind(nk);
+                for (Coverage s : PARTIAL_OR_COVERED) {
+                    for (Coverage c : UPGRADABLE) {
+                        if (s.compareTo(c) <= 0) continue;
+                        P chain = P.n(gate(type), state(s), P.SITE); // the chain node directly under a domain node
+                        P redexNode = P.n(k, state(c), P.SITE, chain);
+                        P reactumNode = P.n(k, state(s), why(s, false), P.SITE, chain);
+                        out.add(new Spec("lift-" + type + "-" + nk + "-" + c + "-" + s,
+                                List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
+                                new Effect(redexNode, null, s, whyMarker(s, false))));
+                    }
                 }
             }
         }
@@ -200,21 +227,25 @@ public final class CoverageRewriteRules {
             if (dir.hasNoCoveragePropagation()) continue;
             boolean fwd = dir == RelationType.CoveragePropagation.FORWARD;
             String giverStub = (fwd ? POPPBigraphSignature.outgoingStubFor(t) : POPPBigraphSignature.incomingStubFor(t)).controlName();
-            String recvStub  = (fwd ? POPPBigraphSignature.incomingStubFor(t) : POPPBigraphSignature.outgoingStubFor(t)).controlName();
+            String recvStub = (fwd ? POPPBigraphSignature.incomingStubFor(t) : POPPBigraphSignature.outgoingStubFor(t)).controlName();
 
-            for (Coverage g : PARTIAL_OR_COVERED) {
-                for (Coverage c : UPGRADABLE) {
-                    Coverage target = Coverage.best(c, g);
-                    if (target.compareTo(c) <= 0) continue;
+            for (RelationType.NodeTypePair kinds : t.getSupportedNodeTypePair()) {
+                String giverKind = kind(fwd ? kinds.from() : kinds.to());
+                String recvKind = kind(fwd ? kinds.to() : kinds.from());
+                for (Coverage g : PARTIAL_OR_COVERED) {
+                    for (Coverage c : UPGRADABLE) {
+                        Coverage target = Coverage.best(c, g);
+                        if (target.compareTo(c) <= 0) continue;
 
-                    P giver = treeNode(state(g), P.n(giverStub, "x"), P.SITE);
-                    P recv  = P.n(recvStub, "x");
-                    P redexRecv   = treeNode(state(c), recv, P.SITE);
-                    P reactumRecv = treeNode(state(target), why(target, true), recv, P.SITE);
+                        P giver = P.n(giverKind, state(g), P.n(giverStub, "x"), P.SITE);
+                        P recv = P.n(recvStub, "x");
+                        P redexRecv = P.n(recvKind, state(c), recv, P.SITE);
+                        P reactumRecv = P.n(recvKind, state(target), why(target, true), recv, P.SITE);
 
-                    out.add(new Spec("link-" + t + "-" + g + "-" + c,
-                            List.of(giver, redexRecv), List.of(giver, reactumRecv), pair(redexRecv, reactumRecv),
-                            new Effect(redexRecv, giver, target, whyMarker(target, true), t, g, c)));
+                        out.add(new Spec("link-" + t + "-" + kinds.from() + "-" + kinds.to() + "-" + g + "-" + c,
+                                List.of(giver, redexRecv), List.of(giver, reactumRecv), pair(redexRecv, reactumRecv),
+                                new Effect(redexRecv, giver, target, whyMarker(target, true), t, g, c)));
+                    }
                 }
             }
         }

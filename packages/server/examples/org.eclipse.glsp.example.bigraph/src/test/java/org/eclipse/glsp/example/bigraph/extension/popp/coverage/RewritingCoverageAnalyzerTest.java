@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
@@ -58,8 +59,13 @@ class RewritingCoverageAnalyzerTest {
             PureBigraphMutable mutable = pureBuilder(sig).createMutable();
             this.bigraph = new POPPBigraph(mutable, sig);
             model.addListener(new POPPBigraphForwarder(bigraph));
-            this.analyzer = new RewritingCoverageAnalyzer(() -> bigraph, model.getRelations());
+            this.analyzer = createAnalyzer(() -> bigraph, model.getRelations());
         }
+    }
+
+    /** The analyzer under test; subclasses run the same cases against another evaluation of the same rules. */
+    protected CoverageAnalyzer createAnalyzer(Supplier<POPPBigraph> bigraph, RelationGraph relations) {
+        return new RewritingCoverageAnalyzer(bigraph, relations);
     }
 
     @Test

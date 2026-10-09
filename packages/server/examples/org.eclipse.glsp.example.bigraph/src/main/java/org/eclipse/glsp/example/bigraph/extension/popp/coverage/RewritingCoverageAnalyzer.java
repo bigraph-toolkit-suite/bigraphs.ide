@@ -1,12 +1,10 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
-import it.uniud.mads.jlibbig.core.std.AgentMatch;
-import it.uniud.mads.jlibbig.core.std.AgentMatcher;
-import it.uniud.mads.jlibbig.core.std.Bigraph;
-import it.uniud.mads.jlibbig.core.std.Signature;
-import org.bigraphs.framework.converter.jlibbig.JLibBigBigraphEncoder;
+import it.uniud.mads.jlibbig.core.std.Match;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraph;
+import org.bigraphs.framework.simulation.matching.pure.PureBigraphMatch;
+import org.bigraphs.framework.simulation.matching.pure.PureBigraphMatcher;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageBigraph;
@@ -25,9 +23,12 @@ import java.util.function.Supplier;
  * This is the executable form of the coverage rules in {@link CoverageRewriteRules}; it is a reference model for
  * them (the tests check that it agrees with {@link DomainCoverageAnalyzer}), not the analyzer to use at scale.
  * <p>
- * <b>Cost.</b> jLibBig's {@link AgentMatcher} solves a constraint model per call whose size grows with the agent,
- * so a session costs roughly (matcher calls) x (agent size)^1.5..2: about 60 ms for a handful of nodes, about 4 s for
- * 48 POPP nodes. {@link DomainCoverageAnalyzer} does the same job in microseconds.
+ * <b>Matching.</b> Through the Bigraph Framework's {@link PureBigraphMatcher} on the whole coverage bigraph
+ * ({@link CoverageBigraph}). The node embedding of a match (which agent node is the receiver, and the giver) is read
+ * from the framework's match result. Underneath, the framework encodes agent and redex for jLibBig and solves a
+ * constraint model per call whose size grows with the agent, so a session costs roughly
+ * (matcher calls) x (agent size)^1.5..2. {@link DomainCoverageAnalyzer} does the same job in microseconds;
+ * {@link FragmentRewritingCoverageAnalyzer} evaluates the same rules on local fragments and is linear in the model.
  * <p>
  * <b>Why the matcher only.</b> The framework's {@code PureReactiveSystem.buildParametricReaction} is deliberately not
  * used: it corrupts links that cross the parameter/context boundary and its relabeling asserts on the tracking map.
@@ -36,42 +37,57 @@ import java.util.function.Supplier;
  * <p>
  * <b>Evaluation.</b> Rounds: build the scratch bigraph from the current states, match every rule against that
  * snapshot, apply all effects (never lowering a state), repeat until a round changes nothing. Stale matches within a
- * round stay sound because states only increase and every rule's target is monotone in the states it reads. The agent
- * is encoded once per round and every redex once, at construction. Two cheap necessary conditions skip matcher calls
- * that cannot succeed: a node-count census per control, and for link rules a look at the relation graph.
+ * round stay sound because states only increase and every rule's target is monotone in the states it reads.
+ * <p>
+ * <b>Pruning</b> ({@link Pruning}): two cheap necessary conditions skip matcher calls that cannot succeed. The
+ * <i>census</i> compares the number of nodes per control the redex needs with the agent's; the <i>link guard</i> asks
+ * the relation graph whether some relation of a link rule's type has a giver and a receiver in the states the redex
+ * needs. Without pruning, every rule is matched in every round.
  */
 public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
     private static final Logger logger = LoggerFactory.getLogger(RewritingCoverageAnalyzer.class);
 
     private static final List<CompiledRule> RULES = CoverageRewriteRules.compile();
 
-    /** A rule with its redex already encoded for jLibBig, and the node count per control the redex needs. */
-    private record Prepared(CompiledRule rule, Bigraph jRedex, boolean[] neededParam, Map<String, Integer> required) {}
+    /** Which necessary conditions are checked before a matcher call. */
+    public enum Pruning {
+        /** Every rule is matched in every round. */
+        NONE(false, false),
+        /** Only the node-count census per control. */
+        CENSUS(true, false),
+        /** Census and, for link rules, the link guard on the relation graph. */
+        FULL(true, true);
+
+        final boolean census, linkGuard;
+
+        Pruning(boolean census, boolean linkGuard) { this.census = census; this.linkGuard = linkGuard; }
+    }
+
+    /** A rule and the node count per control its redex needs. */
+    private record Prepared(CompiledRule rule, Map<String, Integer> required) {}
 
     private final Supplier<POPPBigraph> structure;
     private final RelationGraph relations;
-
-    // Per instance, not static: nothing encoded is shared between analyzers (or threads).
-    private final JLibBigBigraphEncoder encoder = new JLibBigBigraphEncoder();
-    private final Signature jlibSignature;
     private final List<Prepared> prepared;
+    private final Pruning pruning;
 
     public RewritingCoverageAnalyzer(Supplier<POPPBigraph> structure, RelationGraph relations) {
+        this(structure, relations, Pruning.FULL);
+    }
+
+    public RewritingCoverageAnalyzer(Supplier<POPPBigraph> structure, RelationGraph relations, Pruning pruning) {
         this.structure = structure;
         this.relations = relations;
-
-        // Every bigraph here uses CoverageSignature, so the jLibBig signature can come from any of them.
-        this.jlibSignature = encoder.encode(RULES.getFirst().rule().getRedex()).getSignature();
-        List<Prepared> encoded = new ArrayList<>();
-        for (CompiledRule r : RULES) {
-            PureBigraph redex = r.rule().getRedex();
-            boolean[] needed = new boolean[redex.getSites().size()];
-            Arrays.fill(needed, true);
-            Bigraph jRedex = encoder.encode(redex, jlibSignature);
-            encoded.add(new Prepared(r, jRedex, needed, census(jRedex)));
-        }
-        this.prepared = List.copyOf(encoded);
+        this.pruning = pruning;
+        List<Prepared> list = new ArrayList<>();
+        for (CompiledRule r : RULES) list.add(new Prepared(r, census(r.rule().getRedex())));
+        this.prepared = List.copyOf(list);
     }
+
+    private volatile RewritingStats lastStats;
+
+    /** Counters of the most recent session (for profiling; not synchronised across concurrent sessions). */
+    public RewritingStats lastStats() { return lastStats; }
 
     @Override
     public CoverageSession session(CoverageMode mode) {
@@ -83,26 +99,31 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
         Map<String, Derivation> why = new HashMap<>(initial.derivation());
 
         int roundBudget = 2 * agent.getNodes().size() + 2;
-        AgentMatcher agentMatcher = new AgentMatcher();
-        int rounds = 0, matcherCalls = 0;
+        PureBigraphMatcher matcher = new PureBigraphMatcher();
+        int rounds = 0, matcherCalls = 0, successfulCalls = 0;
+        long tBuild = 0, tEncode = 0, tMatch = 0, t0;
+        int agentNodes = agent.getNodes().size();
 
         for (boolean changed = true; changed; ) {
             if (--roundBudget < 0) throw new IllegalStateException("Coverage evaluation did not terminate");
             changed = false;
             rounds++;
 
-            Bigraph jAgent = encoder.encode(agent, jlibSignature);
-            Map<String, Integer> available = census(jAgent);
+            Map<String, Integer> available = census(agent);
             Map<String, Coverage> snapshot = new HashMap<>(states);
 
             for (Prepared p : prepared) {
                 CompiledRule rule = p.rule();
-                if (!mayMatch(p.required(), available)) continue;
-                if (rule.isLinkRule() && !linkPossible(rule, snapshot)) continue;
+                if (pruning.census && !mayMatch(p.required(), available)) continue;
+                if (pruning.linkGuard && rule.isLinkRule() && !linkPossible(rule, snapshot)) continue;
 
                 matcherCalls++;
-                for (AgentMatch match : each(agentMatcher.match(jAgent, p.jRedex(), p.neededParam().clone()))) {
-                    Map<String, String> embedding = embedding(match);
+                t0 = System.nanoTime();
+                boolean any = false;
+                // the framework encodes agent and redex for jLibBig inside the call; that time counts as matching
+                for (PureBigraphMatch match : matcher.match(agent, rule.rule())) {
+                    any = true;
+                    Map<String, String> embedding = embedding(match.getJLibMatchResult());
                     String receiver = resolve(embedding, rule.receiverNode(), rule);
                     Coverage current = states.getOrDefault(receiver, Coverage.UNCOVERED);
                     if (rule.target().compareTo(current) <= 0) continue;
@@ -112,24 +133,31 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
                     why.put(receiver, new Derivation(rule.reason(), giver));
                     changed = true;
                 }
+                tMatch += System.nanoTime() - t0;
+                if (any) successfulCalls++;
             }
 
-            if (changed) agent = CoverageBigraph.build(structure.get(), mode, states);
+            if (changed) {
+                t0 = System.nanoTime();
+                agent = CoverageBigraph.build(structure.get(), mode, states);
+                tBuild += System.nanoTime() - t0;
+            }
         }
-        logger.debug("[session {}] {} rounds, {} matcher calls", mode, rounds, matcherCalls);
+        lastStats = new RewritingStats(rounds, matcherCalls, successfulCalls, agentNodes, tBuild, tEncode, tMatch);
+        logger.debug("[session {}] {}", mode, lastStats);
         return new RewritingSession(mode, relations, new Readout(states, why));
     }
 
     /** Number of nodes per control name. */
-    private static Map<String, Integer> census(Bigraph b) {
+    private static Map<String, Integer> census(PureBigraph b) {
         Map<String, Integer> counts = new HashMap<>();
-        for (var node : b.getNodes()) counts.merge(node.getControl().getName(), 1, Integer::sum);
+        for (var node : b.getNodes()) counts.merge(node.getControl().getNamedType().stringValue(), 1, Integer::sum);
         return counts;
     }
 
     /**
      * A redex can only embed into an agent that has at least as many nodes of every control. A matcher call that
-     * cannot succeed still builds a whole constraint model (~2 ms and growing with the agent), so this is checked first.
+     * cannot succeed still builds a whole constraint model (growing with the agent), so this is checked first.
      */
     private static boolean mayMatch(Map<String, Integer> required, Map<String, Integer> available) {
         for (var need : required.entrySet()) {
@@ -156,19 +184,8 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
         return false;
     }
 
-    // jLibBig's AgentMatcher#match returns an Iterable or an Iterator depending on the version; accept either.
-    @SuppressWarnings("unchecked")
-    private static Iterable<AgentMatch> each(Iterable<? extends AgentMatch> matches) {
-        return (Iterable<AgentMatch>) matches;
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Iterable<AgentMatch> each(Iterator<? extends AgentMatch> matches) {
-        return () -> (Iterator<AgentMatch>) matches;
-    }
-
     /** Redex node name -> agent node name for one match. */
-    private static Map<String, String> embedding(AgentMatch match) {
+    private static Map<String, String> embedding(Match match) {
         Map<String, String> byRedexName = new HashMap<>();
         match.emb_nodes.forEach((redexNode, agentNode) ->
                 byRedexName.put(redexNode.getEditable().getName(), agentNode.getEditable().getName()));
@@ -184,49 +201,6 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
         return agentNode;
     }
 
-    private final class RewritingSession extends AbstractCoverageSession {
-        private final Readout readout;
-
-        RewritingSession(CoverageMode mode, RelationGraph relations, Readout readout) {
-            super(mode, relations);
-            this.readout = readout;
-        }
-
-        @Override
-        public Coverage coverage(TreeNode<?> node) {
-            Coverage c = readout.coverage().get(node.getId());
-            if (c == null) throw new IllegalStateException("Node missing from the coverage bigraph: " + node);
-            return c;
-        }
-
-        @Override
-        public CoverageReason explain(TreeNode<?> node) {
-            Coverage state = coverage(node);
-            Derivation d = readout.derivation().get(node.getId());
-
-            if (d != null) {
-                return switch (d.marker()) {
-                    case CoverageMarker.COV_INTRINSIC -> new CoverageReason.Intrinsic(node, Coverage.COVERED);
-                    case CoverageMarker.PART_DECOMP, CoverageMarker.COV_DECOMP -> decompositionReason(node, state);
-                    case CoverageMarker.PART_LINK, CoverageMarker.COV_LINK -> {
-                        Relation r = relations.all().stream()
-                                .filter(x -> giverOf(x).getId().equals(d.giverId())
-                                        && receiverOf(x).getId().equals(node.getId()))
-                                .findFirst()
-                                .orElseThrow(() -> new IllegalStateException("No relation from " + d.giverId() + " to " + node.getId()));
-                        yield linkReason(node, state, r, giverOf(r));
-                    }
-                    default -> throw new IllegalStateException("Not a reason marker: " + d.marker());
-                };
-            }
-
-            if (!node.getChildren().isEmpty()) return decompositionReason(node, Coverage.UNCOVERED);
-            return candidates(node).stream().findFirst()
-                    .<CoverageReason>map(c -> linkReason(node, Coverage.UNCOVERED, c.relation(), c.node()))
-                    .orElseGet(() -> new CoverageReason.NotCovered(node, CoverageGap.remediesFor(node.getKind())));
-        }
-    }
-
     record Derivation(CoverageMarker marker, String giverId) {}
 
     record Readout(Map<String, Coverage> coverage, Map<String, Derivation> derivation) {
@@ -238,12 +212,10 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
                 Optional<Coverage> state = CoverageMarker.forNode(cell).flatMap(CoverageMarker::state);
                 if (state.isEmpty()) continue;
                 var owner = (BigraphEntity.NodeEntity<?>) g.getParent(cell);
-                boolean isDomain = false;
+                boolean isDomain = POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(owner));
                 Derivation d = null;
                 for (BigraphEntity<?> sib : g.getChildrenOf(owner)) {
                     if (!(sib instanceof BigraphEntity.NodeEntity<?> s)) continue;
-                    String ctrl = s.getControl().getNamedType().stringValue();
-                    if (ctrl.equals(POPPBigraphSignature.DOM.controlName())) { isDomain = true; continue; }
 
                     Optional<CoverageMarker> m = CoverageMarker.forNode(s).filter(x -> x.belongsTo(state.get()));
                     if (m.isEmpty()) continue;
