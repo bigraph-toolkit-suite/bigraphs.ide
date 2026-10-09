@@ -1,13 +1,10 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
 
-import org.apache.commons.logging.LogFactory;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -23,8 +20,6 @@ import java.util.function.Predicate;
  */
 @SuppressWarnings("unchecked")
 public class POPPBigraph {
-    private final static Logger logger = LoggerFactory.getLogger(POPPBigraph.class);
-
     private final PureBigraphMutable bigraph;
     private final DynamicSignature signature;
     private final List<POPPBigraphObserver> observers = new CopyOnWriteArrayList<>();
@@ -148,9 +143,6 @@ public class POPPBigraph {
         var chain = addNode(parent, POPPBigraphSignature.TREE_NODE, id);
         fireNodeAdded(chain, parent);
         addMarker(chain, POPPBigraphSignature.getByDecompositionType(type));
-        if (isDomainChild(parent)) { // first chain node of a decomposition
-            addMarker(chain, POPPBigraphSignature.CHAIN_ROOT);
-        }
         return chain;
     }
 
@@ -226,9 +218,10 @@ public class POPPBigraph {
     public BigraphEntity.NodeEntity<DynamicControl> addTreeNode(TreeNode<? extends TreeNode<?>> node) {
         BigraphEntity.NodeEntity<DynamicControl> container = getOrCreatePOPPContainer();
         BigraphEntity.NodeEntity<DynamicControl> entity = addNode(container, POPPBigraphSignature.TREE_NODE, node.getId());
-        entity.getAttributes().put("description", node.getDescription());
-        entity.getAttributes().put("layout.x", node.getX());
-        entity.getAttributes().put("layout.y", node.getY());
+        putAttributes(entity, Map.of(
+                "description", node.getDescription() == null ? "" : node.getDescription(),
+                "layout.x", node.getX(),
+                "layout.y", node.getY()));
 
         fireNodeAdded(container, getDefaultRoot()); // idempotent, covers the lazily created container
         fireNodeAdded(entity, container);           // owner before its markers
@@ -238,6 +231,16 @@ public class POPPBigraph {
         return entity;
     }
 
+    /**
+     * Merges {@code values} into the node's attributes. {@code NodeEntity.getAttributes()} returns a copy of the
+     * EMF-backed list, so writing to it is lost; only {@code setAttributes} persists.
+     */
+    private static void putAttributes(BigraphEntity.NodeEntity<DynamicControl> entity, Map<String, Object> values) {
+        Map<String, Object> merged = new HashMap<>(entity.getAttributes());
+        merged.putAll(values);
+        entity.setAttributes(merged);
+    }
+
     public void deleteTreeNode(String id) {
         clearDecompositionChain(id);
         removeNode(id).ifPresent(this::fireNodeRemoved);
@@ -245,13 +248,12 @@ public class POPPBigraph {
 
     public void updatePosition(String id, double x, double y) {
         BigraphEntity.NodeEntity<DynamicControl> entity = requireNode(id);
-        entity.getAttributes().put("layout.x", x);
-        entity.getAttributes().put("layout.y", y);
+        putAttributes(entity, Map.of("layout.x", x, "layout.y", y));
         firePositionChanged(entity, x, y);
     }
 
     public void updateDescription(String id, String description) {
-        requireNode(id).getAttributes().put("description", description);
+        putAttributes(requireNode(id), Map.of("description", description == null ? "" : description));
     }
 
     public void reparentTreeNode(TreeNode<?> node, TreeNode<?> oldParent, TreeNode<?> newParent) {
@@ -456,15 +458,20 @@ public class POPPBigraph {
 
     public void removeRelation(Relation relation) {
         BigraphEntity.Edge edge = findRelationEdge(relation).orElseThrow();
-        List<BigraphEntity<?>> stubs = new ArrayList<>(bigraph.getPointsFromLink(edge));
+        // The points of a link are ports, not nodes: resolve the stub node that owns each port.
+        List<BigraphEntity.NodeEntity<DynamicControl>> stubs = new ArrayList<>();
+        for (BigraphEntity<?> point : bigraph.getPointsFromLink(edge)) {
+            if (point instanceof BigraphEntity.Port port) {
+                @SuppressWarnings("unchecked")
+                BigraphEntity.NodeEntity<DynamicControl> stub =
+                        (BigraphEntity.NodeEntity<DynamicControl>) (BigraphEntity.NodeEntity<?>) bigraph.getNodeOfPort(port);
+                if (stub != null) stubs.add(stub);
+            }
+        }
 
         fireRelationRemoving(edge, stubs); // before removal: observers still need to resolve the entities
 
-        stubs.forEach(stub -> {
-            if (stub instanceof BigraphEntity.NodeEntity<?> node) {
-                removeNode(node.getName());
-            }
-        });
+        stubs.forEach(stub -> removeNode(stub.getName())); // drops the cache entry as well as the bigraph node
         bigraph.removeEdge(edge);
     }
 
