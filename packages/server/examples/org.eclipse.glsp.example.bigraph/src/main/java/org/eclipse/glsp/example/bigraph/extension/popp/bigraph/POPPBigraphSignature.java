@@ -16,24 +16,22 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.kindBuilder;
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureSignatureBuilder;
 
 /**
- * Initial POPP-specific {@link DynamicSignature}, expressed as an enum of controls.
+ * The POPP-specific {@link DynamicSignature}, expressed as an enum of controls.
  *
- * <p>The model uses the place graph for hierarchies and decomposition. For
- * simplicity and to avoid ambiguous n-ary coverage semantics, AND-decompositions
- * are normalized to binary subtrees. OR-decompositions can also be represented
- * in the same binary shape, but they do not require it semantically: a single
- * covered child is sufficient for the parent to become covered.
+ * <p>Every domain node is a node whose control is its kind ({@code Problem}, {@code Goal}, ...). The place graph
+ * carries the hierarchies and decompositions: an n-ary AND/OR decomposition becomes a chain of binary
+ * {@code AndDecomp}/{@code OrDecomp} nodes under the decomposed node. The first chain node is the one directly under
+ * a domain node; every further chain node is under a chain node. Cross-tree relations are a pair of arity-1 stub
+ * nodes (one per relation type and direction) under their endpoints, connected by an edge.
  *
- * <p>Cross-tree traceability is encoded via explicit trace controls, and state
- * is represented with marker controls such as {@code Covered} and
- * {@code Satisfied} rather than by changing the node control itself.
+ * <p>Coverage state is not part of this signature: the coverage analysis adds its marker controls on a derived copy
+ * (see {@code CoverageSignature}).
  */
 public enum POPPBigraphSignature {
 
     POPP("POPP", 0),
-    TREE_NODE("TreeNode", 0),
 
-    // Node kind markers
+    // Domain nodes: one control per node kind
     PROBLEM("Problem", 0),
     GOAL("Goal", 0),
     CONSEQUENCE("Consequence", 0),
@@ -41,11 +39,11 @@ public enum POPPBigraphSignature {
     SUCCESS_CRITERIA("SuccessCriteria", 0),
     SUCCESS_PROOF("SuccessProof", 0),
 
-    // Role markers
-    DOM("Dom", 0), // actual domain TreeNode (with children + parent)
-    CHAIN_ROOT("ChainRoot", 0), // pseudo decomp with a dom treenode as parent (additional to AND/OR_DEDCOMP)
-    AND_DECOMP("AndDecomp", 0), // pseudo node to propagate coverage state/reason
-    OR_DECOMP("OrDecomp", 0), // pseudo node to propagate coverage state/reason
+    // Decomposition chain nodes
+    AND_DECOMP("AndDecomp", 0),
+    OR_DECOMP("OrDecomp", 0),
+
+    // Relation stubs: one per relation type and direction
 
     CAUSES_INCOMING("CausesIncoming", 1),
     CAUSES_OUTGOING("CausesOutgoing", 1),
@@ -96,15 +94,17 @@ public enum POPPBigraphSignature {
         return control == AND_DECOMP || control == OR_DECOMP;
     }
 
-    private static final Set<POPPBigraphSignature> KIND_MARKERS = EnumSet.of(
+    private static final Set<POPPBigraphSignature> KIND_CONTROLS = EnumSet.of(
             PROBLEM, GOAL, CONSEQUENCE, SOLUTION, SUCCESS_CRITERIA, SUCCESS_PROOF);
 
-    public static boolean isKindMarker(POPPBigraphSignature c) { return c != null && KIND_MARKERS.contains(c); }
-    public static boolean isRoleMarker(POPPBigraphSignature c) { return c == DOM || isDecompControl(c); }
-    public static boolean isChainRootMarker(POPPBigraphSignature c) { return c == CHAIN_ROOT; }
-    public static boolean isMarker(POPPBigraphSignature c) {
-        return isKindMarker(c) || isRoleMarker(c) || isChainRootMarker(c);
-    }
+    /** A domain node's control: its kind. */
+    public static boolean isKindControl(POPPBigraphSignature c) { return c != null && KIND_CONTROLS.contains(c); }
+
+    /** A node of the decomposition tree: a domain node or a chain node. */
+    public static boolean isTreeControl(POPPBigraphSignature c) { return isKindControl(c) || isDecompControl(c); }
+
+    /** A relation stub (arity 1). */
+    public static boolean isStubControl(POPPBigraphSignature c) { return c != null && c.arity == 1; }
 
     /** The control for the given {@link NodeKind}. */
     public static POPPBigraphSignature getByNodeKind(final NodeKind kind) {

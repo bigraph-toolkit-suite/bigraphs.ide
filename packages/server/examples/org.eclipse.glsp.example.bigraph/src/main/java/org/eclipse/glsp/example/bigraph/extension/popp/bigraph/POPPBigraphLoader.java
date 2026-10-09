@@ -80,7 +80,7 @@ public final class POPPBigraphLoader {
         for (BigraphEntity<?> child : bigraph.getChildrenOf(container)) {
             if (child instanceof BigraphEntity.NodeEntity<?> raw) {
                 var node = (BigraphEntity.NodeEntity<DynamicControl>) raw;
-                if (structure.roleOf(node).filter(r -> r == POPPBigraphSignature.DOM).isPresent()) {
+                if (structure.isDomainNode(node)) {
                     buildDomainSubtree(structure, node, model, null, nodesById);
                 }
             }
@@ -99,7 +99,7 @@ public final class POPPBigraphLoader {
             TreeNode<?> parentOrNull,
             Map<String, TreeNode<?>> nodesById) {
         NodeKind kind = structure.kindOf(bnode).orElseThrow(
-                () -> new IllegalStateException("Tree node without kind marker: " + bnode.getName()));
+                () -> new IllegalStateException("Not a domain node: " + bnode.getName()));
 
         Map<String, Object> attrs = bnode.getAttributes();
         String description = attrs.get("description") != null ? attrs.get("description").toString() : "";

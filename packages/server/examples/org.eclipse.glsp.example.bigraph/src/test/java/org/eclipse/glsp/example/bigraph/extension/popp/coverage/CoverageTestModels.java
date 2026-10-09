@@ -1,15 +1,86 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
+import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
+import org.bigraphs.framework.core.impl.signature.DynamicSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
+import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Model generators shared by the coverage analyzer tests. Not a test class. */
+/** Model generators shared by the coverage analyzer tests and benchmarks. Not a test class. */
 final class CoverageTestModels {
     private CoverageTestModels() {}
+
+    /**
+     * The analyzer for a benchmark/check name: {@code domain}; the full-agent {@link RewritingCoverageAnalyzer} as
+     * {@code rewriting-naive} (no pruning), {@code rewriting-census} (census only) or {@code rewriting} (census and
+     * link guard); or one of the {@code fragment*} variants of {@link FragmentRewritingCoverageAnalyzer}.
+     */
+    static CoverageAnalyzer analyzer(String name, Synced popp) {
+        return switch (name) {
+            case "domain" -> new DomainCoverageAnalyzer(popp.model.getRelations());
+            case "rewriting" -> new RewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations());
+            case "rewriting-naive" -> new RewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations(),
+                    RewritingCoverageAnalyzer.Pruning.NONE);
+            case "rewriting-census" -> new RewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations(),
+                    RewritingCoverageAnalyzer.Pruning.CENSUS);
+            // fragment evaluation of the same rules, one lever at a time (see FragmentRewritingCoverageAnalyzer.Options)
+            case "fragment-rounds" -> fragment(popp, false, false, false, false, false);
+            case "fragment-pruned" -> fragment(popp, true, false, false, false, false);
+            case "fragment-worklist" -> fragment(popp, true, true, false, false, false);
+            case "fragment-slim" -> fragment(popp, true, true, true, false, false);
+            case "fragment" -> fragment(popp, true, true, true, true, false);
+            case "fragment-memo" -> fragment(popp, true, true, true, true, true);
+            default -> throw new IllegalArgumentException("Unknown analyzer " + name);
+        };
+    }
+
+    private static CoverageAnalyzer fragment(Synced popp, boolean localPrune, boolean incremental, boolean slim,
+                                             boolean firstMatch, boolean memo) {
+        return new FragmentRewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations(),
+                new FragmentRewritingCoverageAnalyzer.Options(localPrune, incremental, slim, firstMatch, memo));
+    }
+
+    /** A POPP model together with the {@link POPPBigraph} that is kept in sync with it by the model's events. */
+    static final class Synced {
+        final POPPModel model = new POPPModel();
+        final POPPBigraph bigraph;
+
+        Synced() {
+            DynamicSignature sig = POPPBigraphSignature.create();
+            PureBigraphMutable mutable = pureBuilder(sig).createMutable();
+            this.bigraph = new POPPBigraph(mutable, sig);
+            model.addListener(new Forwarder(bigraph));
+        }
+    }
+
+    private static final class Forwarder extends POPPSpecificEventListener {
+        private final POPPBigraph bigraph;
+        Forwarder(POPPBigraph bigraph) { this.bigraph = bigraph; }
+        @Override protected void onNodeCreated(POPPEvent.NodeCreated e) { bigraph.addTreeNode(e.node()); }
+        @Override protected void onNodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {
+            bigraph.updateDescription(e.node().getId(), e.node().getDescription());
+        }
+        @Override protected void onNodeMoved(POPPEvent.NodeMoved e) {
+            bigraph.updatePosition(e.node().getId(), e.node().getX(), e.node().getY());
+        }
+        @Override protected void onNodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged e) {
+            bigraph.rebuildDecomposition(e.node());
+        }
+        @Override protected void onNodeRemoved(POPPEvent.NodeRemoved e) { bigraph.deleteTreeNode(e.node().getId()); }
+        @Override protected void onNodeChangedParent(POPPEvent.NodeChangedParent e) {
+            bigraph.reparentTreeNode(e.node(), e.oldParent(), e.newParent());
+        }
+        @Override protected void onRelationCreated(POPPEvent.RelationCreated e) { bigraph.createRelation(e.relation()); }
+        @Override protected void onRelationRemoved(POPPEvent.RelationRemoved e) { bigraph.removeRelation(e.relation()); }
+    }
 
     /**
      * A balanced decomposition tree of success criteria (AND and OR alternating by level, root = AND), 2^depth
