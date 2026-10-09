@@ -99,13 +99,16 @@ class POPPBigraphTest {
     // ---- tree nodes -------------------------------------------------------------------------------------------
 
     @Test
-    void addTreeNodeRegistersTheNodeWithKindRoleAndLayout() {
+    void addTreeNodeRegistersTheNodeWithItsKindAsControl() {
         SuccessCriteria node = criteria("a criteria");
         var entity = popp.addTreeNode(node);
 
         assertSame(entity, popp.getById(node.getId()).orElseThrow());
+        assertEquals(POPPBigraphSignature.SUCCESS_CRITERIA, POPPBigraphSignature.forNode(entity));
         assertEquals(NodeKind.SUCCESS_CRITERIA, popp.kindOf(entity).orElseThrow());
-        assertEquals(POPPBigraphSignature.DOM, popp.roleOf(entity).orElseThrow());
+        assertTrue(popp.isDomainNode(entity));
+        assertFalse(popp.isChainNode(entity));
+        assertTrue(popp.getBigraph().getChildrenOf(entity).isEmpty(), "a domain node carries no marker children");
     }
 
     /**
@@ -139,21 +142,17 @@ class POPPBigraphTest {
     }
 
     @Test
-    void everyKindGetsItsOwnKindMarker() {
+    void everyKindGetsItsOwnControl() {
         for (NodeKind kind : NodeKind.values()) {
             TreeNode<?> node = model.createNode(kind, "n " + kind, 0, 0);
-            assertEquals(kind, popp.kindOf(popp.addTreeNode(node)).orElseThrow(), kind.toString());
+            var entity = popp.addTreeNode(node);
+            assertEquals(POPPBigraphSignature.getByNodeKind(kind), POPPBigraphSignature.forNode(entity), kind.toString());
+            assertEquals(kind, popp.kindOf(entity).orElseThrow(), kind.toString());
         }
     }
 
     @Test
-    void markersAreNotAddressableByDomainId() {
-        var entity = popp.addTreeNode(criteria("a"));
-        assertTrue(popp.getById(entity.getName() + "." + POPPBigraphSignature.DOM.controlName()).isEmpty());
-    }
-
-    @Test
-    void deleteTreeNodeRemovesTheNodeAndItsMarkers() {
+    void deleteTreeNodeRemovesTheNode() {
         popp.addTreeNode(criteria("warm up: creates the container"));
         int before = nodeCount();
 
@@ -164,21 +163,36 @@ class POPPBigraphTest {
         popp.deleteTreeNode(node.getId());
 
         assertTrue(popp.getById(node.getId()).isEmpty());
-        assertEquals(before, nodeCount(), "node and its two markers must be gone");
+        assertEquals(before, nodeCount(), "the node must be gone");
     }
 
     @Test
-    void observersAreToldAboutEveryAddedAndRemovedNodeIncludingMarkers() {
+    void observersAreToldAboutEveryAddedAndRemovedNode() {
         Recorder recorder = new Recorder(popp);
         popp.addObserver(recorder);
         SuccessCriteria node = criteria("a");
         popp.addTreeNode(node);
-        // container (+ idempotent re-announcement), the node, kind marker, role marker
-        assertTrue(recorder.added.size() >= 4, "added: " + recorder.added.size());
+        // container (announced idempotently) and the node
+        assertTrue(recorder.added.size() >= 2, "added: " + recorder.added.size());
+        assertTrue(recorder.added.contains(entity(node)));
 
         recorder.removed.clear();
         popp.deleteTreeNode(node.getId());
-        assertEquals(3, recorder.removed.size(), "role marker, kind marker and the node itself");
+        assertEquals(1, recorder.removed.size(), "only the node itself");
+    }
+
+    @Test
+    void chainNodesUseTheDecompositionControlAndTheFirstOneHangsUnderTheDecomposedNode() {
+        SuccessCriteria parent = parentWithChildren(DecompositionType.OR, 3);
+        var first = popp.getById(parent.getId() + "_DECOMP").orElseThrow();
+        var second = popp.getById(parent.getId() + "_DECOMP_1").orElseThrow();
+
+        assertEquals(POPPBigraphSignature.OR_DECOMP, POPPBigraphSignature.forNode(first));
+        assertEquals(POPPBigraphSignature.OR_DECOMP, POPPBigraphSignature.forNode(second));
+        assertTrue(popp.isChainNode(first));
+        assertEquals(DecompositionType.OR, popp.decompositionTypeOf(first));
+        assertSame(entity(parent), popp.getBigraph().getParent(first));
+        assertSame(first, popp.getBigraph().getParent(second));
     }
 
     @Test
@@ -246,7 +260,7 @@ class POPPBigraphTest {
         int before = nodeCount();
         reloaded.deleteTreeNode(parent.getId());
 
-        assertTrue(nodeCount() < before - 3, "the parent, its markers and its chain nodes with their markers must go");
+        assertEquals(before - 3, nodeCount(), "the parent and its two chain nodes must go");
         assertTrue(reloaded.getById(parent.getId() + "_DECOMP").isEmpty());
     }
 
@@ -348,7 +362,7 @@ class POPPBigraphTest {
         assertTrue(popp.getById(parent.getId() + "_DECOMP_1").isEmpty());
         // the three children survive, everything of the parent and its chain is gone
         for (String kid : kids) assertTrue(popp.getById(kid).isPresent());
-        assertEquals(before + 3 * 3, nodeCount(), "each surviving child: its node and two markers");
+        assertEquals(before + 3, nodeCount(), "only the three surviving children remain");
     }
 
     @Test

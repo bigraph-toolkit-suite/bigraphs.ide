@@ -14,6 +14,12 @@ import java.util.Map;
 
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 
+/**
+ * The coverage bigraph: a copy of the structure bigraph over {@link CoverageSignature} in which every domain node and
+ * every chain node holds a state cell ({@code Unc}, {@code Part} or {@code Cov}). Intrinsically covered domain nodes
+ * also hold {@code CovIntrinsic}, and PARTIAL chain nodes {@code PartDecomp}, because the chain redexes list a chain
+ * node's children exactly.
+ */
 public class CoverageBigraph {
     public static PureBigraphMutable build(POPPBigraph source, CoverageMode mode, Map<String, Coverage> states) {
        DynamicSignature sig = CoverageSignature.get();
@@ -58,10 +64,10 @@ public class CoverageBigraph {
                                  Map<String, BigraphEntity.NodeEntity<DynamicControl>> copies,
                                  Map<String, Coverage> states) {
         for (BigraphEntity.NodeEntity<DynamicControl> old : source.getBigraph().getNodes()) {
-            if (POPPBigraphSignature.forNode(old) != POPPBigraphSignature.TREE_NODE) continue;
-            var role = source.roleOf(old).orElseThrow();
-            boolean intrinsic = role == POPPBigraphSignature.DOM
-                    && source.kindOf(old).orElseThrow().isIntrinsicallyCovered(mode);
+            POPPBigraphSignature control = POPPBigraphSignature.forNode(old);
+            if (!POPPBigraphSignature.isTreeControl(control)) continue; // container and stubs have no state
+            boolean domain = POPPBigraphSignature.isKindControl(control);
+            boolean intrinsic = domain && POPPBigraphSignature.toNodeKind(control).isIntrinsicallyCovered(mode);
 
             Coverage state = intrinsic ? Coverage.COVERED
                     : states.getOrDefault(old.getName(), Coverage.UNCOVERED);
@@ -69,7 +75,7 @@ public class CoverageBigraph {
             cell(g, sig, copy, CoverageMarker.of(state), ".state");
             if (intrinsic) cell(g, sig, copy, CoverageMarker.COV_INTRINSIC, ".why");
             // chain redexes list PartDecomp explicitly when the chain node is PARTIAL
-            if (role != POPPBigraphSignature.DOM && state == Coverage.PARTIAL)
+            if (!domain && state == Coverage.PARTIAL)
                 cell(g, sig, copy, CoverageMarker.PART_DECOMP, ".partwhy");
         }
     }
