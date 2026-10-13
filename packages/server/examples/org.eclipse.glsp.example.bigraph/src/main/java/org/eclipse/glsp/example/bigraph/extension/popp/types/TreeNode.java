@@ -6,7 +6,13 @@ import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
 
 import java.util.*;
 
-public abstract class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter implements POPPEventListener {
+/**
+ * A node of one of the six homogeneous POPP trees (CRTP: {@code T} is the concrete node type, so children and parent
+ * are statically of the same kind). Sealed, so that code dispatching over the node kinds (e.g.
+ * {@link POPPModel#decompose}) is checked for exhaustiveness by the compiler.
+ */
+public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter implements POPPEventListener
+        permits Problem, Goal, Consequence, Solution, SuccessCriteria, SuccessProof {
     private final String id;
     private final NodeKind kind;
     private String description;
@@ -109,14 +115,6 @@ public abstract class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter i
         children.add(child);
         child.addListener(this);
         return true;
-    }
-
-    @SuppressWarnings("unchecked")
-    public boolean addChildNode(TreeNode<?> child) {
-        if (child == null || getClass() != child.getClass()) {
-            return false;
-        }
-        return addChild((T) child);
     }
 
     public boolean removeChild(T child) {

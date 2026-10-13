@@ -1,6 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
-public class Problem extends TreeNode<Problem> {
+public final class Problem extends TreeNode<Problem> {
     Problem(String description, double x, double y) {
         super(NodeKind.PROBLEM, description, x, y);
     }

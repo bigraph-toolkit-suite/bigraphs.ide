@@ -104,3 +104,79 @@ export const SetInspectionAction = {
         return { kind: 'popp.setInspection', active, mode };
     }
 };
+// ---------------------------------------------------------------------------
+// Coverage gaps (read-only request)
+// ---------------------------------------------------------------------------
+export interface CoverageGap {
+    nodeId: string;
+    label: string;
+    coverage: Exclude<PoppCoverage, 'COVERED'>;
+    /** Nothing beneath or behind the node could still contribute: this is where to act. */
+    rootCause: boolean;
+    /** What is missing, root causes only, e.g. "needs a success criteria (causes)". */
+    message: string;
+}
+
+export interface RequestCoverageGapsAction extends RequestAction<CoverageGapsAction> {
+    kind: 'popp.requestCoverageGaps';
+    mode: PoppCoverageMode;
+}
+export const RequestCoverageGapsAction = {
+    KIND: 'popp.requestCoverageGaps' as const,
+    create(mode: PoppCoverageMode): RequestCoverageGapsAction {
+        return { kind: 'popp.requestCoverageGaps', requestId: '', mode };
+    }
+};
+
+export interface CoverageGapsAction extends ResponseAction {
+    kind: 'popp.coverageGaps';
+    mode: PoppCoverageMode;
+    gaps: CoverageGap[];
+}
+
+// ---------------------------------------------------------------------------
+// Validation (asynchronous: the server pushes a result after every structural change)
+// ---------------------------------------------------------------------------
+export type PoppSeverity = 'ERROR' | 'WARNING';
+
+export interface ValidationIssue {
+    code: string;
+    severity: PoppSeverity;
+    message: string;
+    /** POPP node ids (= GModel ids) to highlight; may be empty. */
+    nodeIds: string[];
+    /** Names of the offending bigraph nodes. */
+    elements: string[];
+    pattern: string;
+}
+
+export interface ValidationReport {
+    modelVersion: number;
+    valid: boolean;
+    errors: number;
+    warnings: number;
+    issues: ValidationIssue[];
+    durationMs: number;
+    patternsMatched: number;
+    patternsSkipped: number;
+}
+
+/** Asks the server for a validation run; the result arrives later as a {@link ValidationResultAction}. */
+export interface ValidateModelAction extends Action {
+    kind: 'popp.validateModel';
+}
+export const ValidateModelAction = {
+    KIND: 'popp.validateModel' as const,
+    create(): ValidateModelAction {
+        return { kind: 'popp.validateModel' };
+    }
+};
+
+/** Pushed by the server; registering a handler for this kind is what makes the server forward it. */
+export interface ValidationResultAction extends Action {
+    kind: 'popp.validationResult';
+    report: ValidationReport;
+}
+export const ValidationResultAction = {
+    KIND: 'popp.validationResult' as const
+};

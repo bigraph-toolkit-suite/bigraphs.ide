@@ -1,6 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
-public class Consequence extends TreeNode<Consequence> {
+public final class Consequence extends TreeNode<Consequence> {
     Consequence(String description, double x, double y) {
         super(NodeKind.CONSEQUENCE, description, x, y);
     }
