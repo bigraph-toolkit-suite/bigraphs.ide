@@ -32,7 +32,7 @@ final class CoverageRandomModels {
             if (!same.isEmpty() && rnd.nextInt(3) > 0) {
                 // half of the time one of the first three nodes: wide decompositions (inner chain nodes)
                 TreeNode<?> parent = same.get(rnd.nextInt(rnd.nextBoolean() ? Math.min(3, same.size()) : same.size()));
-                parent.addChildNode(node);
+                model.decompose(parent, node);
             }
             same.add(node);
         }

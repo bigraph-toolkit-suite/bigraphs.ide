@@ -30,3 +30,27 @@
 .sprotty-edge.popp-inspect-path path {
     stroke-width: 2.5px;
 }
+
+/* ---- Highlight uncovered (CSS-class feedback from PoppAnalysisController) ---- */
+
+/* Covered nodes and all edges step back */
+.popp-gaps-active .popp-node:not(.popp-gap),
+.popp-gaps-active .sprotty-edge {
+    opacity: 0.35;
+}
+
+.popp-gap .popp-node-box {
+    stroke: var(--vscode-editorError-foreground, #f85149);
+    stroke-width: 2px;
+    stroke-dasharray: 5 3;
+}
+
+.popp-gap.popp-gap-partial .popp-node-box {
+    stroke: var(--vscode-editorWarning-foreground, #d29922);
+}
+
+/* Root causes: nothing beneath or behind them can still help, this is where to act */
+.popp-gap-root .popp-node-box {
+    stroke-width: 3px;
+    stroke-dasharray: none;
+}

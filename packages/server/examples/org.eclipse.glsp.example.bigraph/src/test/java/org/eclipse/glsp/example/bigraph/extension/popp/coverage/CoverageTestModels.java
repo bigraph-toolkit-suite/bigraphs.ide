@@ -15,7 +15,7 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /** Model generators shared by the coverage analyzer tests and benchmarks. Not a test class. */
-final class CoverageTestModels {
+public final class CoverageTestModels {
     private CoverageTestModels() {}
 
     /**
@@ -49,11 +49,11 @@ final class CoverageTestModels {
     }
 
     /** A POPP model together with the {@link POPPBigraph} that is kept in sync with it by the model's events. */
-    static final class Synced {
-        final POPPModel model = new POPPModel();
-        final POPPBigraph bigraph;
+    public static final class Synced {
+        public final POPPModel model = new POPPModel();
+        public final POPPBigraph bigraph;
 
-        Synced() {
+        public Synced() {
             DynamicSignature sig = POPPBigraphSignature.create();
             PureBigraphMutable mutable = pureBuilder(sig).createMutable();
             this.bigraph = new POPPBigraph(mutable, sig);
@@ -88,10 +88,10 @@ final class CoverageTestModels {
      *
      * @param proofs the proof of leaf i is {@code proofs.get(i)}; if not all leaves are proven the list is shorter
      */
-    record Tree(SuccessCriteria root, List<SuccessCriteria> leaves, List<SuccessProof> proofs, Solution solution) {}
+    public record Tree(SuccessCriteria root, List<SuccessCriteria> leaves, List<SuccessProof> proofs, Solution solution) {}
 
     /** With {@code proveAll} every leaf gets a proof, otherwise only the first one does. */
-    static Tree balancedTree(POPPModel model, int depth, boolean proveAll) {
+    public static Tree balancedTree(POPPModel model, int depth, boolean proveAll) {
         Solution solution = (Solution) model.createNode(NodeKind.SOLUTION, "solution", 0, 0);
         List<SuccessCriteria> leaves = new ArrayList<>();
         SuccessCriteria root = subtree(model, depth, 0, leaves);

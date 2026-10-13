@@ -14,7 +14,8 @@ import {
 import { ContainerModule } from 'inversify';
 import { alignFeature, connectableFeature } from 'sprotty';
 import { InspectionController } from './inspection-controller';
-import { SetInspectionAction } from './popp-actions';
+import { SetInspectionAction, ValidationResultAction } from './popp-actions';
+import { PoppAnalysisController } from './popp-analysis-controller';
 import { PoppToolLifecycle } from './palette/popp-tool-lifecycle';
 import {
     POPPDecompositionEdgeView,
@@ -56,6 +57,12 @@ export const poppDiagramModule = new ContainerModule((bind, unbind, isBound, reb
     configureActionHandler(context, SetInspectionAction.KIND, InspectionController);
     configureActionHandler(context, UpdateModelAction.KIND, InspectionController);
     configureActionHandler(context, SetModelAction.KIND, InspectionController);
+
+    // Validation results, coverage report/gaps, "highlight uncovered" and the sidebar relay
+    bind(PoppAnalysisController).toSelf().inSingletonScope();
+    configureActionHandler(context, ValidationResultAction.KIND, PoppAnalysisController);
+    configureActionHandler(context, UpdateModelAction.KIND, PoppAnalysisController);
+    configureActionHandler(context, SetModelAction.KIND, PoppAnalysisController);
 
     // Lets the palette follow creation-tool lifecycle (highlight reset, connect re-arm)
     bind(PoppToolLifecycle).toSelf().inSingletonScope();

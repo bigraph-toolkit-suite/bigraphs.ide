@@ -1,4 +1,5 @@
-import { IClientExtension, ModelVariantDescriptor } from '../types';
+import { IClientExtension, ModelVariantDescriptor, WebviewMessageContext } from '../types';
+import { PoppSidebarState, getPoppCoverageViewProvider, revealPoppSidebar } from './coverageView';
 
 export const POPP_VARIANT_ID = 'popp';
 
@@ -15,4 +16,18 @@ export const problemOrientedProjectPlanningExtension: IClientExtension = {
     id: 'popp',
     name: 'Problem-Oriented Project Planning',
     variants: [POPP_VARIANT],
+
+    /** Relays between the diagram webview and the POPP sidebar view. */
+    handleWebviewMessage(context: WebviewMessageContext): boolean {
+        const { message, clientId } = context;
+        if (message.type === 'popp.sidebarState') {
+            getPoppCoverageViewProvider()?.setState(clientId, message.state as PoppSidebarState);
+            return true;
+        }
+        if (message.type === 'popp.openSidebar') {
+            void revealPoppSidebar();
+            return true;
+        }
+        return false;
+    },
 };

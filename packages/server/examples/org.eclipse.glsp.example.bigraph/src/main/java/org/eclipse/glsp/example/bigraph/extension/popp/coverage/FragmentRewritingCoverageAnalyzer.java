@@ -210,8 +210,8 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
         TreeNode<?> root = model.createNode(NodeKind.SUCCESS_CRITERIA, "warm-up root", 0, 0);
         TreeNode<?> left = model.createNode(NodeKind.SUCCESS_CRITERIA, "warm-up left", 0, 0);
         TreeNode<?> right = model.createNode(NodeKind.SUCCESS_CRITERIA, "warm-up right", 0, 0);
-        root.addChildNode(left);
-        root.addChildNode(right);
+        model.decompose(root, left);
+        model.decompose(root, right);
         root.setDecompositionType(DecompositionType.OR);
         TreeNode<?> solution = model.createNode(NodeKind.SOLUTION, "warm-up solution", 0, 0);
         TreeNode<?> proof = model.createNode(NodeKind.SUCCESS_PROOF, "warm-up proof", 0, 0);

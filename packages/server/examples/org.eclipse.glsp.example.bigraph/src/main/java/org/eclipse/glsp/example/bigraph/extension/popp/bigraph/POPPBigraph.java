@@ -1,6 +1,5 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
 
-import org.apache.commons.logging.LogFactory;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
@@ -11,7 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Predicate;
 
 /**
  * The bigraph encoding of a POPP model, kept in sync with it through explicit calls and announced to observers.

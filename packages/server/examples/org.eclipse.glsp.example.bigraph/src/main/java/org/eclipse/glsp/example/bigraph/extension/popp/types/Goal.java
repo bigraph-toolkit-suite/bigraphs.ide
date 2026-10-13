@@ -1,6 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
-public class Goal extends TreeNode<Goal> {
+public final class Goal extends TreeNode<Goal> {
     Goal(String description, double x, double y) {
         super(NodeKind.GOAL, description, x, y);
     }
