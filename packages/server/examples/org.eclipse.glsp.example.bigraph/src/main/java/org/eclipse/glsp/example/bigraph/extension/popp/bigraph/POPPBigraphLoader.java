@@ -6,6 +6,8 @@ import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionMeta;
+import org.eclipse.glsp.example.bigraph.extension.popp.validation.POPPValidationService;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionResult;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionState;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
@@ -29,15 +31,18 @@ public final class POPPBigraphLoader {
     private final POPPExtensionContext context;
     private final POPPGModelSynchronizer gModelSynchronizer;
     private final POPPBigraphSynchronizer bigraphSynchronizer;
+    private final POPPValidationService validationService;
 
 
     @Inject
     public POPPBigraphLoader(final POPPExtensionContext context,
                              final POPPGModelSynchronizer gModelSynchronizer,
-                             final POPPBigraphSynchronizer bigraphSynchronizer) {
+                             final POPPBigraphSynchronizer bigraphSynchronizer,
+                             final POPPValidationService validationService) {
         this.context = context;
         this.gModelSynchronizer = gModelSynchronizer;
         this.bigraphSynchronizer = bigraphSynchronizer;
+        this.validationService = validationService;
     }
 
     public void loadModelFromBigraph(final PureBigraphMutable bigraph) {
@@ -51,6 +56,7 @@ public final class POPPBigraphLoader {
         if (poppExtensionState.getPoppModel() != null) {
             poppExtensionState.getPoppModel().removeListener(bigraphSynchronizer);
             poppExtensionState.getPoppModel().removeListener(gModelSynchronizer);
+            poppExtensionState.getPoppModel().removeListener(validationService);
         }
         poppExtensionState.setPoppModel(model);
 
@@ -58,6 +64,8 @@ public final class POPPBigraphLoader {
         load(bigraph, model);
 
         model.addListener(bigraphSynchronizer);
+        model.addListener(validationService);
+        validationService.schedule(); // the loaded file may already be broken
 
         applyMetaData(context.getOwnState().getInitialLoadedMeta(), model);
         context.getOwnState().setInitialLoadedMeta(null);
@@ -110,7 +118,11 @@ public final class POPPBigraphLoader {
         nodesById.put(bnode.getName(), node);
 
         if (parentOrNull != null) {
-            link(parentOrNull, node);
+            DecompositionResult attached = model.decompose(parentOrNull, node);
+            if (!attached.isSuccess()) {
+                // e.g. a node of another kind nested in the file: keep it as a root, validation reports the file
+                LOGGER.warn("Could not attach {} under {} while loading: {}", node.getId(), parentOrNull.getId(), attached);
+            }
         }
 
         POPPBigraph.DecodedDecomposition decoded = structure.decodeDecomposition(bnode);
@@ -119,15 +131,6 @@ public final class POPPBigraphLoader {
         }
         if (decoded.type() != DecompositionType.NONE) {
             setDecompositionType(node, decoded.type());
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T extends TreeNode<T>> void link(TreeNode<T> parent, TreeNode<?> child) {
-        boolean linked = parent.addChild((T) child);
-        if (!linked) {
-            throw new IllegalStateException(
-                    "Failed to attach " + child.getId() + " under " + parent.getId() + " while loading");
         }
     }
 

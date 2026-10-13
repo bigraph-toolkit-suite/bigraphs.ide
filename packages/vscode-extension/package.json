@@ -152,6 +152,12 @@
           "id": "evolutionManagerView",
           "name": "Rewriting",
           "type": "webview"
+        },
+        {
+          "id": "poppCoverageView",
+          "name": "POPP Coverage",
+          "type": "webview",
+          "when": "bigraph.poppActive"
         }
       ]
     },

@@ -13,6 +13,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPTypeHints;
 import org.eclipse.glsp.example.bigraph.extension.popp.handler.*;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
+import org.eclipse.glsp.example.bigraph.extension.popp.validation.POPPValidationService;
 import org.eclipse.glsp.example.bigraph.extensions.ExtensionStateKey;
 import org.eclipse.glsp.example.bigraph.extensions.IdeExtension;
 import org.eclipse.glsp.example.bigraph.meta.BigraphMetaInformation;
@@ -75,7 +76,9 @@ public class POPPExtension implements IdeExtension {
                 CreateNodeOperationHandler.class,
                 EditDescriptionNodeHandler.class,
                 InspectionActionHandler.class,
-                CoverageReportHandler.class
+                CoverageReportHandler.class,
+                CoverageGapsHandler.class,
+                ValidateModelHandler.class
         );
     }
 
@@ -103,6 +106,7 @@ public class POPPExtension implements IdeExtension {
         binder.bind(POPPGModelSynchronizer.class).in(Singleton.class);
         binder.bind(POPPBigraphSynchronizer.class).in(Singleton.class);
         binder.bind(POPPBigraphLoader.class).in(Singleton.class);
+        binder.bind(POPPValidationService.class).in(Singleton.class);
     }
 
     @Override

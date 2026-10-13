@@ -142,6 +142,33 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         return relations.unrelate(a, b);
     }
 
+    /**
+     * Attaches {@code child} below {@code parent} when both are of the same kind. The entry point for callers that
+     * only know the nodes as {@code TreeNode<?>} (e.g. the editor's connect tool): the exhaustive switch over the sealed
+     * node types recovers the concrete type, and {@link Class#cast} checks the child at runtime, so no unchecked cast
+     * is needed anywhere. Code that knows the types calls {@link TreeNode#addChild} directly.
+     */
+    public DecompositionResult decompose(TreeNode<?> parent, TreeNode<?> child) {
+        if (parent == null || child == null) {
+            return DecompositionResult.NULL_ARGUMENT;
+        }
+        return switch (parent) {
+            case Problem p -> attach(p, child, Problem.class);
+            case Goal g -> attach(g, child, Goal.class);
+            case Consequence c -> attach(c, child, Consequence.class);
+            case Solution s -> attach(s, child, Solution.class);
+            case SuccessCriteria sc -> attach(sc, child, SuccessCriteria.class);
+            case SuccessProof sp -> attach(sp, child, SuccessProof.class);
+        };
+    }
+
+    private static <N extends TreeNode<N>> DecompositionResult attach(N parent, TreeNode<?> child, Class<N> type) {
+        if (!type.isInstance(child)) {
+            return DecompositionResult.KIND_MISMATCH;
+        }
+        return parent.addChild(type.cast(child)) ? DecompositionResult.ATTACHED : DecompositionResult.REJECTED;
+    }
+
     public TreeNode<?> findNode(String id) {
         return nodeRegistry.get(id);
     }

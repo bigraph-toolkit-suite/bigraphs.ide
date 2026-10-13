@@ -6,15 +6,11 @@ import {
     TriggerNodeCreationAction
 } from '@eclipse-glsp/client';
 import { POPP_VARIANT_ID } from '../diagramExtension';
-import {
-    POPP_CONNECT_ELEMENT_TYPE_ID,
-    PoppCoverageMode,
-    RequestCoverageReportAction,
-    SetInspectionAction,
-    CoverageReport,
-    CoverageReportAction
-} from '../popp-actions';
+import { POPP_CONNECT_ELEMENT_TYPE_ID, SetInspectionAction, ValidationReport } from '../popp-actions';
+import { PoppViewState, poppStore } from '../popp-store';
 import { poppToolEvents } from './popp-tool-events';
+import { acquireVsCodeApi, appendPaletteExportSection } from '../../palette-export';
+import { getPaletteExportsForVariant } from '../../extensions';
 import type { IVariantPalette, PaletteHostApi, VariantPaletteFactory } from '../../palette-types';
 import variantHtml from './popp-variant.html';
 import './popp-variant.css';
@@ -29,8 +25,9 @@ class PoppVariantPalette implements IVariantPalette {
     private activeCardEl: HTMLElement | null = null;
     private connectCard: HTMLElement | null = null;
     private inspectCard: HTMLElement | null = null;
+    private gapsCard: HTMLElement | null = null;
     private inspectActive = false;
-    private mode: PoppCoverageMode = 'PLANNING';
+    private unsubscribeStore?: () => void;
 
     private lastEscape = Number.NEGATIVE_INFINITY;
     private lastRearm = Number.NEGATIVE_INFINITY;
@@ -49,9 +46,14 @@ class PoppVariantPalette implements IVariantPalette {
         this.bindCardClicks();
         this.bindConnectTool();
         this.bindInspection();
+        this.bindValidity();
+        appendPaletteExportSection(container, getPaletteExportsForVariant(POPP_VARIANT_ID, this.host), this.host);
 
         document.addEventListener('keydown', this.onKeyDown, true);
         this.unsubscribeTools = poppToolEvents.onDefaultToolsEnabled(() => this.onDefaultToolsEnabled());
+        this.unsubscribeStore = poppStore.subscribe((state, changed) => this.onStateChanged(state, changed));
+        this.onStateChanged(poppStore.state, new Set(['mode', 'validation', 'gapsActive']));
+        poppStore.update({ active: true }); // starts validation and the report/gap refresh
     }
 
     refresh(): void { }
@@ -62,10 +64,13 @@ class PoppVariantPalette implements IVariantPalette {
         }
         document.removeEventListener('keydown', this.onKeyDown, true);
         this.unsubscribeTools?.();
+        this.unsubscribeStore?.();
+        poppStore.update({ active: false, gapsActive: false });
         this.container = null;
         this.activeCardEl = null;
         this.connectCard = null;
         this.inspectCard = null;
+        this.gapsCard = null;
     }
 
     // -- creation tools -----------------------------------------------------
@@ -139,7 +144,7 @@ class PoppVariantPalette implements IVariantPalette {
         this.clearActiveCard();
     }
 
-    // -- inspection ---------------------------------------------------------
+    // -- inspection, uncovered, report ---------------------------------------
 
     private bindInspection(): void {
         const root = this.container!;
@@ -148,20 +153,25 @@ class PoppVariantPalette implements IVariantPalette {
             this.inspectCard.onclick = () => this.setInspect(!this.inspectActive);
         }
 
-        const toggle = root.querySelector<HTMLInputElement>('[data-popp-mode-toggle]');
-        if (toggle) {
-            toggle.onchange = () => {
-                this.mode = toggle.checked ? 'VERIFY' : 'PLANNING';
-                root.querySelectorAll<HTMLElement>('[data-popp-mode-label]').forEach(label =>
-                    label.classList.toggle('active', label.dataset.poppModeLabel === this.mode));
-                this.pushInspection();
-                void this.loadReport();
+        this.gapsCard = root.querySelector<HTMLElement>('.popp-card[data-popp-gaps]');
+        if (this.gapsCard) {
+            this.gapsCard.onclick = () => {
+                const active = !poppStore.state.gapsActive;
+                if (active && this.inspectActive) {
+                    this.setInspect(false); // both recolour nodes; one overlay at a time
+                }
+                poppStore.update({ gapsActive: active });
             };
         }
 
-        const refresh = root.querySelector<HTMLElement>('.popp-card[data-popp-report-refresh]');
-        if (refresh) {
-            refresh.onclick = () => void this.loadReport();
+        const toggle = root.querySelector<HTMLInputElement>('[data-popp-mode-toggle]');
+        if (toggle) {
+            toggle.onchange = () => poppStore.update({ mode: toggle.checked ? 'VERIFY' : 'PLANNING' });
+        }
+
+        const report = root.querySelector<HTMLElement>('.popp-card[data-popp-report-open]');
+        if (report) {
+            report.onclick = () => this.openSidebar();
         }
     }
 
@@ -172,72 +182,90 @@ class PoppVariantPalette implements IVariantPalette {
             // Drop any armed creation tool first (cleared before dispatching, so connect does not re-arm itself)
             this.clearActiveCard();
             this.host.dispatcher.dispatch(EnableDefaultToolsAction.create());
+            poppStore.update({ gapsActive: false });
         }
         this.pushInspection();
     }
 
     private pushInspection(): void {
-        this.host.dispatcher.dispatch(SetInspectionAction.create(this.inspectActive, this.mode));
+        this.host.dispatcher.dispatch(SetInspectionAction.create(this.inspectActive, poppStore.state.mode));
     }
 
-    private async loadReport(): Promise<void> {
-        const response = await this.host.dispatcher.request<CoverageReportAction>(
-            RequestCoverageReportAction.create(this.mode));
-        this.renderReport(response.report);
+    private openSidebar(): void {
+        acquireVsCodeApi()?.postMessage({ type: 'popp.openSidebar' });
     }
 
-    private renderReport(report: CoverageReport): void {
-        const target = this.container?.querySelector<HTMLElement>('[data-popp-report]');
-        if (!target) {
+    private onStateChanged(state: Readonly<PoppViewState>, changed: ReadonlySet<keyof PoppViewState>): void {
+        const root = this.container;
+        if (!root) {
             return;
         }
-        target.replaceChildren();
-
-        // User-written descriptions end up in here, so everything is built with textContent, never innerHTML.
-        const heading = (text: string) => {
-            const h = document.createElement('div');
-            h.className = 'popp-report-heading';
-            h.textContent = text;
-            target.appendChild(h);
-        };
-        const row = (text: string, cls: string, onClick?: () => void) => {
-            const r = document.createElement('div');
-            r.className = `popp-report-row ${cls}`;
-            r.textContent = text;
-            if (onClick) {
-                r.classList.add('popp-report-clickable');
-                r.onclick = onClick;
-            }
-            target.appendChild(r);
-        };
-        const focus = (ids: string[]) => {
-            if (ids.length === 0) {
-                return;
-            }
-            this.host.dispatcher.dispatch(SelectAction.create({ selectedElementsIDs: ids }));
-            this.host.dispatcher.dispatch(CenterAction.create(ids, { animate: true, retainZoom: true }));
-        };
-
-        heading('Tree coverage (' + report.mode.toLowerCase() + ')');
-        if (report.roots.length === 0) {
-            row('No coverable trees yet', 'popp-report-muted');
+        if (changed.has('mode')) {
+            const toggle = root.querySelector<HTMLInputElement>('[data-popp-mode-toggle]');
+            if (toggle) toggle.checked = state.mode === 'VERIFY';
+            root.querySelectorAll<HTMLElement>('[data-popp-mode-label]').forEach(label =>
+                label.classList.toggle('active', label.dataset.poppModeLabel === state.mode));
+            this.pushInspection();
         }
-        report.roots.forEach(r => row(
-            `${r.kind.toLowerCase()}: ${r.description || r.id} \u2014 ${r.coverage}`,
-            `popp-report-${r.coverage.toLowerCase()}`, () => focus([r.id])));
+        if (changed.has('gapsActive')) {
+            this.gapsCard?.classList.toggle('bp-active', state.gapsActive);
+        }
+        if (changed.has('validation')) {
+            this.renderValidity(state.validation);
+        }
+    }
 
-        heading('Links between trees');
-        report.layers.forEach(l => {
-            const gaps = [...l.fromUnlinked, ...l.toUnlinked];
-            row(`${l.label}: ${l.fromLinked}/${l.fromTotal} \u00b7 ${l.toLinked}/${l.toTotal}`,
-                gaps.length === 0 ? 'popp-report-covered' : 'popp-report-partial',
-                gaps.length > 0 ? () => focus(gaps) : undefined);
-        });
+    // -- validation status ----------------------------------------------------
 
-        heading('Size');
-        Object.entries(report.trees).forEach(([kind, m]) => row(
-            `${kind.toLowerCase()}: ${m.nodes} nodes \u00b7 height ${m.height} \u00b7 width ${m.width} \u00b7 max branching ${m.maxBranching}`,
-            'popp-report-muted'));
+    private bindValidity(): void {
+        const button = this.container!.querySelector<HTMLElement>('[data-popp-validity]');
+        if (!button) {
+            return;
+        }
+        button.onclick = () => {
+            const issue = poppStore.state.validation?.issues.find(i => i.nodeIds.length > 0);
+            if (issue) {
+                this.host.dispatcher.dispatch(SelectAction.create({ selectedElementsIDs: issue.nodeIds, deselectedElementsIDs: true }));
+                this.host.dispatcher.dispatch(CenterAction.create(issue.nodeIds, { animate: true, retainZoom: true }));
+            }
+            this.openSidebar();
+        };
+    }
+
+    private renderValidity(report: ValidationReport | undefined): void {
+        const button = this.container?.querySelector<HTMLElement>('[data-popp-validity]');
+        const icon = this.container?.querySelector<HTMLElement>('[data-popp-validity-icon]');
+        const text = this.container?.querySelector<HTMLElement>('[data-popp-validity-text]');
+        if (!button || !icon || !text) {
+            return;
+        }
+        button.classList.remove('popp-validity-pending', 'popp-validity-valid', 'popp-validity-warning', 'popp-validity-invalid');
+        if (!report) {
+            button.classList.add('popp-validity-pending');
+            icon.className = 'codicon codicon-loading codicon-modifier-spin';
+            text.textContent = 'Validating\u2026';
+            return;
+        }
+        const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+        if (!report.valid) {
+            button.classList.add('popp-validity-invalid');
+            icon.className = 'codicon codicon-error';
+            text.textContent = 'Invalid: ' + plural(report.errors, 'error')
+                + (report.warnings > 0 ? ', ' + plural(report.warnings, 'warning') : '');
+        } else if (report.warnings > 0) {
+            button.classList.add('popp-validity-warning');
+            icon.className = 'codicon codicon-warning';
+            text.textContent = 'Valid, ' + plural(report.warnings, 'warning');
+        } else {
+            button.classList.add('popp-validity-valid');
+            icon.className = 'codicon codicon-pass';
+            text.textContent = 'Model is valid';
+        }
+        // Issue texts contain user-written descriptions: title is plain text, never HTML
+        button.title = report.issues.length === 0
+            ? `No structural problems (${report.patternsMatched} patterns checked, ${report.durationMs} ms)`
+            : report.issues.slice(0, 6).map(i => `${i.severity === 'ERROR' ? '\u2716' : '\u26a0'} ${i.message}`).join('\n')
+                + (report.issues.length > 6 ? `\n\u2026 ${report.issues.length - 6} more (open the report)` : '');
     }
 }
 

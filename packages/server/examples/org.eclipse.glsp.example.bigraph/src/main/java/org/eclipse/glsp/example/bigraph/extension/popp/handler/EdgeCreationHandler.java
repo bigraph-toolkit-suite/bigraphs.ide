@@ -8,6 +8,7 @@ import com.google.inject.Inject;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelTypes;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionResult;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationResult;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
@@ -51,8 +52,11 @@ public class EdgeCreationHandler extends GModelCreateEdgeOperationHandler {
             return;
         }
 
-        if (source.getClass() == target.getClass()) {
-            source.addChildNode(target);
+        if (source.getKind() == target.getKind()) {
+            if (model.decompose(source, target) == DecompositionResult.REJECTED) {
+                BigraphNotifications.notifyError(actionDispatcher,
+                        "This decomposition would create a cycle or already exists.");
+            }
             return;
         }
 

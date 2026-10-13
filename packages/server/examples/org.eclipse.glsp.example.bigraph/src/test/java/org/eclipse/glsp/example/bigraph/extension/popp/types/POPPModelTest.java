@@ -133,4 +133,22 @@ class POPPModelTest {
         root.removeChild(child);
         assertEquals(2, model.getProblemRoots().size());
     }
+
+    @Test
+    void decomposeAttachesSameKindOnlyAndReportsWhy() {
+        POPPModel model = new POPPModel();
+        TreeNode<?> problem = model.createNode(NodeKind.PROBLEM, "p", 0, 0);
+        TreeNode<?> subProblem = model.createNode(NodeKind.PROBLEM, "sub", 0, 0);
+        TreeNode<?> goal = model.createNode(NodeKind.GOAL, "g", 0, 0);
+
+        assertEquals(DecompositionResult.KIND_MISMATCH, model.decompose(problem, goal));
+        assertEquals(DecompositionResult.NULL_ARGUMENT, model.decompose(problem, null));
+        assertEquals(DecompositionResult.ATTACHED, model.decompose(problem, subProblem));
+        assertEquals(DecompositionResult.REJECTED, model.decompose(problem, subProblem), "already a child");
+        TreeNode<?> leaf = model.createNode(NodeKind.PROBLEM, "leaf", 0, 0);
+        assertEquals(DecompositionResult.ATTACHED, model.decompose(subProblem, leaf));
+        assertEquals(DecompositionResult.REJECTED, model.decompose(leaf, problem), "would close a cycle");
+        assertEquals(List.of(subProblem), problem.getChildren());
+        assertTrue(goal.getChildren().isEmpty());
+    }
 }

@@ -1,3 +1,10 @@
+<div data-section="popp-validation">
+    <button type="button" class="popp-validity popp-validity-pending" data-popp-validity
+            title="Model validation runs in the background after every change">
+        <span class="codicon codicon-loading codicon-modifier-spin" data-popp-validity-icon></span>
+        <span class="popp-validity-text" data-popp-validity-text>Validating&hellip;</span>
+    </button>
+</div>
 <div data-section="popp-elements">
     <div class="bp-section-hdr">
         <span class="bp-section-title">Problem-oriented Project Planning</span>
@@ -54,7 +61,11 @@
                 <div class="popp-card-icon"><span class="codicon codicon-search"></span></div>
                 <div class="popp-card-name">Inspect</div>
             </div>
-            <div class="popp-card" data-popp-report-refresh title="Compute the coverage report">
+            <div class="popp-card" data-popp-gaps title="Highlight every node that is not covered (root causes stand out)">
+                <div class="popp-card-icon"><span class="codicon codicon-eye"></span></div>
+                <div class="popp-card-name">Uncovered</div>
+            </div>
+            <div class="popp-card" data-popp-report-open title="Open the coverage report and validation results in the sidebar">
                 <div class="popp-card-icon"><span class="codicon codicon-graph"></span></div>
                 <div class="popp-card-name">Report</div>
             </div>
@@ -73,6 +84,5 @@
                 </span>
             </span>
         </div>
-        <div class="popp-report" data-popp-report></div>
     </div>
 </div>
