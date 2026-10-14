@@ -26,6 +26,7 @@ import {
 } from './popp-views';
 
 import './popp-diagram.css';
+import './popp-kind-colors.css';
 import './popp-inspection.css';
 
 export const poppDiagramModule = new ContainerModule((bind, unbind, isBound, rebind) => {

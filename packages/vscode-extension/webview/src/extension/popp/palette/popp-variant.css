@@ -180,3 +180,8 @@
 .popp-validity-pending {
     opacity: 0.7;
 }
+
+/* ---- Display options ---- */
+.popp-display-row {
+    justify-content: space-between;
+}

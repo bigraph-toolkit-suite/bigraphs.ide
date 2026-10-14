@@ -1,0 +1,19 @@
+[data-popp-type="popp:problem"]          { --popp-kind: #c0605a; }
+[data-popp-type="popp:consequence"]      { --popp-kind: #c48a42; }
+[data-popp-type="popp:goal"]             { --popp-kind: #5584c4; }
+[data-popp-type="popp:success_criteria"] { --popp-kind: #3f9a9a; }
+[data-popp-type="popp:solution"]         { --popp-kind: #5e9a5a; }
+[data-popp-type="popp:success_proof"]    { --popp-kind: #8b6cbd; }
+
+:where(.popp-kind-colors) .popp-node .popp-node-box {
+    fill: color-mix(in srgb, var(--popp-kind) 20%, var(--vscode-editor-background, #1e1e1e));
+    stroke: color-mix(in srgb, var(--popp-kind) 70%, var(--vscode-editor-foreground, #cccccc));
+}
+
+:where(.popp-kind-colors) .popp-node .popp-node-icon .codicon {
+    color: var(--popp-kind);
+}
+
+.popp-kind-colors .popp-card[data-popp-type] .popp-card-icon .codicon {
+    color: var(--popp-kind);
+}
