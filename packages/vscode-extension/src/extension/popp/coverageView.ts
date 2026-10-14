@@ -203,8 +203,11 @@ function renderHtml(webview: vscode.Webview): string {
             row(root, 'OK', 'covered', 'The model is structurally valid', null,
                 v.patternsMatched + ' patterns matched, ' + v.patternsSkipped + ' skipped, ' + v.durationMs + ' ms');
         } else {
-            v.issues.forEach(i => row(root, i.severity === 'ERROR' ? 'error' : 'warning',
-                i.severity === 'ERROR' ? 'error' : 'warning', i.message, i.nodeIds, i.code.toLowerCase().replace(/_/g, ' ')));
+            v.issues.forEach(i => {
+                const sev = String(i.severity) === 'ERROR' ? 'error' : 'warning';
+                row(root, sev, sev, String(i.message || ''), i.nodeIds || [],
+                    String(i.code || '').toLowerCase().replace(/_/g, ' '));
+            });
             const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
             row(root, null, null, '', null, plural(v.errors, 'error') + ', ' + plural(v.warnings, 'warning') + ' \\u00b7 '
                 + v.patternsMatched + ' patterns matched, ' + v.durationMs + ' ms');
@@ -235,7 +238,7 @@ function renderHtml(webview: vscode.Webview): string {
         if (r.roots.length === 0) row(root, null, null, 'No coverable trees yet');
         r.roots.forEach(t => row(root, t.coverage.toLowerCase(), t.coverage.toLowerCase(),
             t.kind.toLowerCase().replace(/_/g, ' ') + ': ' + (t.description || t.id), [t.id]));
-
+    
         section('Size');
         Object.entries(r.trees).forEach(([kind, m]) => row(root, null, null,
             kind.toLowerCase().replace(/_/g, ' ') + ': ' + m.nodes + ' nodes',
