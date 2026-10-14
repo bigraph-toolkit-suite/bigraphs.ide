@@ -9,6 +9,7 @@ import { POPP_VARIANT_ID } from '../diagramExtension';
 import { POPP_CONNECT_ELEMENT_TYPE_ID, SetInspectionAction, ValidationReport } from '../popp-actions';
 import { PoppViewState, poppStore } from '../popp-store';
 import { poppToolEvents } from './popp-tool-events';
+import { applyStoredKindColoring, setKindColoring } from './popp-kind-colors';
 import { acquireVsCodeApi, appendPaletteExportSection } from '../../palette-export';
 import { getPaletteExportsForVariant } from '../../extensions';
 import type { IVariantPalette, PaletteHostApi, VariantPaletteFactory } from '../../palette-types';
@@ -47,6 +48,7 @@ class PoppVariantPalette implements IVariantPalette {
         this.bindConnectTool();
         this.bindInspection();
         this.bindValidity();
+        this.bindKindColors();
         appendPaletteExportSection(container, getPaletteExportsForVariant(POPP_VARIANT_ID, this.host), this.host);
 
         document.addEventListener('keydown', this.onKeyDown, true);
@@ -212,6 +214,17 @@ class PoppVariantPalette implements IVariantPalette {
         }
         if (changed.has('validation')) {
             this.renderValidity(state.validation);
+        }
+    }
+
+    // -- display ----------------------------------------------------------------
+
+    private bindKindColors(): void {
+        const toggle = this.container!.querySelector<HTMLInputElement>('[data-popp-kind-colors]');
+        const enabled = applyStoredKindColoring();
+        if (toggle) {
+            toggle.checked = enabled;
+            toggle.onchange = () => setKindColoring(toggle.checked);
         }
     }
 
