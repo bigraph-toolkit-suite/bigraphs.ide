@@ -236,17 +236,10 @@ function renderHtml(webview: vscode.Webview): string {
         r.roots.forEach(t => row(root, t.coverage.toLowerCase(), t.coverage.toLowerCase(),
             t.kind.toLowerCase().replace(/_/g, ' ') + ': ' + (t.description || t.id), [t.id]));
 
-        section('Links between trees');
-        r.layers.forEach(l => {
-            const missing = l.fromUnlinked.concat(l.toUnlinked);
-            row(root, missing.length === 0 ? 'ok' : missing.length + ' open', missing.length === 0 ? 'covered' : 'partial',
-                l.label + ': ' + l.fromLinked + '/' + l.fromTotal + ' \\u00b7 ' + l.toLinked + '/' + l.toTotal, missing);
-        });
-
         section('Size');
         Object.entries(r.trees).forEach(([kind, m]) => row(root, null, null,
             kind.toLowerCase().replace(/_/g, ' ') + ': ' + m.nodes + ' nodes',
-            null, 'trees ' + m.roots + ' \\u00b7 height ' + m.height + ' \\u00b7 width ' + m.width + ' \\u00b7 max branching ' + m.maxBranching));
+            null, 'trees ' + m.roots + ' \\u00b7 height ' + m.height + ' \\u00b7 width ' + m.width));
     }
 
     window.addEventListener('message', e => {
