@@ -129,7 +129,7 @@ public final class POPPBigraphLoader {
         for (BigraphEntity.NodeEntity<DynamicControl> childB : decoded.children()) {
             buildDomainSubtree(structure, childB, model, node, nodesById);
         }
-        if (decoded.type() != DecompositionType.NONE) {
+        if (decoded.type() != DecompositionType.NONE && !decoded.children().isEmpty()) {
             setDecompositionType(node, decoded.type());
         }
     }

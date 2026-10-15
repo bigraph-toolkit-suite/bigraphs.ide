@@ -126,6 +126,9 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
             child.setParent(null);
         }
         child.removeListener(this);
+        if (children.isEmpty() && decompositionType != DecompositionType.NONE) {
+            setDecompositionType(DecompositionType.NONE);
+        }
         return true;
     }
 
