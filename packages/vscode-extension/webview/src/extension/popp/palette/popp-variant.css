@@ -185,3 +185,7 @@
 .popp-display-row {
     justify-content: space-between;
 }
+
+.bp-section-content {
+    padding: 5px 10px;
+}
