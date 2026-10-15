@@ -459,8 +459,216 @@ public class GraphBigraphView extends BigraphView {
     }
 
     @Override
-    public void onMoveNode(String nodeId, String newParentId) {
-        // TODO: Update place graph edge
+    public void onChangeNodeParent(String nodeId, String newParentId) {
+        if (nodeId == null || newParentId == null || nodeId.equals(newParentId)) {
+            return;
+        }
+        if (gModelIdToGNode.get(nodeId) == null) {
+            return;
+        }
+
+        // The moved node and every node descendant reached by a place edge share one
+        // site container. Child sites, and the nodes nested in those sites, stay put.
+        List<String> moving = nodesMovingWith(nodeId);
+        if (moving.contains(newParentId)) {
+            LOGGER.info("Ignored parent change of {} onto its descendant {}", nodeId, newParentId);
+            return;
+        }
+
+        String newContainerId = siteContainerIdForParent(newParentId);
+        Map<String, String> fromSiteByNode = new HashMap<>();
+        List<String> touchedSites = new ArrayList<>();
+        for (String id : moving) {
+            String fromSiteId = siteContainerIdOf(id);
+            fromSiteByNode.put(id, fromSiteId);
+            if (fromSiteId != null && !touchedSites.contains(fromSiteId)) {
+                touchedSites.add(fromSiteId);
+            }
+        }
+        if (newContainerId != null && !touchedSites.contains(newContainerId)) {
+            touchedSites.add(newContainerId);
+        }
+
+        retargetIncomingPlaceEdge(nodeId, newParentId);
+
+        List<String> crossed = new ArrayList<>();
+        for (String id : moving) {
+            String fromSiteId = fromSiteByNode.get(id);
+            if (sameContainer(fromSiteId, newContainerId)) {
+                continue;
+            }
+            relocateNode(id, fromSiteId, newContainerId);
+            crossed.add(id);
+        }
+
+        for (String siteId : touchedSites) {
+            BigraphEntity<?> entity = gModelIdToEntity.get(siteId);
+            if (entity instanceof SiteEntity) {
+                updateSiteFillState((SiteEntity) entity);
+            }
+        }
+        for (String id : crossed) {
+            storeNodePositionInMatchingMetaMap(id, newContainerId != null);
+        }
+        LOGGER.info("Changed parent of node {} to {}", nodeId, newParentId);
+    }
+
+    /**
+     * The node and its node descendants. A place edge whose target is a site ends
+     * the walk: that site and the nodes inside it have their own container.
+     */
+    private List<String> nodesMovingWith(String nodeId) {
+        List<String> result = new ArrayList<>();
+        List<String> pending = new ArrayList<>();
+        pending.add(nodeId);
+        while (!pending.isEmpty()) {
+            String current = pending.remove(pending.size() - 1);
+            if (result.contains(current)) {
+                continue;
+            }
+            result.add(current);
+            for (GEdge edge : placeEdgesFrom(current)) {
+                String targetId = edge.getTargetId();
+                if (gModelIdToEntity.get(targetId) instanceof NodeEntity
+                        && !result.contains(targetId)) {
+                    pending.add(targetId);
+                }
+            }
+        }
+        return result;
+    }
+
+    private void retargetIncomingPlaceEdge(String nodeId, String newParentId) {
+        List<GEdge> incoming = placeEdgesTargeting(nodeId);
+        // A node placed directly in a site is nested there and has no place edge.
+        if (gModelIdToEntity.get(newParentId) instanceof SiteEntity) {
+            getOwnerRoot().getChildren().removeAll(incoming);
+            return;
+        }
+        if (incoming.isEmpty()) {
+            getOwnerRoot().getChildren().add(createPlaceGraphEdge(newParentId, nodeId));
+            return;
+        }
+        incoming.get(0).setSourceId(newParentId);
+        if (incoming.size() > 1) {
+            getOwnerRoot().getChildren().removeAll(incoming.subList(1, incoming.size()));
+        }
+    }
+
+    private void relocateNode(String nodeId, String fromSiteId, String toSiteId) {
+        GNode gNode = gModelIdToGNode.get(nodeId);
+        if (gNode == null) {
+            return;
+        }
+        convertPositionAcrossSites(gNode, fromSiteId, toSiteId);
+        if (gNode.getParent() != null) {
+            gNode.getParent().getChildren().remove(gNode);
+        }
+        siteChildNodes.values().forEach(list -> list.remove(nodeId));
+        if (toSiteId != null && gModelIdToGNode.get(toSiteId) != null) {
+            gModelIdToGNode.get(toSiteId).getChildren().add(gNode);
+            siteChildNodes.computeIfAbsent(toSiteId, key -> new ArrayList<>()).add(nodeId);
+        } else {
+            getOwnerRoot().getChildren().add(gNode);
+        }
+    }
+
+    private void convertPositionAcrossSites(GNode gNode, String fromSiteId, String toSiteId) {
+        if (gNode.getPosition() == null) {
+            GPoint position = GraphFactory.eINSTANCE.createGPoint();
+            position.setX(0);
+            position.setY(0);
+            gNode.setPosition(position);
+        }
+        double x = gNode.getPosition().getX();
+        double y = gNode.getPosition().getY();
+        GPoint from = siteCanvasPosition(fromSiteId);
+        GPoint to = siteCanvasPosition(toSiteId);
+        if (from != null) {
+            x += from.getX();
+            y += from.getY();
+        }
+        if (to != null) {
+            x -= to.getX();
+            y -= to.getY();
+        }
+        gNode.getPosition().setX(x);
+        gNode.getPosition().setY(y);
+    }
+
+    private GPoint siteCanvasPosition(String siteId) {
+        if (siteId == null) {
+            return null;
+        }
+        GNode site = gModelIdToGNode.get(siteId);
+        return site == null ? null : site.getPosition();
+    }
+
+    /**
+     * Writes the node's current diagram position into the meta map that
+     * {@code GraphNodeRenderer} reads for its container, and drops the other key.
+     */
+    private void storeNodePositionInMatchingMetaMap(String nodeId, boolean insideSite) {
+        BigraphMetaInformation meta = modelState.getMetaInformation();
+        BigraphEntity<?> entity = gModelIdToEntity.get(nodeId);
+        GNode gNode = gModelIdToGNode.get(nodeId);
+        if (meta == null || gNode == null || gNode.getPosition() == null
+                || !(entity instanceof NodeEntity)) {
+            return;
+        }
+        @SuppressWarnings("unchecked")
+        NodeEntity<DynamicControl> node = (NodeEntity<DynamicControl>) entity;
+        String key = BigraphNodeIdentity.toNodePositionKey(node, node.getControl());
+        GPoint stored = GraphFactory.eINSTANCE.createGPoint();
+        stored.setX(gNode.getPosition().getX());
+        stored.setY(gNode.getPosition().getY());
+        if (insideSite) {
+            meta.getNodePositions().remove(key);
+            meta.getNodeRelativePositions().put(key, stored);
+        } else {
+            meta.getNodeRelativePositions().remove(key);
+            meta.getNodePositions().put(key, stored);
+        }
+    }
+
+    private String siteContainerIdForParent(String parentId) {
+        if (gModelIdToEntity.get(parentId) instanceof SiteEntity) {
+            return parentId;
+        }
+        return siteContainerIdOf(parentId);
+    }
+
+    private String siteContainerIdOf(String nodeId) {
+        for (var entry : siteChildNodes.entrySet()) {
+            if (entry.getValue().contains(nodeId)) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    private boolean sameContainer(String left, String right) {
+        return left == null ? right == null : left.equals(right);
+    }
+
+    private List<GEdge> placeEdgesTargeting(String nodeId) {
+        return placeEdgesMatching(nodeId, true);
+    }
+
+    private List<GEdge> placeEdgesFrom(String nodeId) {
+        return placeEdgesMatching(nodeId, false);
+    }
+
+    private List<GEdge> placeEdgesMatching(String nodeId, boolean matchTarget) {
+        List<GEdge> edges = new ArrayList<>();
+        for (var child : getOwnerRoot().getChildren()) {
+            if (child instanceof GEdge edge
+                    && "bigraph:place-edge".equals(edge.getType())
+                    && nodeId.equals(matchTarget ? edge.getTargetId() : edge.getSourceId())) {
+                edges.add(edge);
+            }
+        }
+        return edges;
     }
 
     @Override

@@ -121,7 +121,18 @@ public abstract class BigraphView {
      */
     public abstract GNode onAddNode(NodeEntity<DynamicControl> node, BigraphEntity<?> parent, DynamicControl control);
     public abstract void onDeleteNode(String nodeId);
-    public abstract void onMoveNode(String nodeId, String newParentId);
+
+    /**
+     * Reflects a place-graph parent change that has already been applied to the bigraph.
+     * Retargets the node's place edge, moves the node and its node descendants between
+     * the diagram root and a site container, and keeps their meta positions in the
+     * matching absolute or site-relative map. Link edges, sites, and nodes inside a
+     * nested site stay where they are. Sibling names are updated separately.
+     *
+     * @param nodeId GModel id of the node whose parent changed
+     * @param newParentId GModel id of the new parent (node, root, or site)
+     */
+    public abstract void onChangeNodeParent(String nodeId, String newParentId);
     
     /**
      * Adds a site (place-graph placeholder) to the view and returns the created GNode.

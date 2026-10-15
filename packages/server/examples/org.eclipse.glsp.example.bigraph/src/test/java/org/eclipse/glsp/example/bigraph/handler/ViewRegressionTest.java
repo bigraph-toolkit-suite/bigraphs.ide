@@ -89,6 +89,77 @@ class ViewRegressionTest {
     }
 
     @Test
+    void changeNodeParentRetargetsPlaceEdge() {
+        DynamicSignature signature = signature(new ControlSpec("Room", 0));
+        PureBigraphMutable bigraph = emptyBigraph(signature);
+        var root = firstRoot(bigraph);
+        NodeEntity<DynamicControl> oldParent = addNode(bigraph, root, "Room", "old");
+        NodeEntity<DynamicControl> child = addNode(bigraph, oldParent, "Room", "child");
+        NodeEntity<DynamicControl> newParent = addNode(bigraph, root, "Room", "next");
+        BigraphModelState state = initializedState(bigraph);
+
+        String childId = state.getActiveView().getGModelIdForEntity(child).orElseThrow();
+        String oldParentId = state.getActiveView().getGModelIdForEntity(oldParent).orElseThrow();
+        String newParentId = state.getActiveView().getGModelIdForEntity(newParent).orElseThrow();
+
+        GEdge edge = placeEdgeTargeting(state, childId);
+        assertEquals(oldParentId, edge.getSourceId());
+
+        state.getActiveView().onChangeNodeParent(childId, newParentId);
+
+        List<GEdge> incoming = placeEdgesTargeting(state, childId);
+        assertEquals(1, incoming.size());
+        assertEquals(edge.getId(), incoming.get(0).getId());
+        assertEquals(newParentId, incoming.get(0).getSourceId());
+        assertEquals(childId, incoming.get(0).getTargetId());
+        assertEquals(state.getRoot(), gNode(state, childId).getParent());
+        assertTrue(state.getMetaInformation().getNodePositions().isEmpty());
+        assertTrue(state.getMetaInformation().getNodeRelativePositions().isEmpty());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void changeNodeParentToSiteMovesNodeAndDescendantsIntoTheSite() {
+        DynamicSignature signature = signature(new ControlSpec("Room", 0));
+        PureBigraphMutable bigraph = emptyBigraph(signature);
+        var root = firstRoot(bigraph);
+        NodeEntity<DynamicControl> mover = addNode(bigraph, root, "Room", "mover");
+        NodeEntity<DynamicControl> follower = addNode(bigraph, mover, "Room", "follower");
+        SiteEntity nestedSite = bigraph.addSite(mover);
+        NodeEntity<DynamicControl> insideNestedSite = addNode(bigraph, nestedSite, "Room", "inside");
+        SiteEntity targetSite = bigraph.addSite(root);
+        BigraphModelState state = initializedState(bigraph);
+
+        String moverId = state.getActiveView().getGModelIdForEntity(mover).orElseThrow();
+        String followerId = state.getActiveView().getGModelIdForEntity(follower).orElseThrow();
+        String nestedSiteId = state.getActiveView().getGModelIdForEntity(nestedSite).orElseThrow();
+        String insideId = state.getActiveView().getGModelIdForEntity(insideNestedSite).orElseThrow();
+        String targetSiteId = state.getActiveView().getGModelIdForEntity(targetSite).orElseThrow();
+        String rootId = state.getActiveView().getGModelIdForEntity(root).orElseThrow();
+        GEdge followerEdge = placeEdgeTargeting(state, followerId);
+
+        state.getActiveView().onChangeNodeParent(moverId, targetSiteId);
+
+        assertTrue(placeEdgesTargeting(state, moverId).isEmpty());
+        assertEquals(moverId, followerEdge.getSourceId());
+        assertEquals(targetSiteId, gNode(state, moverId).getParent().getId());
+        assertEquals(targetSiteId, gNode(state, followerId).getParent().getId());
+        assertEquals(gNode(state, rootId).getParent(), gNode(state, nestedSiteId).getParent());
+        assertEquals(nestedSiteId, gNode(state, insideId).getParent().getId());
+
+        Map<String, List<String>> siteChildren = readField(state.getActiveView(), "siteChildNodes", Map.class);
+        assertTrue(siteChildren.get(targetSiteId).containsAll(List.of(moverId, followerId)));
+        assertFalse(siteChildren.get(targetSiteId).contains(insideId));
+        assertTrue(siteChildren.get(nestedSiteId).contains(insideId));
+
+        String moverKey = BigraphNodeIdentity.toNodePositionKey(mover, mover.getControl());
+        String insideKey = BigraphNodeIdentity.toNodePositionKey(insideNestedSite, insideNestedSite.getControl());
+        assertTrue(state.getMetaInformation().getNodeRelativePositions().containsKey(moverKey));
+        assertFalse(state.getMetaInformation().getNodePositions().containsKey(moverKey));
+        assertFalse(state.getMetaInformation().getNodeRelativePositions().containsKey(insideKey));
+    }
+
+    @Test
     void initializedViewCreatesPlaceEdgesAndLinkConnections() {
         DeletionFixture fixture = createDeletionFixture();
 
@@ -217,6 +288,23 @@ class ViewRegressionTest {
         assertEquals(15.0, meta.getNodeRelativePositions().get(nestedStableId).getX());
         assertEquals(20.0, meta.getNodeRelativePositions().get(nestedStableId).getY());
         assertFalse(meta.getNodePositions().containsKey(nestedStableId));
+    }
+
+    private GNode gNode(final BigraphModelState state, final String elementId) {
+        return state.getIndex().findElementByClass(elementId, GNode.class).orElseThrow();
+    }
+
+    private GEdge placeEdgeTargeting(final BigraphModelState state, final String targetId) {
+        return placeEdgesTargeting(state, targetId).stream().findFirst().orElseThrow();
+    }
+
+    private List<GEdge> placeEdgesTargeting(final BigraphModelState state, final String targetId) {
+        return state.getRoot().getChildren().stream()
+            .filter(GEdge.class::isInstance)
+            .map(GEdge.class::cast)
+            .filter(edge -> "bigraph:place-edge".equals(edge.getType()))
+            .filter(edge -> targetId.equals(edge.getTargetId()))
+            .toList();
     }
 
     @SuppressWarnings("unchecked")
