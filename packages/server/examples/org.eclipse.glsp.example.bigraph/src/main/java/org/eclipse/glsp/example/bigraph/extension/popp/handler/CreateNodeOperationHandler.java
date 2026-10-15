@@ -1,5 +1,8 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.actions.StartDescriptionEditAction;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
+
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
@@ -23,7 +26,9 @@ public class CreateNodeOperationHandler extends AbstractPOPPActionHandler<Create
         GPoint location = action.getLocation().orElse(factory.point(0d, 0d));
 
         POPPModel model = context.getOwnState().getPoppModel();
-        model.createNode(nodeKind, "Double click to edit", location.getX(), location.getY());
+        TreeNode<?> node = model.createNode(nodeKind, "Double click to edit", location.getX(), location.getY());
+        // Open the description editor once the client has the node (after the update this mutation triggers)
+        actionDispatcher.dispatchAfterNextUpdate(new StartDescriptionEditAction(factory.toDescriptionId(node)));
         return true;
     }
 }

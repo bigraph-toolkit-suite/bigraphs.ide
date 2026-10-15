@@ -60,7 +60,20 @@ export interface InspectionResultAction extends ResponseAction {
 export interface CoverageReport {
     mode: PoppCoverageMode;
     roots: { id: string; kind: string; description: string; coverage: PoppCoverage }[];
-    trees: Record<string, { roots: number; nodes: number; height: number; width: number; }>;
+    coverageByKind: Record<string, Partial<Record<PoppCoverage, number>>>;
+    layers: {
+        label: string;
+        relationType: string;
+        fromKind: string;
+        toKind: string;
+        fromTotal: number;
+        fromLinked: number;
+        toTotal: number;
+        toLinked: number;
+        fromUnlinked: string[];
+        toUnlinked: string[];
+    }[];
+    trees: Record<string, { roots: number; nodes: number; height: number; width: number; maxBranching: number }>;
 }
 
 export interface RequestCoverageReportAction extends RequestAction<CoverageReportAction> {
@@ -166,4 +179,16 @@ export interface ValidationResultAction extends Action {
 }
 export const ValidationResultAction = {
     KIND: 'popp.validationResult' as const
+};
+
+// ---------------------------------------------------------------------------
+// Description editing right after creation (server -> client)
+// ---------------------------------------------------------------------------
+/** Sent by the server after the update that contains a newly created node: open its description editor. */
+export interface StartDescriptionEditAction extends Action {
+    kind: 'popp.startDescriptionEdit';
+    labelId: string;
+}
+export const StartDescriptionEditAction = {
+    KIND: 'popp.startDescriptionEdit' as const
 };
