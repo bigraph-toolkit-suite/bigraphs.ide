@@ -190,16 +190,47 @@ class TreeNodeTest {
         assertEquals(1, eventsHandled.get());
     }
 
+    /**
+     * Regression: moving a child to another parent left the old parent listening to it. Attaching the old parent
+     * below that child then made the two forward every event to each other (StackOverflowError on the next event).
+     */
     @Test
-    void removingTheLastChildClearsTheDecomposition() {
+    void movingAChildAndAttachingTheOldParentBelowItDoesNotLoopEvents() {
+        POPPModel model = new POPPModel();
+        TreeNode<?> a = model.createNode(NodeKind.PROBLEM, "a", 0, 0);
+        TreeNode<?> b = model.createNode(NodeKind.PROBLEM, "b", 0, 0);
+        TreeNode<?> c = model.createNode(NodeKind.PROBLEM, "c", 0, 0);
+        AtomicInteger moves = new AtomicInteger();
+        model.addListener(e -> { if (e instanceof POPPEvent.NodeChangedParent) moves.incrementAndGet(); });
+
+        assertEquals(DecompositionResult.ATTACHED, model.decompose(a, c));
+        moves.set(0);
+        assertEquals(DecompositionResult.ATTACHED, model.decompose(b, c)); // move c from a to b
+        assertEquals(1, moves.get(), "the move still reaches the model, exactly once");
+        assertEquals(DecompositionResult.ATTACHED, model.decompose(c, a)); // a below its former child
+
+        assertDoesNotThrow(() -> a.setDescription("renamed")); // looped before the fix
+        assertEquals(java.util.List.of(b), model.getProblemRoots());
+    }
+
+    @Test
+    void aNodeHasADecompositionExactlyWhileItHasChildren() {
         POPPModel model = new POPPModel();
         Problem a = (Problem) model.createNode(NodeKind.PROBLEM, "a", 0, 0);
         Problem b = (Problem) model.createNode(NodeKind.PROBLEM, "b", 0, 0);
+        Problem c = (Problem) model.createNode(NodeKind.PROBLEM, "c", 0, 0);
+
         a.addChild(b);
         assertEquals(DecompositionType.AND, a.getDecompositionType());
 
-        b.addChild(a); // flip: a is now b's child
+        b.addChild(a); // flip: a becomes b's child and has no children left
         assertEquals(DecompositionType.NONE, a.getDecompositionType());
         assertEquals(DecompositionType.AND, b.getDecompositionType());
+
+        c.addChild(a); // move a from b to c: b loses its last child
+        assertEquals(DecompositionType.NONE, b.getDecompositionType());
+
+        c.removeChild(a);
+        assertEquals(DecompositionType.NONE, c.getDecompositionType());
     }
 }

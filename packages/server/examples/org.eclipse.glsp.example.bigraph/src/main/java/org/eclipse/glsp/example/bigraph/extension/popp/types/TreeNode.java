@@ -105,15 +105,18 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
             setDecompositionType(DecompositionType.AND);
         }
 
-        child.getParent().ifPresent(oldParent -> {
-            if (oldParent != self()) {
-                oldParent.children.remove(child);
-            }
-        });
+        T oldParent = child.getParent().filter(p -> p != self()).orElse(null);
+        if (oldParent != null) {
+            oldParent.children.remove(child);
+        }
 
         child.setParent(self());
         children.add(child);
         child.addListener(this);
+
+        if (oldParent != null) {
+            oldParent.afterChildDetached(child);
+        }
         return true;
     }
 
@@ -123,13 +126,22 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
         }
         children.remove(child);
         if (child.parent == self()) { // only update if it still points to us, prevent double event dispatch
-            child.setParent(null);
+            child.setParent(null); // emitted while we still listen, so the event reaches the model
         }
+        afterChildDetached(child);
+        return true;
+    }
+
+    /**
+     * Bookkeeping once {@code child} has left {@link #children} and its parent-change event is out: stop forwarding
+     * its events, and drop the decomposition if it was the last child (counterpart of the AND fallback in
+     * {@link #addChild}: a node has a decomposition type exactly while it has children).
+     */
+    void afterChildDetached(T child) { // package-private: called on the old parent, typed as T
         child.removeListener(this);
         if (children.isEmpty() && decompositionType != DecompositionType.NONE) {
             setDecompositionType(DecompositionType.NONE);
         }
-        return true;
     }
 
     public boolean setParent(T parent) {
