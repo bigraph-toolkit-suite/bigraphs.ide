@@ -189,4 +189,17 @@ class TreeNodeTest {
         problem.setDescription(desc3);
         assertEquals(1, eventsHandled.get());
     }
+
+    @Test
+    void removingTheLastChildClearsTheDecomposition() {
+        POPPModel model = new POPPModel();
+        Problem a = (Problem) model.createNode(NodeKind.PROBLEM, "a", 0, 0);
+        Problem b = (Problem) model.createNode(NodeKind.PROBLEM, "b", 0, 0);
+        a.addChild(b);
+        assertEquals(DecompositionType.AND, a.getDecompositionType());
+
+        b.addChild(a); // flip: a is now b's child
+        assertEquals(DecompositionType.NONE, a.getDecompositionType());
+        assertEquals(DecompositionType.AND, b.getDecompositionType());
+    }
 }
