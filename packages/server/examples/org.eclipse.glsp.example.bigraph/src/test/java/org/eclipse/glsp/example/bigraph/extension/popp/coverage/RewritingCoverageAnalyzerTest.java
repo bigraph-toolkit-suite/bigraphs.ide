@@ -1,11 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
-import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
-import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageTestModels.Tree;
 import org.junit.jupiter.api.Test;
@@ -16,56 +11,29 @@ import org.junit.jupiter.params.provider.EnumSource;
 
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 import static org.junit.jupiter.api.Assertions.*;
 
 class RewritingCoverageAnalyzerTest {
 
-    public class POPPBigraphForwarder extends POPPSpecificEventListener {
-        private final POPPBigraph poppBigraph;
-
-        public POPPBigraphForwarder(POPPBigraph poppBigraph) { this.poppBigraph = poppBigraph; }
-
-        public POPPBigraph getPoppBigraph() { return poppBigraph; }
-
-        @Override protected void onNodeCreated(POPPEvent.NodeCreated e) { poppBigraph.addTreeNode(e.node()); }
-        @Override protected void onNodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {
-            poppBigraph.updateDescription(e.node().getId(), e.node().getDescription());
-        }
-        @Override protected void onNodeMoved(POPPEvent.NodeMoved e) {
-            poppBigraph.updatePosition(e.node().getId(), e.node().getX(), e.node().getY());
-        }
-        @Override protected void onNodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged e) {
-            poppBigraph.rebuildDecomposition(e.node());
-        }
-        @Override protected void onNodeRemoved(POPPEvent.NodeRemoved e) { poppBigraph.deleteTreeNode(e.node().getId()); }
-        @Override protected void onNodeChangedParent(POPPEvent.NodeChangedParent e) {
-            poppBigraph.reparentTreeNode(e.node(), e.oldParent(), e.newParent());
-        }
-        @Override protected void onRelationCreated(POPPEvent.RelationCreated e) { poppBigraph.createRelation(e.relation()); }
-        @Override protected void onRelationRemoved(POPPEvent.RelationRemoved e) { poppBigraph.removeRelation(e.relation()); }
-    }
-
+    /** A POPP model with its synced bigraph (see {@link CoverageTestModels.Synced}) and the analyzer under test. */
     final class SyncedPOPP {
-        final POPPModel model = new POPPModel();
+        final POPPModel model;
         final POPPBigraph bigraph;
         final CoverageAnalyzer analyzer;
 
         SyncedPOPP() {
-            DynamicSignature sig = POPPBigraphSignature.create();
-            PureBigraphMutable mutable = pureBuilder(sig).createMutable();
-            this.bigraph = new POPPBigraph(mutable, sig);
-            model.addListener(new POPPBigraphForwarder(bigraph));
-            this.analyzer = createAnalyzer(() -> bigraph, model.getRelations());
+            CoverageTestModels.Synced synced = new CoverageTestModels.Synced();
+            this.model = synced.model;
+            this.bigraph = synced.bigraph;
+            this.analyzer = createAnalyzer(CoverageInput.of(model, bigraph));
         }
     }
 
     /** The analyzer under test; subclasses run the same cases against another evaluation of the same rules. */
-    protected CoverageAnalyzer createAnalyzer(Supplier<POPPBigraph> bigraph, RelationGraph relations) {
-        return new RewritingCoverageAnalyzer(bigraph, relations);
+    protected CoverageAnalyzer createAnalyzer(CoverageInput input) {
+        return new RewritingCoverageAnalyzer(input);
     }
 
     @Test
@@ -261,7 +229,7 @@ class RewritingCoverageAnalyzerTest {
     // DomainCoverageAnalyzerTest.
 
     private static void assertAgree(SyncedPOPP popp, CoverageMode mode, String context) {
-        CoverageSession expected = new DomainCoverageAnalyzer(popp.model.getRelations()).session(mode);
+        CoverageSession expected = new DomainCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph)).session(mode);
         long start = System.nanoTime();
         CoverageSession actual = popp.analyzer.session(mode);
         long ms = (System.nanoTime() - start) / 1_000_000;
@@ -299,7 +267,7 @@ class RewritingCoverageAnalyzerTest {
         for (NodeKind kind : NodeKind.values()) {
             SyncedPOPP popp = new SyncedPOPP();
             TreeNode<?> node = popp.model.createNode(kind, "lonely " + kind, 0, 0);
-            CoverageAnalyzer domain = new DomainCoverageAnalyzer(popp.model.getRelations());
+            CoverageAnalyzer domain = new DomainCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph));
 
             assertEquals(domain.coverage(node, mode), popp.analyzer.coverage(node, mode), kind + " in " + mode);
             assertEquals(domain.explain(node, mode).getClass(), popp.analyzer.explain(node, mode).getClass(),

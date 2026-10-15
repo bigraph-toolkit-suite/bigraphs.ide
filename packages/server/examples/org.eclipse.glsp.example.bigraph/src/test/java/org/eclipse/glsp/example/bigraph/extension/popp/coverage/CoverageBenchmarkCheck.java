@@ -26,7 +26,7 @@ public final class CoverageBenchmarkCheck {
                 for (CoverageMode mode : CoverageMode.values()) {
                     Synced popp = new Synced();
                     CoverageTestModels.balancedTree(popp.model, depth, proveAll);
-                    CoverageSession expected = new DomainCoverageAnalyzer(popp.model.getRelations()).session(mode);
+                    CoverageSession expected = new DomainCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph)).session(mode);
                     long start = System.nanoTime();
                     String outcome;
                     int mismatches = 0;

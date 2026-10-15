@@ -19,9 +19,12 @@ public class CoverageReportHandler extends AbstractActionHandler<RequestCoverage
     @Override
     protected List<Action> executeAction(final RequestCoverageReportAction action) {
         CoverageMode mode = CoverageMode.fromString(action.getMode()).orElse(CoverageMode.PLANNING);
-        POPPModel model = context.getOwnState().getPoppModel();
-
-        CoverageReportAction response = new CoverageReportAction(CoverageReportBuilder.build(model, mode));
+        var state = context.getOwnState();
+        // Always answer: the client awaits this response. Without a POPP model (e.g. a plain bigraph) it is empty.
+        CoverageReportBuilder.CoverageReport report = state.getPoppModel() == null
+                ? new CoverageReportBuilder.CoverageReport(mode.name(), List.of(), java.util.Map.of())
+                : CoverageReportBuilder.build(state.getPoppModel(), state.getAnalyzer(), mode);
+        CoverageReportAction response = new CoverageReportAction(report);
         response.setResponseId(action.getRequestId());
         return List.of(response);
     }

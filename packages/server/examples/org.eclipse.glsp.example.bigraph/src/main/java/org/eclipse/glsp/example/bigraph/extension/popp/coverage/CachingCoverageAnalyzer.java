@@ -13,28 +13,24 @@ import java.util.function.LongSupplier;
  * and you get a fresh one.
  */
 public final class CachingCoverageAnalyzer implements CoverageAnalyzer {
-    private record Entry(long version, CoverageSession session) {}
+    private record Entry(Object revision, CoverageSession session) {}
 
+    private final CoverageInput input;
     private final CoverageAnalyzer delegate;
-    private final LongSupplier version;
     private final Map<CoverageMode, Entry> cache = new EnumMap<>(CoverageMode.class);
 
-    /**
-     * @param version must change after every model change that can affect coverage, and only once the change is
-     *                visible to the delegate (see POPPModel#getVersion)
-     */
-    public CachingCoverageAnalyzer(CoverageAnalyzer delegate, LongSupplier version) {
+    public CachingCoverageAnalyzer(CoverageInput input, CoverageAnalyzer delegate) {
+        this.input = input;
         this.delegate = delegate;
-        this.version = version;
     }
 
     @Override
     public synchronized CoverageSession session(CoverageMode mode) {
-        long current = version.getAsLong(); // read before computing: a change during the computation invalidates the entry
+        Object current = input.revision();
         Entry entry = cache.get(mode);
-        if (entry == null || entry.version() != current) {
+        if (current == null || entry == null || !entry.revision().equals(current)) {
             entry = new Entry(current, delegate.session(mode));
-            cache.put(mode, entry);
+            if (current != null) cache.put(mode, entry);
         }
         return entry.session();
     }

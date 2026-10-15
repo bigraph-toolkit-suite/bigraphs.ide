@@ -25,12 +25,13 @@ public class InspectionActionHandler extends AbstractActionHandler<RequestInspec
     @Override
     protected List<Action> executeAction(final RequestInspectionAction action) {
         CoverageMode mode = CoverageMode.fromString(action.getMode()).orElse(CoverageMode.PLANNING);
-        POPPModel model = context.getOwnState().getPoppModel();
+        var state = context.getOwnState();
+        POPPModel model = state.getPoppModel();
         TreeNode<?> node = model == null ? null : model.findNode(action.getNodeId());
 
         InspectionResult result = node == null
                 ? InspectionResult.unknown(action.getNodeId(), mode.name())
-                : tracer.trace(model, node, mode);
+                : tracer.trace(state.getAnalyzer(), node, mode);
 
         InspectionResultAction response = new InspectionResultAction(result);
         response.setResponseId(action.getRequestId());

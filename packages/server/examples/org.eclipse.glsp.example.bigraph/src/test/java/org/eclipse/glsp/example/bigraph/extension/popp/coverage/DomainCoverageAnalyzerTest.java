@@ -17,7 +17,7 @@ class DomainCoverageAnalyzerTest {
     @Test
     void decompositionsDetermineCoverage() {
         POPPModel model = new POPPModel();
-        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(CoverageInput.of(model, null));
         SuccessCriteria and = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "and", 0, 0);
         SuccessCriteria first = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "first", 0, 0);
         SuccessCriteria second = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "second", 0, 0);
@@ -63,7 +63,7 @@ class DomainCoverageAnalyzerTest {
     @Test
     void planningModeCoversPlannedKindsAndVerifyModeDoesNot() {
         POPPModel model = new POPPModel();
-        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(CoverageInput.of(model, null));
         Solution solution = (Solution) model.createNode(NodeKind.SOLUTION, "", 0, 0);
         SuccessCriteria criteria = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
 
@@ -93,7 +93,7 @@ class DomainCoverageAnalyzerTest {
     @Test
     void sessionsOfDifferentModesDoNotShareState() {
         POPPModel model = new POPPModel();
-        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(CoverageInput.of(model, null));
         SuccessCriteria criteria = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
 
         CoverageSession planning = analyzer.session(CoverageMode.PLANNING);
@@ -108,7 +108,7 @@ class DomainCoverageAnalyzerTest {
     @Test
     void gapsSeparateRootCausesFromAffectedNodes() {
         POPPModel model = new POPPModel();
-        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(CoverageInput.of(model, null));
         Problem problem = (Problem) model.createNode(NodeKind.PROBLEM, "problem", 0, 0);
         Goal goal = (Goal) model.createNode(NodeKind.GOAL, "goal", 0, 0);
         SuccessCriteria criteria = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "criteria", 0, 0);
@@ -134,7 +134,7 @@ class DomainCoverageAnalyzerTest {
     @Test
     void anUnprovenDecompositionChildIsTheRootCauseOfItsParent() {
         POPPModel model = new POPPModel();
-        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(CoverageInput.of(model, null));
         SuccessCriteria and = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "and", 0, 0);
         SuccessCriteria proven = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "proven", 0, 0);
         SuccessCriteria unproven = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "unproven", 0, 0);
@@ -155,7 +155,7 @@ class DomainCoverageAnalyzerTest {
     @Test
     void planningModeHasNoGapsForPlannedCriteria() {
         POPPModel model = new POPPModel();
-        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(model.getRelations());
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(CoverageInput.of(model, null));
         model.createNode(NodeKind.SUCCESS_CRITERIA, "planned", 0, 0);
 
         assertTrue(analyzer.gaps(model, CoverageMode.PLANNING).isEmpty());
@@ -177,7 +177,9 @@ class DomainCoverageAnalyzerTest {
     void everyActionStaysWellBelowTheResponsivenessRequirement(int depth) {
         POPPModel model = new POPPModel();
         Tree tree = CoverageTestModels.balancedTree(model, depth, true);
-        CoverageAnalyzer analyzer = model.getCoverage();
+        // as wired in POPPExtensionState, with the domain analyzer: this test is about the domain analyzer's timings
+        CoverageInput input = CoverageInput.of(model, null);
+        CoverageAnalyzer analyzer = new CachingCoverageAnalyzer(input, new DomainCoverageAnalyzer(input));
         System.out.printf("[responsiveness] depth=%d leaves=%d popp nodes=%d (budget %.0f ms per action)%n",
                 depth, tree.leaves().size(), model.getAllNodes().size(), BUDGET_MS);
 
@@ -196,7 +198,7 @@ class DomainCoverageAnalyzerTest {
                 assertInstanceOf(CoverageReason.Decomposition.class, analyzer.explain(tree.root(), CoverageMode.VERIFY)));
 
         stage(depth, "coverage report", () ->
-                assertNotNull(CoverageReportBuilder.build(model, CoverageMode.VERIFY)));
+                assertNotNull(CoverageReportBuilder.build(model, analyzer, CoverageMode.VERIFY)));
 
         SuccessCriteria leaf = tree.leaves().getFirst();
         SuccessProof proof = tree.proofs().getFirst();
@@ -228,5 +230,34 @@ class DomainCoverageAnalyzerTest {
         System.out.printf("[responsiveness]   depth=%d %-40s %8.2f ms%n", depth, name, median);
         assertTrue(median < BUDGET_MS,
                 name + " at depth " + depth + " took " + median + " ms, budget " + BUDGET_MS + " ms");
+    }
+
+    /** The analyzer as POPPExtensionState wires it: late-bound input, cached sessions. */
+    @Test
+    void cachedAnalyzerFollowsEditsAndAReloadedModel() {
+        POPPModel[] current = {new POPPModel()};
+        CoverageInput input = CoverageInput.lazy(() -> current[0], () -> null);
+        CoverageAnalyzer analyzer = new CachingCoverageAnalyzer(input, new DomainCoverageAnalyzer(input));
+
+        POPPModel model = current[0];
+        TreeNode<?> solution = model.createNode(NodeKind.SOLUTION, "solution", 0, 0);
+        TreeNode<?> proof = model.createNode(NodeKind.SUCCESS_PROOF, "proof", 0, 0);
+        TreeNode<?> criterion = model.createNode(NodeKind.SUCCESS_CRITERIA, "criterion", 0, 0);
+        model.relate(solution, proof);
+        model.relate(proof, criterion);
+        assertTrue(analyzer.isCovered(criterion, CoverageMode.VERIFY));
+
+        model.unrelate(proof, criterion); // an edit bumps the version: the cached session must not be reused
+        assertFalse(analyzer.isCovered(criterion, CoverageMode.VERIFY));
+
+        // a reload replaces the model object; the analyzer is not rebuilt and must read the new model
+        POPPModel reloaded = new POPPModel();
+        TreeNode<?> s2 = reloaded.createNode(NodeKind.SOLUTION, "solution", 0, 0);
+        TreeNode<?> p2 = reloaded.createNode(NodeKind.SUCCESS_PROOF, "proof", 0, 0);
+        TreeNode<?> c2 = reloaded.createNode(NodeKind.SUCCESS_CRITERIA, "criterion", 0, 0);
+        reloaded.relate(s2, p2);
+        reloaded.relate(p2, c2);
+        current[0] = reloaded;
+        assertTrue(analyzer.isCovered(c2, CoverageMode.VERIFY));
     }
 }
