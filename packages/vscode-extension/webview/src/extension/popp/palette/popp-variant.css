@@ -7,9 +7,11 @@
 .popp-card {
     border: 1px solid var(--vscode-panel-border, #444);
     border-radius: 6px;
-    padding: 8px;
+    padding: 8px 4px;
+    min-width: 0;
     cursor: pointer;
     text-align: center;
+    container-type: inline-size;
 }
 
 .popp-card:hover,
@@ -19,8 +21,11 @@
 }
 
 .popp-card-name {
-    font-size: 11px;
+    font-size: clamp(8px, 14cqi, 11px);
     margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .popp-relation-label rect {
