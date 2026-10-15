@@ -59,12 +59,23 @@ class POPPModelValidatorTest {
     }
 
     @Test
-    void decompositionWhoseLastChildWasRemovedIsReported() {
+    void removingTheLastChildLeavesNoEmptyDecomposition() {
         CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
         Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "goal", 0, 0);
         Goal sub = (Goal) popp.model.createNode(NodeKind.GOAL, "sub", 0, 0);
         goal.addChild(sub);
-        goal.removeChild(sub);
+        goal.removeChild(sub); // the node drops its decomposition with its last child
+
+        assertTrue(issues(validate(popp), ValidationIssue.Code.EMPTY_DECOMPOSITION).isEmpty());
+    }
+
+    @Test
+    void emptyDecompositionInTheBigraphIsReported() {
+        // the editor cannot produce this any more; files written before (or edited by hand) can contain it
+        CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
+        Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "goal", 0, 0);
+        PureBigraphMutable g = popp.bigraph.getBigraph();
+        g.addNode(node(g, goal.getId()), popp.bigraph.getSignature().getControlByName("AndDecomp"), goal.getId() + "_DECOMP");
 
         List<ValidationIssue> empty = issues(validate(popp), ValidationIssue.Code.EMPTY_DECOMPOSITION);
 
