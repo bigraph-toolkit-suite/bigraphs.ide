@@ -7,6 +7,7 @@ import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphLoader;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchronizer;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.FragmentRewritingCoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPEdgeCreationChecker;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPTypeHints;
@@ -31,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 public class POPPExtension implements IdeExtension {
@@ -46,6 +48,9 @@ public class POPPExtension implements IdeExtension {
             .description("Problem-Oriented Project Planning (encoded as a bigraph under the hood)")
             .iconCodicon("new-popp-model")
             .build();
+
+    // CoverageAnalyzer warmup
+    private static final AtomicBoolean WARMED_UP = new AtomicBoolean();
 
 
     @Override
@@ -112,6 +117,11 @@ public class POPPExtension implements IdeExtension {
     @Override
     public void onModelLoaded(final IBigraphModelState state, final Injector injector) {
         injector.getInstance(POPPBigraphLoader.class).loadModelFromBigraph(state.getMutableBigraph());
+        if (WARMED_UP.compareAndSet(false, true)) {
+            Thread warmUp = new Thread(FragmentRewritingCoverageAnalyzer::warmUp, "popp-warmup");
+            warmUp.setDaemon(true);
+            warmUp.start();
+        }
     }
 
 

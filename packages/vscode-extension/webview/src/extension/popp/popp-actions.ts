@@ -57,23 +57,11 @@ export interface InspectionResultAction extends ResponseAction {
     result: InspectionResult;
 }
 
+/** Mirrors the server's {@code CoverageReportBuilder.CoverageReport}. */
 export interface CoverageReport {
     mode: PoppCoverageMode;
     roots: { id: string; kind: string; description: string; coverage: PoppCoverage }[];
-    coverageByKind: Record<string, Partial<Record<PoppCoverage, number>>>;
-    layers: {
-        label: string;
-        relationType: string;
-        fromKind: string;
-        toKind: string;
-        fromTotal: number;
-        fromLinked: number;
-        toTotal: number;
-        toLinked: number;
-        fromUnlinked: string[];
-        toUnlinked: string[];
-    }[];
-    trees: Record<string, { roots: number; nodes: number; height: number; width: number; maxBranching: number }>;
+    trees: Record<string, { roots: number; nodes: number; height: number; width: number }>;
 }
 
 export interface RequestCoverageReportAction extends RequestAction<CoverageReportAction> {

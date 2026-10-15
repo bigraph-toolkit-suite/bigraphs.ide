@@ -155,8 +155,7 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
         PureBigraph redex() { return rule.rule().getRedex(); }
     }
 
-    private final Supplier<POPPBigraph> structure;
-    private final RelationGraph relations;
+    private final CoverageInput input;
     private final Options options;
 
     private final List<Prepared> placeRules;
@@ -168,13 +167,12 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
 
     private volatile RewritingStats lastStats;
 
-    public FragmentRewritingCoverageAnalyzer(Supplier<POPPBigraph> structure, RelationGraph relations) {
-        this(structure, relations, Options.DEFAULT);
+    public FragmentRewritingCoverageAnalyzer(CoverageInput input) {
+        this(input, Options.DEFAULT);
     }
 
-    public FragmentRewritingCoverageAnalyzer(Supplier<POPPBigraph> structure, RelationGraph relations, Options options) {
-        this.structure = structure;
-        this.relations = relations;
+    public FragmentRewritingCoverageAnalyzer(CoverageInput input, Options options) {
+        this.input = input;
         this.options = options;
 
         List<Prepared> place = new ArrayList<>(), link = new ArrayList<>();
@@ -218,7 +216,7 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
         for (TreeNode<?> n : List.<TreeNode<?>>of(left, right, root, solution, proof)) bigraph.addTreeNode(n);
         bigraph.createRelation(new Relation(solution, RelationType.PRODUCES, proof));
         bigraph.createRelation(new Relation(proof, RelationType.VALIDATES, left));
-        FragmentRewritingCoverageAnalyzer analyzer = new FragmentRewritingCoverageAnalyzer(() -> bigraph, model.getRelations());
+        FragmentRewritingCoverageAnalyzer analyzer = new FragmentRewritingCoverageAnalyzer(CoverageInput.of(model, bigraph));
         for (int i = 0; i < 20; i++) {
             for (CoverageMode mode : CoverageMode.values()) analyzer.session(mode).coverage(root);
         }
@@ -609,13 +607,15 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
 
     @Override
     public CoverageSession session(CoverageMode mode) {
+        POPPModel model = input.model();
+        POPPBigraph bigraph = input.bigraph();
+        if (model == null || bigraph == null) throw new IllegalStateException("No POPP model loaded");
         long t0 = System.nanoTime();
-        Session session = new Session(snapshot(structure.get(), mode));
+        Session session = new Session(snapshot(bigraph, mode));
         long snap = System.nanoTime() - t0;
         session.run();
         lastStats = new RewritingStats(session.evaluations, session.calls, session.successful, session.maxFragment,
                 session.tBuild + snap, session.tEncode, session.tMatch);
         logger.debug("[fragment session {}] {}", mode, lastStats);
-        return new RewritingSession(mode, relations, new RewritingCoverageAnalyzer.Readout(session.states, session.why));
-    }
+        return new RewritingSession(mode, model.getRelations(), new RewritingCoverageAnalyzer.Readout(session.states, session.why));    }
 }

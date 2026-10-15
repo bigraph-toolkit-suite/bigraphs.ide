@@ -1,12 +1,9 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationGraph;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -18,8 +15,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class FragmentRewritingCoverageAnalyzerTest extends RewritingCoverageAnalyzerTest {
 
     @Override
-    protected CoverageAnalyzer createAnalyzer(Supplier<POPPBigraph> bigraph, RelationGraph relations) {
-        return new FragmentRewritingCoverageAnalyzer(bigraph, relations);
+    protected CoverageAnalyzer createAnalyzer(CoverageInput input) {
+        return new FragmentRewritingCoverageAnalyzer(input);
     }
 
     @Test

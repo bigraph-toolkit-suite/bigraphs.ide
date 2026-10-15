@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.junit.jupiter.api.Test;
 
@@ -68,16 +67,20 @@ class POPPModelTest {
     }
 
     @Test
-    void delegatesRelationsAndCoverageToItsCollaborators() {
+    void delegatesRelationsToItsRelationGraphAndBumpsTheVersion() {
         POPPModel model = new POPPModel();
         SuccessProof proof = new SuccessProof("proof", 0, 0);
         SuccessCriteria criterion = new SuccessCriteria("criterion", 0, 0);
+        long initial = model.getVersion();
 
         assertEquals(RelationResult.CREATED, model.relate(proof, criterion));
-        assertTrue(model.getCoverage().isCovered(criterion, CoverageMode.VERIFY));
+        assertEquals(1, model.getRelations().all().size());
+        long afterRelate = model.getVersion();
+        assertTrue(afterRelate > initial, "a relation can change coverage, so cached sessions must be invalidated");
+
         assertEquals(RelationResult.REMOVED, model.unrelate(criterion, proof));
-        assertFalse(model.getCoverage().isCovered(criterion, CoverageMode.VERIFY));
         assertTrue(model.getRelations().all().isEmpty());
+        assertTrue(model.getVersion() > afterRelate);
     }
 
     @Test

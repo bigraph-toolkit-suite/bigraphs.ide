@@ -10,15 +10,17 @@ import java.util.*;
  */
 public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
 
-    private final RelationGraph relations;
+    private final CoverageInput input;
 
-    public DomainCoverageAnalyzer(RelationGraph relations) {
-        this.relations = relations;
+    public DomainCoverageAnalyzer(CoverageInput input) {
+        this.input = input;
     }
 
     @Override
     public CoverageSession session(CoverageMode mode) {
-        return new Session(mode, relations);
+        POPPModel model = input.model();
+        if (model == null) throw new IllegalStateException("No POPP model loaded");
+        return new Session(mode, model.getRelations());
     }
 
     private final class Session extends AbstractCoverageSession {

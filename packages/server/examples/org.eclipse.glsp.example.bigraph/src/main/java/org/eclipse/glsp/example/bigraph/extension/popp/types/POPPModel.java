@@ -25,7 +25,6 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
     private final RelationGraph relations = new RelationGraph();
     /** Bumped after every event that can change coverage; see {@link #publish}. */
     private final AtomicLong version = new AtomicLong();
-    private final CoverageAnalyzer coverage = new CachingCoverageAnalyzer(new DomainCoverageAnalyzer(relations), version::get);
 
     public POPPModel() {
         relations.addListener(this);
@@ -107,10 +106,6 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
 
     public RelationGraph getRelations() {
         return relations;
-    }
-
-    public CoverageAnalyzer getCoverage() {
-        return coverage;
     }
 
     /** Changes with every model change that can affect coverage. Cached coverage sessions are valid for one version. */

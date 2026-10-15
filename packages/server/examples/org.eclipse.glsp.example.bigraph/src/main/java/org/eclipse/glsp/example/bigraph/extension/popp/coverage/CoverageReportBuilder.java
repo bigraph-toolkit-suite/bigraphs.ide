@@ -21,8 +21,9 @@ public final class CoverageReportBuilder {
 
     private CoverageReportBuilder() {}
 
-    public static CoverageReport build(POPPModel model, CoverageMode mode) {
-        CoverageSession session = model.getCoverage().session(mode);
+    /** The report for {@code model}, with coverage from {@code analyzer} (which must analyse that model). */
+    public static CoverageReport build(POPPModel model, CoverageAnalyzer analyzer, CoverageMode mode) {
+        CoverageSession session = analyzer.session(mode);
         List<TreeNode<?>> nodes = new ArrayList<>(model.getAllNodes());
 
         List<RootStatus> roots = new ArrayList<>();
