@@ -24,12 +24,14 @@ public final class CoverageTestModels {
      * link guard); or one of the {@code fragment*} variants of {@link FragmentRewritingCoverageAnalyzer}.
      */
     static CoverageAnalyzer analyzer(String name, Synced popp) {
+        CoverageInput input = CoverageInput.of(popp.model, popp.bigraph);
+
         return switch (name) {
-            case "domain" -> new DomainCoverageAnalyzer(popp.model.getRelations());
-            case "rewriting" -> new RewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations());
-            case "rewriting-naive" -> new RewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations(),
+            case "domain" -> new DomainCoverageAnalyzer(input);
+            case "rewriting" -> new RewritingCoverageAnalyzer(input);
+            case "rewriting-naive" -> new RewritingCoverageAnalyzer(input,
                     RewritingCoverageAnalyzer.Pruning.NONE);
-            case "rewriting-census" -> new RewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations(),
+            case "rewriting-census" -> new RewritingCoverageAnalyzer(input,
                     RewritingCoverageAnalyzer.Pruning.CENSUS);
             // fragment evaluation of the same rules, one lever at a time (see FragmentRewritingCoverageAnalyzer.Options)
             case "fragment-rounds" -> fragment(popp, false, false, false, false, false);
@@ -44,7 +46,7 @@ public final class CoverageTestModels {
 
     private static CoverageAnalyzer fragment(Synced popp, boolean localPrune, boolean incremental, boolean slim,
                                              boolean firstMatch, boolean memo) {
-        return new FragmentRewritingCoverageAnalyzer(() -> popp.bigraph, popp.model.getRelations(),
+        return new FragmentRewritingCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph),
                 new FragmentRewritingCoverageAnalyzer.Options(localPrune, incremental, slim, firstMatch, memo));
     }
 

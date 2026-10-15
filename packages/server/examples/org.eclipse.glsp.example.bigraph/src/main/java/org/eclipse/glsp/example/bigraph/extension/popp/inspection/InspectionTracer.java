@@ -1,9 +1,9 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.inspection;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReason;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
 import java.util.*;
@@ -12,12 +12,13 @@ import java.util.*;
 public final class InspectionTracer {
     private final POPPGModelFactory factory;
 
-    public InspectionTracer(POPPGModelFactory factory) {
+    public InspectionTracer(final POPPGModelFactory factory) {
         this.factory = factory;
     }
 
-    public InspectionResult trace(POPPModel model, TreeNode<?> node, CoverageMode mode) {
-        CoverageReason reason = model.getCoverage().explain(node, mode);
+    /** Explains {@code node}'s coverage with {@code analyzer} and flattens the reason into what to highlight. */
+    public InspectionResult trace(CoverageAnalyzer analyzer, TreeNode<?> node, CoverageMode mode) {
+        CoverageReason reason = analyzer.explain(node, mode);
 
         Set<String> nodes = new LinkedHashSet<>();
         Set<String> edges = new LinkedHashSet<>();

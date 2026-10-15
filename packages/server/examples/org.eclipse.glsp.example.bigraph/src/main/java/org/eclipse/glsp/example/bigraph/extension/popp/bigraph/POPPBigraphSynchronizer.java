@@ -7,6 +7,7 @@ import org.apache.logging.log4j.Logger;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionState;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
@@ -22,28 +23,30 @@ import java.util.Optional;
 public class POPPBigraphSynchronizer extends POPPSpecificEventListener {
     private static final Logger LOGGER = LogManager.getLogger(POPPBigraphSynchronizer.class);
 
-    private final POPPBigraph poppBigraph;
+    private final POPPExtensionState state;
 
     @Inject
     public POPPBigraphSynchronizer(final POPPExtensionContext context) {
+        this.state = context.getOwnState();
+
         PureBigraphMutable bigraph = context.getBigraphModelState().getMutableBigraph();
-        this.poppBigraph = new POPPBigraph(bigraph, bigraph.getSignature());
-        this.poppBigraph.addObserver(new POPPBigraphViewMirror(() ->
+        state.setPoppBigraph(new POPPBigraph(bigraph, bigraph.getSignature()));
+        state.getPoppBigraph().addObserver(new POPPBigraphViewMirror(() ->
                 context.getBigraphModelState() instanceof BigraphModelState s
                         ? Optional.ofNullable(s.getActiveView())
                         : Optional.empty()));
     }
 
     public DynamicSignature getSignature() {
-        return poppBigraph.getSignature();
+        return getPoppBigraph().getSignature();
     }
 
     public PureBigraphMutable getBigraph() {
-        return poppBigraph.getBigraph();
+        return getPoppBigraph().getBigraph();
     }
 
     public POPPBigraph getPoppBigraph() {
-        return poppBigraph;
+        return state.getPoppBigraph();
     }
 
     @Override

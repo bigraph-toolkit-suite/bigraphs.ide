@@ -66,18 +66,16 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
     /** A rule and the node count per control its redex needs. */
     private record Prepared(CompiledRule rule, Map<String, Integer> required) {}
 
-    private final Supplier<POPPBigraph> structure;
-    private final RelationGraph relations;
+    private final CoverageInput input;
     private final List<Prepared> prepared;
     private final Pruning pruning;
 
-    public RewritingCoverageAnalyzer(Supplier<POPPBigraph> structure, RelationGraph relations) {
-        this(structure, relations, Pruning.FULL);
+    public RewritingCoverageAnalyzer(CoverageInput input) {
+        this(input, Pruning.FULL);
     }
 
-    public RewritingCoverageAnalyzer(Supplier<POPPBigraph> structure, RelationGraph relations, Pruning pruning) {
-        this.structure = structure;
-        this.relations = relations;
+    public RewritingCoverageAnalyzer(CoverageInput input, Pruning pruning) {
+        this.input = input;
         this.pruning = pruning;
         List<Prepared> list = new ArrayList<>();
         for (CompiledRule r : RULES) list.add(new Prepared(r, census(r.rule().getRedex())));
@@ -93,7 +91,7 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
     public CoverageSession session(CoverageMode mode) {
         // Seed with intrinsic coverage straight from a freshly built bigraph (no rewriting involved, links intact).
         // The same bigraph is round 1's snapshot, since the seeded states equal the defaults it was built with.
-        PureBigraph agent = CoverageBigraph.build(structure.get(), mode, Map.of());
+        PureBigraph agent = CoverageBigraph.build(input.bigraph(), mode, Map.of());
         Readout initial = Readout.of(agent);
         Map<String, Coverage> states = new HashMap<>(initial.coverage());
         Map<String, Derivation> why = new HashMap<>(initial.derivation());
@@ -139,13 +137,13 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
 
             if (changed) {
                 t0 = System.nanoTime();
-                agent = CoverageBigraph.build(structure.get(), mode, states);
+                agent = CoverageBigraph.build(input.bigraph(), mode, states);
                 tBuild += System.nanoTime() - t0;
             }
         }
         lastStats = new RewritingStats(rounds, matcherCalls, successfulCalls, agentNodes, tBuild, tEncode, tMatch);
         logger.debug("[session {}] {}", mode, lastStats);
-        return new RewritingSession(mode, relations, new Readout(states, why));
+        return new RewritingSession(mode, input.model().getRelations(), new Readout(states, why));
     }
 
     /** Number of nodes per control name. */
@@ -172,7 +170,7 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      */
     private boolean linkPossible(CompiledRule rule, Map<String, Coverage> snapshot) {
         boolean forward = rule.relation().getCoveragePropagation() == RelationType.CoveragePropagation.FORWARD;
-        for (Relation r : relations.all()) {
+        for (Relation r : input.model().getRelations().all()) {
             if (r.type() != rule.relation()) continue;
             TreeNode<?> giver = forward ? r.source() : r.target();
             TreeNode<?> receiver = forward ? r.target() : r.source();

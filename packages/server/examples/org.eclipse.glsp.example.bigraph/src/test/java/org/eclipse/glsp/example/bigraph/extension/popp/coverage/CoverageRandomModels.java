@@ -67,7 +67,7 @@ final class CoverageRandomModels {
             Synced popp = new Synced();
             build(popp, new Random(seed + i), maxNodes);
             for (CoverageMode mode : CoverageMode.values()) {
-                CoverageSession expected = new DomainCoverageAnalyzer(popp.model.getRelations()).session(mode);
+                CoverageSession expected = new DomainCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph)).session(mode);
                 CoverageSession actual = CoverageTestModels.analyzer(analyzer, popp).session(mode);
                 List<String> diff = new ArrayList<>();
                 for (TreeNode<?> node : popp.model.getAllNodes()) {
