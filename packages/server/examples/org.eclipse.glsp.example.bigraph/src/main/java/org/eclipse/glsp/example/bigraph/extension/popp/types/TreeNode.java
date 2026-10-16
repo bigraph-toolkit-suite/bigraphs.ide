@@ -107,8 +107,8 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
             return false;
         }
 
-        if (child == parent) { // Allow flipping, but no loops
-            setParent(null);
+        if (child == parent) { // flip: this node first becomes a root, so no cycle arises
+            detach();
         }
 
         if (decompositionType == DecompositionType.NONE) {
@@ -116,12 +116,13 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
             changeDecompositionType(DecompositionType.AND);
         }
 
-        T oldParent = child.getParent().filter(p -> p != self()).orElse(null);
+        T oldParent = child.parent;
         if (oldParent != null) {
             oldParent.children.remove(child);
         }
-
-        child.setParent(self());
+        child.parent = self();
+        // one event, through the old parent (or, for a root, straight to the model); this node does not listen yet
+        child.emitParentChange(oldParent, self());
         children.add(child);
         child.addListener(this);
 
@@ -136,12 +137,27 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
         if (child == null || !children.contains(child)) {
             return false;
         }
-        children.remove(child);
-        if (child.parent == self()) { // only update if it still points to us, prevent double event dispatch
-            child.setParent(null); // emitted while we still listen, so the event reaches the model
-        }
-        afterChildDetached(child);
+        child.detach();
         return true;
+    }
+
+    /**
+     * Makes this node a root. The event goes out after the old parent's child list is updated but while the old
+     * parent still forwards this node's events (and before {@link #parent} is cleared), so it reaches the model.
+     */
+    void detach() { // package-private: called on a child, typed as T
+        T oldParent = parent;
+        if (oldParent == null) {
+            return;
+        }
+        oldParent.children.remove(self());
+        emitParentChange(oldParent, null);
+        parent = null;
+        oldParent.afterChildDetached(self());
+    }
+
+    void emitParentChange(T oldParent, T newParent) {
+        emitEvent(new POPPEvent.NodeChangedParent(kind, self(), oldParent, newParent));
     }
 
     /**
@@ -157,36 +173,20 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
     }
 
     /**
-     * Moves this node below {@code parent}, or makes it a root for {@code null}. Keeps both sides consistent by going
-     * through {@link #addChild}/{@link #removeChild}, and emits one {@link POPPEvent.NodeChangedParent}: for
-     * {@code null} before the old parent lets go (so the old parent still forwards it), otherwise afterwards. Refuses
-     * this node itself and its own descendants; setting the current parent again is a successful no-op.
+     * Moves this node below {@code parent} (as {@code parent.addChild(this)}), or makes it a root for {@code null}
+     * (as {@code removeChild} on the old parent); either way exactly one {@link POPPEvent.NodeChangedParent} is
+     * emitted. Refuses this node itself and its own descendants; setting the current parent again is a successful
+     * no-op.
      */
     public boolean setParent(T parent) {
-        if (parent == self() || (parent != null && parent.isChildOf(self()))) {
-            return false;
-        }
-        if (this.parent == parent) {
+        if (parent == null) {
+            detach();
             return true;
         }
-
-        TreeNode<T> oldParent = this.parent;
-        POPPEvent event = new POPPEvent.NodeChangedParent(kind, self(), oldParent, parent);
-
-        if (oldParent != null) {
-            if (parent == null) emitEvent(event);
-            oldParent.removeChild(self());
+        if (parent == self() || parent.isChildOf(self())) {
+            return false;
         }
-
-        this.parent = parent;
-        if (parent != null && !parent.getChildren().contains(self())) {
-            parent.addChild(self());
-        }
-
-        if (oldParent == null || parent != null) {
-            emitEvent(event);
-        }
-        return true;
+        return this.parent == parent || parent.addChild(self());
     }
 
     public boolean isChildOf(T potentialParent) {

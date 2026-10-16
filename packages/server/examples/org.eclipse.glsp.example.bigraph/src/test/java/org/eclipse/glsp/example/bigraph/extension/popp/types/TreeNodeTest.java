@@ -256,4 +256,130 @@ class TreeNodeTest {
         assertTrue(root.setDecompositionType(DecompositionType.OR));
         assertEquals(1, events.get());
     }
+
+    @Test
+    void attachingTheDirectParentFlipsTheTwo() {
+        Problem a = new Problem("a", 0, 0);
+        Problem b = new Problem("b", 0, 0);
+        a.addChild(b);
+
+        assertTrue(b.addChild(a));
+
+        assertTrue(b.getParent().isEmpty());
+        assertEquals(b, a.getParent().orElseThrow());
+        assertEquals(java.util.List.of(a), b.getChildren());
+        assertTrue(a.getChildren().isEmpty());
+        assertEquals(DecompositionType.NONE, a.getDecompositionType());
+        assertEquals(DecompositionType.AND, b.getDecompositionType());
+    }
+
+    @Test
+    void anExistingDescendantOrAFartherAncestorIsRefused() {
+        Problem root = new Problem("root", 0, 0);
+        Problem child = new Problem("child", 0, 0);
+        Problem grandchild = new Problem("grandchild", 0, 0);
+        root.addChild(child);
+        child.addChild(grandchild);
+
+        assertFalse(root.addChild(grandchild), "already below root");
+        assertFalse(grandchild.addChild(root), "would close a cycle");
+        assertFalse(root.addChild(null));
+        assertEquals(child, grandchild.getParent().orElseThrow());
+    }
+
+    @Test
+    void setParentRefusesDescendantsAndIsANoOpForTheCurrentParent() {
+        Problem root = new Problem("root", 0, 0);
+        Problem child = new Problem("child", 0, 0);
+        root.addChild(child);
+        AtomicInteger events = new AtomicInteger();
+        root.addListener(e -> events.incrementAndGet());
+
+        assertFalse(root.setParent(child));
+        assertFalse(root.setParent(root));
+        assertTrue(child.setParent(root));
+        assertEquals(0, events.get());
+    }
+
+    @Test
+    void setParentNullMakesARootAndEmitsOneEventThroughTheOldParent() {
+        Problem root = new Problem("root", 0, 0);
+        Problem child = new Problem("child", 0, 0);
+        root.addChild(child);
+        java.util.List<POPPEvent> events = new java.util.ArrayList<>();
+        root.addListener(events::add);
+
+        assertTrue(child.setParent(null));
+
+        assertTrue(child.getParent().isEmpty());
+        assertTrue(root.getChildren().isEmpty());
+        assertEquals(1, events.stream().filter(POPPEvent.NodeChangedParent.class::isInstance).count());
+        POPPEvent.NodeChangedParent changed = (POPPEvent.NodeChangedParent) events.stream()
+                .filter(POPPEvent.NodeChangedParent.class::isInstance).findFirst().orElseThrow();
+        assertEquals(root, changed.oldParent());
+        assertNull(changed.newParent());
+    }
+
+    @Test
+    void eventsOfDeepDescendantsReachTheRootsListeners() {
+        Problem root = new Problem("root", 0, 0);
+        Problem child = new Problem("child", 0, 0);
+        Problem grandchild = new Problem("grandchild", 0, 0);
+        root.addChild(child);
+        child.addChild(grandchild);
+        java.util.List<POPPEvent> events = new java.util.ArrayList<>();
+        root.addListener(events::add);
+
+        grandchild.setDescription("changed");
+
+        assertEquals(1, events.size());
+        assertEquals(grandchild, ((POPPEvent.NodeDescriptionChanged) events.getFirst()).node());
+    }
+
+    @Test
+    void aDetachedChildNoLongerForwardsEvents() {
+        Problem root = new Problem("root", 0, 0);
+        Problem child = new Problem("child", 0, 0);
+        root.addChild(child);
+        root.removeChild(child);
+        AtomicInteger events = new AtomicInteger();
+        root.addListener(e -> events.incrementAndGet());
+
+        child.move(1, 1);
+
+        assertEquals(0, events.get());
+    }
+
+    @Test
+    void identityIsKindAndId() {
+        Problem problem = new Problem("same", "p", 0, 0);
+        Goal goal = new Goal("same", "g", 0, 0);
+        assertNotEquals(problem, goal);
+        assertEquals(problem, new Problem("same", "other description", 1, 1));
+        assertEquals(problem.hashCode(), new Problem("same", "x", 0, 0).hashCode());
+    }
+
+    @Test
+    void heightAndWidthOfALeaf() {
+        Problem leaf = new Problem("leaf", 0, 0);
+        assertEquals(1, leaf.getHeight());
+        assertEquals(1, leaf.getWidth());
+    }
+
+    @Test
+    void setParentMovesTheNodeIntoTheNewParentsChildren() {
+        Problem first = new Problem("first", 0, 0);
+        Problem second = new Problem("second", 0, 0);
+        Problem child = new Problem("child", 0, 0);
+        first.addChild(child);
+        java.util.List<POPPEvent> events = new java.util.ArrayList<>();
+        first.addListener(events::add);
+
+        assertTrue(child.setParent(second));
+
+        assertEquals(java.util.List.of(child), second.getChildren());
+        assertTrue(first.getChildren().isEmpty());
+        assertEquals(second, child.getParent().orElseThrow());
+        assertEquals(1, events.stream().filter(POPPEvent.NodeChangedParent.class::isInstance).count());
+    }
 }

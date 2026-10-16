@@ -25,8 +25,9 @@ public sealed interface POPPEvent {
     }
 
     /**
-     * The node moved from {@code oldParent} to {@code newParent} ({@code null}: root). When it becomes a root, the event
-     * is emitted before the node's parent field and the old parent's child list are updated, so use these fields.
+     * The node moved from {@code oldParent} to {@code newParent} ({@code null}: root). Emitted mid-change: when the node
+     * becomes a root, its parent field still points to the old parent, and when it gets a new parent, that parent's
+     * child list does not contain it yet. Use these fields, not the nodes' getters.
      */
     record NodeChangedParent(NodeKind kind, TreeNode<?> node, TreeNode<?> oldParent, TreeNode<?> newParent) implements POPPEvent {
     }
