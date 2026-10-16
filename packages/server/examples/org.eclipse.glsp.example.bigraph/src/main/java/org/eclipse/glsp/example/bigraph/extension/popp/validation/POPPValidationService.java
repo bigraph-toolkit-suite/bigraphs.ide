@@ -45,13 +45,13 @@ public class POPPValidationService implements POPPEventListener {
     private final POPPExtensionContext context;
     // Providers, not instances: GLSP creates all action handlers (and with them this service) when the session
     // starts, before a model is loaded. The synchronizer reads the model state's bigraph in its constructor, so it
-    // must only be created on first use, which is after loading. The dispatcher is the one under construction then.
+    // must only be created on first use, which is after loading. The ActionDispatcher is itself still being built at
+    // that point (it creates the handlers), so it is looked up lazily as well.
     private final Provider<POPPBigraphSynchronizer> bigraphSynchronizer;
     private final Provider<ActionDispatcher> actionDispatcher;
     private final POPPModelValidator validator = new POPPModelValidator();
     private final AtomicLong generation = new AtomicLong();
     private ScheduledFuture<?> pending;
-    private volatile ValidationReport last;
 
     @Inject
     public POPPValidationService(final POPPExtensionContext context,
@@ -100,7 +100,6 @@ public class POPPValidationService implements POPPEventListener {
                 if (run != generation.get()) {
                     return;
                 }
-                last = report;
                 LOGGER.debug("POPP validation: {} errors, {} warnings, {} patterns matched, {} skipped, {} ms",
                         report.errors(), report.warnings(), report.patternsMatched(), report.patternsSkipped(),
                         report.durationMs());
@@ -109,10 +108,5 @@ public class POPPValidationService implements POPPEventListener {
                 LOGGER.warn("POPP validation failed", e);
             }
         });
-    }
-
-    /** The most recent report, or {@code null} before the first run. */
-    public ValidationReport lastReport() {
-        return last;
     }
 }

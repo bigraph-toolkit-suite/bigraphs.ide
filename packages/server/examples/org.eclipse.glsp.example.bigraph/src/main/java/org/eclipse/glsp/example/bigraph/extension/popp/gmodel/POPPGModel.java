@@ -9,6 +9,7 @@ import org.eclipse.glsp.graph.GNode;
 import java.util.HashMap;
 import java.util.Map;
 
+/** GModelRoot wrapper with a domain id to gmodel lookup table. */
 public class POPPGModel {
     private final POPPExtensionState state;
     private final Map<String, GNode> treeNodes = new HashMap<>();

@@ -9,6 +9,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.graph.GPoint;
 import org.eclipse.glsp.server.operations.CreateNodeOperation;
 
+/** Creates a node of the kind in the operation's {@code nodeType} argument at the requested location. */
 public class CreateNodeOperationHandler extends AbstractPOPPActionHandler<CreateNodeOperation> {
 
     private final POPPGModelFactory factory = new POPPGModelFactory();

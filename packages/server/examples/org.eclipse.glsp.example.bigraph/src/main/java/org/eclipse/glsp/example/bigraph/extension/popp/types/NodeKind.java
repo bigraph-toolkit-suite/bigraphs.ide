@@ -5,7 +5,10 @@ import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
 import java.util.Arrays;
 import java.util.Optional;
 
-/** Discriminates the six POPP tree kinds, e.g. for event payloads and error messages. */
+/**
+ * The six POPP node kinds. Each kind also states its intrinsic coverage: a solution is always covered, a success
+ * criterion only in {@link CoverageMode#PLANNING} (in VERIFY it needs a validating proof).
+ */
 public enum NodeKind {
     PROBLEM(false, false),
     GOAL(false, false),
@@ -14,30 +17,24 @@ public enum NodeKind {
     SUCCESS_CRITERIA(false, true),
     SUCCESS_PROOF(false, false);
 
-    private NodeKind(boolean explicitlyCovered, boolean coveredWhenPlanning) {
-        this.explicitlyCovered = explicitlyCovered;
+    NodeKind(boolean alwaysCovered, boolean coveredWhenPlanning) {
+        this.alwaysCovered = alwaysCovered;
         this.coveredWhenPlanning = coveredWhenPlanning;
     }
 
-    private final boolean explicitlyCovered;
+    private final boolean alwaysCovered;
     private final boolean coveredWhenPlanning;
 
-    public boolean isIntrinsicallyCovered() {
-        return explicitlyCovered;
-    }
-
+    /** Whether a node of this kind is covered in {@code mode} by itself, without children or relations. */
     public boolean isIntrinsicallyCovered(CoverageMode mode) {
-        return explicitlyCovered || (mode == CoverageMode.PLANNING && coveredWhenPlanning);
-    }
-
-    public boolean isCoveredWhenPlanning() {
-        return coveredWhenPlanning;
+        return alwaysCovered || (mode == CoverageMode.PLANNING && coveredWhenPlanning);
     }
 
     public static Optional<NodeKind> fromString(String name){
         return Arrays.stream(values()).filter(k -> k.name().equals(name)).findFirst();
     }
 
+    /** Lower-case display name, e.g. "success criteria". */
     public String getName(){
         return name().toLowerCase().replace("_", " ");
     }

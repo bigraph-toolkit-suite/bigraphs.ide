@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
+/** Defines all type hints of the glsp types defined in {@link POPPGModelTypes}. */
 public class POPPTypeHints {
     private POPPTypeHints() {}
 
@@ -46,6 +47,7 @@ public class POPPTypeHints {
                 relationHint.addSourceElementTypeId(POPPGModelTypes.of(pair.from()));
                 relationHint.addTargetElementTypeId(POPPGModelTypes.of(pair.to()));
             });
+            hints.add(relationHint);
         }
 
         return hints;

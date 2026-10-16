@@ -154,4 +154,15 @@ class POPPModelTest {
         assertEquals(List.of(subProblem), problem.getChildren());
         assertTrue(goal.getChildren().isEmpty());
     }
+
+    @Test
+    void aCreatedNodeCanBeLookedUpWhileItsEventIsHandled() {
+        POPPModel model = new POPPModel();
+        AtomicBoolean found = new AtomicBoolean();
+        model.addListener(e -> {
+            if (e instanceof POPPEvent.NodeCreated c) found.set(model.findNode(c.node().getId()) == c.node());
+        });
+        model.createNode(NodeKind.GOAL, "goal", 0, 0);
+        assertTrue(found.get());
+    }
 }

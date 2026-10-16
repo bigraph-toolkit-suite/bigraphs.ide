@@ -7,8 +7,10 @@ import java.util.*;
 
 /**
  * Random POPP models for differential checks of the rewriting analyzers against {@link DomainCoverageAnalyzer}.
- * Unlike {@link CoverageTestModels#balancedTree}, they contain every node kind and relation type, n-ary, single-child
- * and childless AND/OR decompositions (inner chain nodes), NONE leaves, and unrelated nodes.
+ * Unlike {@link CoverageTestModels#balancedTree}, they contain every node kind and relation type, n-ary and
+ * single-child AND/OR decompositions (inner chain nodes), NONE leaves, and unrelated nodes. The model refuses a
+ * decomposition type on a leaf, but a file can still contain an empty chain node, so some leaves get one written
+ * directly into the bigraph (the model keeps them NONE).
  * <p>
  * {@link #main} runs the check outside JUnit: {@code CoverageRandomModels <analyzer,...> [models=200] [maxNodes=30]}.
  */
@@ -44,8 +46,11 @@ final class CoverageRandomModels {
                     default -> node.getChildren().isEmpty() && rnd.nextInt(3) == 0 ? DecompositionType.NONE
                             : DecompositionType.AND;
                 };
-                // also creates childless AND/OR decompositions (one empty chain node)
-                if (t != node.getDecompositionType()) node.setDecompositionType(t);
+                if (!node.getChildren().isEmpty()) {
+                    node.setDecompositionType(t == DecompositionType.NONE ? DecompositionType.AND : t);
+                } else if (t != DecompositionType.NONE) {
+                    emptyChain(popp, node, t); // as a broken or old file would have it
+                }
             }
         }
         double density = 0.1 + rnd.nextDouble() * 0.4;
@@ -58,6 +63,15 @@ final class CoverageRandomModels {
                 }
             }
         }
+    }
+
+    /** Adds an empty chain node of {@code type} under {@code node}, in the bigraph only. */
+    static void emptyChain(Synced popp, TreeNode<?> node, DecompositionType type) {
+        var g = popp.bigraph.getBigraph();
+        var parent = popp.bigraph.getById(node.getId()).orElseThrow();
+        String control = org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature
+                .getByDecompositionType(type).controlName();
+        g.addNode(parent, popp.bigraph.getSignature().getControlByName(control), node.getId() + "_DECOMP");
     }
 
     /** Number of (model, mode) pairs on which {@code analyzer} disagrees with Domain on at least one node. */

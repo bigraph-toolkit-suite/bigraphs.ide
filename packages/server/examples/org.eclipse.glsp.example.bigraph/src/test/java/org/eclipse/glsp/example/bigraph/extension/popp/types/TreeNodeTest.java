@@ -95,6 +95,7 @@ class TreeNodeTest {
     @Test
     void changeDecompositionTypeEventIsDispatched(){
         Problem problem = new Problem("problem", 0, 0);
+        problem.addChild(new Problem("child", 0, 0)); // only a node with children has a decomposition
         AtomicBoolean eventHandled = new AtomicBoolean(false);
         DecompositionType initial = problem.getDecompositionType();
         DecompositionType or = DecompositionType.OR;
@@ -232,5 +233,27 @@ class TreeNodeTest {
 
         c.removeChild(a);
         assertEquals(DecompositionType.NONE, c.getDecompositionType());
+    }
+
+    @Test
+    void aLeafHasNoDecompositionToSet() {
+        Problem leaf = new Problem("leaf", 0, 0);
+        assertFalse(leaf.setDecompositionType(DecompositionType.AND));
+        assertFalse(leaf.setDecompositionType(DecompositionType.OR));
+        assertTrue(leaf.setDecompositionType(DecompositionType.NONE));
+        assertEquals(DecompositionType.NONE, leaf.getDecompositionType());
+    }
+
+    @Test
+    void settingTheCurrentDecompositionTypeEmitsNothing() {
+        Problem root = new Problem("root", 0, 0);
+        root.addChild(new Problem("child", 0, 0));
+        AtomicInteger events = new AtomicInteger();
+        root.addListener(e -> events.incrementAndGet());
+
+        assertTrue(root.setDecompositionType(DecompositionType.AND));
+        assertEquals(0, events.get());
+        assertTrue(root.setDecompositionType(DecompositionType.OR));
+        assertEquals(1, events.get());
     }
 }

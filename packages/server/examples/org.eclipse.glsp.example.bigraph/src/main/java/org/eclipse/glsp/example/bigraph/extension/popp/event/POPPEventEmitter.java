@@ -3,6 +3,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.event;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+/** Shared event emitter logic. */
 public abstract class POPPEventEmitter {
     protected List<POPPEventListener> listeners = new CopyOnWriteArrayList<>(); // Prevent ConcurrentModificationException
 

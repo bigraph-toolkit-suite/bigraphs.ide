@@ -18,9 +18,15 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * The coverage bigraph: a copy of the structure bigraph over {@link CoverageSignature} in which every domain node and
  * every chain node holds a state cell ({@code Unc}, {@code Part} or {@code Cov}). Intrinsically covered domain nodes
  * also hold {@code CovIntrinsic}, and PARTIAL chain nodes {@code PartDecomp}, because the chain redexes list a chain
- * node's children exactly.
+ * node's children exactly. Stubs and relation edges are copied unchanged. Reason markers of upgrades are never part of
+ * it: the analyzers record derivations in their own maps.
  */
 public class CoverageBigraph {
+    /**
+     * Builds the coverage bigraph of {@code source}. Intrinsically covered nodes are COVERED regardless of
+     * {@code states}; every other tree node takes its state from {@code states} (by bigraph node name), UNCOVERED if
+     * absent.
+     */
     public static PureBigraphMutable build(POPPBigraph source, CoverageMode mode, Map<String, Coverage> states) {
        DynamicSignature sig = CoverageSignature.get();
        PureBigraphMutable src = source.getBigraph();

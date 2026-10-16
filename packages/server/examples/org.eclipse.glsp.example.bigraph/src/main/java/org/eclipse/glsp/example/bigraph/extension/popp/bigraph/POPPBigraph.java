@@ -19,7 +19,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * decomposed node (one empty chain node without children, one chain node for a single child); the chain node
  * directly under a domain node is the first one. A relation is an edge between two arity-1 stub nodes, one under each
  * endpoint. Every node is addressable by its id ({@code nodesById}): domain nodes by their model id, chain nodes by
- * {@code <id>_DECOMP[_i]}, stubs by their generated name.</p>
+ * {@code <id>_DECOMP[_i]}, stubs by {@code <STUB_CONSTANT>:<source id>-><target id>}; the edge is named
+ * {@code <TYPE>:<source id>-><target id>} (so ids must not contain {@code ->}).</p>
  */
 @SuppressWarnings("unchecked")
 public class POPPBigraph {
@@ -122,6 +123,7 @@ public class POPPBigraph {
         return chain;
     }
 
+    /** Indexes an existing bigraph (e.g. a loaded file): every node by name, and every node's decomposition chain. */
     public void hydrate() {
         for (BigraphEntity.NodeEntity<DynamicControl> node : bigraph.getNodes()) {
             nodesById.put(node.getName(), node);
@@ -188,6 +190,7 @@ public class POPPBigraph {
     }
 
 
+    /** Adds a domain node to the POPP container (created if missing) and builds its decomposition chain. */
     public BigraphEntity.NodeEntity<DynamicControl> addTreeNode(TreeNode<? extends TreeNode<?>> node) {
         BigraphEntity.NodeEntity<DynamicControl> container = getOrCreatePOPPContainer();
         BigraphEntity.NodeEntity<DynamicControl> entity = addNode(container, POPPBigraphSignature.getByNodeKind(node.getKind()), node.getId());
@@ -212,6 +215,7 @@ public class POPPBigraph {
         entity.setAttributes(merged);
     }
 
+    /** Removes a domain node and its chain; its relations and children must already be gone (see the model). */
     public void deleteTreeNode(String id) {
         clearDecompositionChain(id);
         removeNode(id).ifPresent(this::fireNodeRemoved);
@@ -227,6 +231,11 @@ public class POPPBigraph {
         putAttributes(requireNode(id), Map.of("description", description == null ? "" : description));
     }
 
+    /**
+     * Moves a domain node from {@code oldParent} to {@code newParent} ({@code null}: the container). Called while the
+     * model is mid-change, so the two chains are rebuilt with the node explicitly excluded from the old and included in
+     * the new one rather than from the parents' (possibly not yet updated) child lists.
+     */
     public void reparentTreeNode(TreeNode<?> node, TreeNode<?> oldParent, TreeNode<?> newParent) {
         BigraphEntity.NodeEntity<DynamicControl> entity = getOrAdd(node);
         BigraphEntity.NodeEntity<DynamicControl> container = getOrCreatePOPPContainer();
@@ -249,8 +258,8 @@ public class POPPBigraph {
     }
 
     /**
-     * Raw removal of a node from bigraph + cache. The removal is left to the caller to announce (it is announced
-     * after this returns).
+     * Raw removal of a node from bigraph + cache, without notifying observers: {@link #deleteTreeNode} announces it
+     * afterwards, {@link #removeRelation} has announced the stubs with {@code onRelationRemoving} beforehand.
      */
     private Optional<BigraphEntity.NodeEntity<DynamicControl>> removeNode(String id) {
         return Optional.ofNullable(nodesById.remove(id)).map(node -> {
@@ -277,6 +286,10 @@ public class POPPBigraph {
             List<BigraphEntity.NodeEntity<DynamicControl>> children) {
     }
 
+    /**
+     * The decomposition of a domain node as stored: the type of its chain and the domain nodes in the chain, or
+     * {@code NONE} and the domain nodes directly under it (a defect the validator reports) if it has no chain.
+     */
     public DecodedDecomposition decodeDecomposition(BigraphEntity.NodeEntity<DynamicControl> domainNode) {
         BigraphEntity.NodeEntity<DynamicControl> chainRoot = null;
         List<BigraphEntity.NodeEntity<DynamicControl>> directDomainChildren = new ArrayList<>();
@@ -325,6 +338,11 @@ public class POPPBigraph {
         rebuildDecomposition(node, excludeChildId, null);
     }
 
+    /**
+     * Replaces the chain under {@code node} by one for its current decomposition type and children, minus
+     * {@code excludeChildId} and plus {@code includeChildId} (either may be {@code null}); needed while a reparenting
+     * is half-applied in the model. Children of {@code NONE} are put directly under the node.
+     */
     public void rebuildDecomposition(TreeNode<?> node, String excludeChildId, String includeChildId) {
         String nodeId = node.getId();
         clearDecompositionChain(nodeId);
@@ -395,6 +413,7 @@ public class POPPBigraph {
         }
     }
 
+    /** Adds the relation's two stubs under its endpoints and the edge connecting them. */
     public BigraphEntity.Edge createRelation(Relation relation) {
         BigraphEntity.NodeEntity<DynamicControl> source = getOrAdd(relation.source());
         BigraphEntity.NodeEntity<DynamicControl> target = getOrAdd(relation.target());
@@ -416,7 +435,7 @@ public class POPPBigraph {
         return edge;
     }
 
-    /** The {@link BigraphEntity.Edge} encoding a relation, by its deterministic name see: {@link #createRelation}. */
+    /** The {@link BigraphEntity.Edge} encoding a relation, found by its deterministic name (see {@link #createRelation}). */
     public Optional<BigraphEntity.Edge> findRelationEdge(Relation relation) {
         String edgeName = relation.type() + ":" + relation.source().getId() + "->" + relation.target().getId();
         return bigraph.getEdges().stream()
@@ -447,6 +466,7 @@ public class POPPBigraph {
             BigraphEntity.NodeEntity<DynamicControl> target) {
     }
 
+    /** The source and target domain nodes named by a relation edge; empty for edges not named like a relation. */
     public Optional<RelationEndpoints> decodeRelation(BigraphEntity.Edge edge) {
         String name = edge.getName();
         int colon = name.indexOf(':');

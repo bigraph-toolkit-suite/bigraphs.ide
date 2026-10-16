@@ -1,11 +1,23 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage;
 
 import org.bigraphs.framework.core.impl.BigraphEntity;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.Coverage;
 
 import java.util.Arrays;
 import java.util.Optional;
 
+/**
+ * The controls the coverage analysis adds to {@link POPPBigraphSignature} (see {@link CoverageSignature}), all markers:
+ * <ul>
+ *   <li>UNC, PART, COV: the state cell of a tree node, one per {@link Coverage} value;</li>
+ *   <li>COV_INTRINSIC, COV_DECOMP, COV_LINK: reason markers for COVERED;</li>
+ *   <li>PART_DECOMP, PART_LINK: reason markers for PARTIAL.</li>
+ * </ul>
+ * The reason markers appear in the rules' reactums and name a rule's reason ({@code Derivation}). In an agent only
+ * {@code CovIntrinsic} and, on PARTIAL chain nodes, {@code PartDecomp} occur. The link markers have arity 1 and are
+ * connected to the relation edge in the reactum.
+ */
 public enum CoverageMarker {
     // coverage state markers
     UNC("Unc", 0),
@@ -42,6 +54,7 @@ public enum CoverageMarker {
         };
     }
 
+    /** Whether this is a reason marker justifying state {@code s}. */
     public boolean belongsTo(Coverage s) {
         return switch (this) {
             case PART_DECOMP, PART_LINK -> s == Coverage.PARTIAL;

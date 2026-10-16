@@ -6,7 +6,11 @@ import org.eclipse.glsp.server.actions.Action;
 
 import java.util.List;
 
-/** Pushed to the client after every validation run; not a response to a particular request */
+/**
+ * Pushed to the client after every validation run that was not overtaken by a newer one; not a response to a
+ * particular request. The nested records are plain-string DTOs because LSP4J's Gson, which carries actions to the
+ * client, serializes enums as ordinals.
+ */
 public class ValidationResultAction extends Action {
     public static final String KIND = "popp.validationResult";
 

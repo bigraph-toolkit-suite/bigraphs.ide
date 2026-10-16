@@ -12,6 +12,17 @@ import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventEmitter;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
 
+/**
+ * Represents the POPP model edited in the editor.
+ * It stores all root nodes in {@link NodeRegistry}s of a certain node kind,
+ * and acts as a facade for many operations like creating, deleting, decomposing, relating
+ * and unrelating nodes. After these operations have been executed, the model also alerts its
+ * subscribers about the changes. Many other operations can still be done directly on the {@link TreeNode}s
+ * due to events being forwarded to the subscribers of the {@link POPPModel}.
+ * The emitted events keep the GModel and the bigraph in sync through the subscribers
+ * {@link org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer} and
+ * {@link org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchronizer}.
+ */
 public class POPPModel extends POPPEventEmitter implements POPPEventListener {
     private final Map<String, TreeNode<?>> nodeRegistry = new HashMap<>();
 
@@ -63,8 +74,8 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         N create(String description, double x, double y) {
             N node = factory.create(description, x, y);
             addRoot(node); // Created with no parent
+            nodeRegistry.put(node.getId(), node); // before the event, so listeners can look the node up
             publish(new POPPEvent.NodeCreated(node.getKind(), node));
-            nodeRegistry.put(node.getId(), node);
             return node;
         }
 
@@ -72,8 +83,8 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         N restore(String id, String description, double x, double y) {
             N node = restoreFactory.create(id, description, x, y);
             addRoot(node); // Registered as a root until/unless a subsequent addChild reparents it
-            publish(new POPPEvent.NodeCreated(node.getKind(), node));
             nodeRegistry.put(node.getId(), node);
+            publish(new POPPEvent.NodeCreated(node.getKind(), node));
             return node;
         }
 
@@ -133,6 +144,7 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         return relations.relate(a, b);
     }
 
+    /** Removes the relation between the two nodes, given in either order. */
     public RelationResult unrelate(TreeNode<?> a, TreeNode<?> b) {
         return relations.unrelate(a, b);
     }
@@ -168,6 +180,10 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         return nodeRegistry.get(id);
     }
 
+    /**
+     * Deletes the node: it leaves its parent, its children become roots of their own, and its relations are removed
+     * (each with its own event) before {@link POPPEvent.NodeRemoved}. Unknown ids are ignored.
+     */
     public void deleteNode(String id) {
         TreeNode<?> node = findNode(id);
         if (node == null) {

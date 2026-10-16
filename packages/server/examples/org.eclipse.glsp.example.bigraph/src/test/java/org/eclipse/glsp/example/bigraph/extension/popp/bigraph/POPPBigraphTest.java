@@ -299,7 +299,7 @@ class POPPBigraphTest {
     @Test
     void decompositionRoundTripsTypeAndChildrenForAllChildCounts() {
         for (DecompositionType type : new DecompositionType[]{DecompositionType.AND, DecompositionType.OR}) {
-            for (int count = 0; count <= 4; count++) {
+            for (int count = 1; count <= 4; count++) { // a leaf has no decomposition (see TreeNode)
                 setUp();
                 SuccessCriteria parent = parentWithChildren(type, count);
                 var decoded = popp.decodeDecomposition(entity(parent));

@@ -12,6 +12,7 @@ import org.eclipse.glsp.server.actions.Action;
 
 import java.util.List;
 
+/** Read-only: answers with the coverage report for the requested mode. */
 public class CoverageReportHandler extends AbstractActionHandler<RequestCoverageReportAction> {
     @Inject
     protected POPPExtensionContext context;

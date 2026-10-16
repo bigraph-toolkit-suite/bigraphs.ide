@@ -18,7 +18,8 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * Checks a POPP bigraph against {@link POPPValidationPatterns} with the Bigraph Framework matcher.
  *
  * <p>Two phases, so that only the first one has to run on the GLSP dispatch thread: {@link #snapshot} copies the
- * live bigraph (place graph, links, node descriptions) into an independent bigraph over the patterns' signature, and
+ * live bigraph (place graph and links; descriptions only as labels) into an independent bigraph over the patterns'
+ * signature, and
  * {@link #validate} matches every pattern against that copy, which is safe on any thread. A census of the
  * snapshot's controls skips patterns that cannot occur, so a model without, say, any stubs never pays for the stub
  * patterns.</p>
@@ -26,7 +27,10 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 public final class POPPModelValidator {
     private static final Logger LOGGER = LoggerFactory.getLogger(POPPModelValidator.class);
 
-    /** Upper bound of occurrences collected per pattern (pairs of roots grow quadratically). */
+    /**
+     * Upper bound of occurrences reported per pattern. It only limits the issues: the framework computes all matches
+     * of a pattern before the first one is returned, so it does not bound the matching cost.
+     */
     static final int MAX_MATCHES_PER_PATTERN = 200;
 
     private final List<ValidationPattern> patterns;
@@ -40,8 +44,9 @@ public final class POPPModelValidator {
     }
 
     /**
-     * An immutable copy of the bigraph to validate.
+     * A copy of the bigraph to validate, never modified after {@link #snapshot}.
      *
+     * @param modelVersion {@code POPPModel#getVersion()} at the time of the copy, passed on to the report
      * @param bigraph  the copy, over {@link POPPValidationPatterns#SIGNATURE}
      * @param ownerOf  bigraph node name to the id of the nearest enclosing domain node (the node itself for domain
      *                 nodes); absent for the container and for nodes outside any domain node
@@ -151,8 +156,9 @@ public final class POPPModelValidator {
     }
 
     private static List<ValidationIssue> occurrences(PureBigraphMatcher matcher, ValidationPattern pattern, Snapshot s) {
-        // The framework computes all matches before the first one is returned (and matchFirst misses matches), so
-        // patterns are shaped to have few occurrences, e.g. one root instead of a pair of roots.
+        // The framework computes all matches before the first one is returned, so patterns are shaped to have few
+        // occurrences, e.g. one root instead of a pair of roots. matchFirst would not help: patterns with
+        // minOccurrences or aggregate need every occurrence (and in 2.4.1 it returns no match at all).
         // Symmetric patterns find the same nodes several times: one issue per set of offending nodes.
         Map<Set<String>, List<String>> found = new LinkedHashMap<>();
         int n = 0;

@@ -2,7 +2,6 @@ package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
 import java.util.ArrayList;
@@ -10,12 +9,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/** Builds the coverage report: the coverage of every root and the size of the trees per kind. */
 public final class CoverageReportBuilder {
 
+    /** A root node of a coverable kind (see {@link Coverage#isCoverable}) and its coverage. */
     public record RootStatus(String id, String kind, String description, String coverage) {}
 
+    /**
+     * Size of the trees of one kind (every kind, coverable or not).
+     *
+     * @param roots  number of root nodes, i.e. of trees
+     * @param nodes  number of nodes of the kind
+     * @param height levels of the highest tree
+     * @param width  leaves of the widest tree
+     */
     public record TreeMetrics(int roots, int nodes, int height, int width) {}
 
+    /** {@code trees} is keyed by {@link NodeKind} name; kinds without nodes are absent. */
     public record CoverageReport(String mode, List<RootStatus> roots,
                                  Map<String, TreeMetrics> trees) {}
 

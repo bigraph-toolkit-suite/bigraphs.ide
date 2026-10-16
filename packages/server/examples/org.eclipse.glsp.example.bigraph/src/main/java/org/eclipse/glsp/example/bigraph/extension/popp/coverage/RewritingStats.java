@@ -4,12 +4,16 @@ package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
  * Counters of one rewriting session, for profiling and for the thesis' cost breakdown.
  *
  * @param rounds          evaluation rounds (full-agent analyzer) or fragment evaluations (fragment analyzer)
- * @param matcherCalls    calls of jLibBig's {@code AgentMatcher#match}
- * @param successfulCalls matcher calls that found at least one match
- * @param agentNodes      nodes of the largest bigraph handed to the matcher
- * @param buildNanos      time spent building coverage bigraphs / fragments
- * @param encodeNanos     time spent encoding them for jLibBig
- * @param matchNanos      time spent in the matcher (including iterating its matches)
+ * @param matcherCalls    calls of the framework's {@code PureBigraphMatcher#match} (which runs jLibBig underneath)
+ * @param successfulCalls matcher calls that found at least one (usable) match
+ * @param agentNodes      full-agent analyzer: nodes of the coverage bigraph; fragment analyzer: nodes of the
+ *                        largest fragment
+ * @param buildNanos      full-agent analyzer: building the coverage bigraphs (framework bigraphs, so no separate
+ *                        encode step); fragment analyzer: the structure snapshot and the per-fragment census
+ * @param encodeNanos     fragment analyzer: building each fragment as a framework bigraph; 0 for the full-agent
+ *                        analyzer
+ * @param matchNanos      time spent in the matcher, including the framework's translation to jLibBig and iterating
+ *                        the matches
  */
 public record RewritingStats(int rounds, int matcherCalls, int successfulCalls, int agentNodes,
                              long buildNanos, long encodeNanos, long matchNanos) {

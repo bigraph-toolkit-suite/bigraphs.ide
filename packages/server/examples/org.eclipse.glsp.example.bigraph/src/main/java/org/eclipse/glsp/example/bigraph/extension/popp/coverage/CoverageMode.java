@@ -3,10 +3,14 @@ package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 import java.util.Arrays;
 import java.util.Optional;
 
+/** Which success criteria count as covered: one mode per stage of the project. */
 public enum CoverageMode {
-    /** Any SuccessCriteria node counts, whatever its status: "is everything accounted for in the plan?" */
+    /** Every success criterion counts as covered by itself: "is everything accounted for in the plan?" */
     PLANNING,
-    /** Only ACHIEVED proofs (produces by solutions) count: "has the project actually been shown to work?" */
+    /**
+     * A success criterion counts only once a proof produced by a solution validates it: "has the project actually been
+     * shown to solve the problems?"
+     */
     VERIFY;
 
     public static Optional<CoverageMode> fromString(String name) {

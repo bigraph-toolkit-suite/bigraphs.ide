@@ -21,7 +21,7 @@ public record ValidationIssue(Code code, Severity severity, String message, List
     public enum Code {
         /** A decomposition chain node directly in the POPP container instead of under a decomposed node. */
         CHAIN_OUTSIDE_DECOMPOSITION(Severity.ERROR),
-        /** A relation stub that is not directly inside a domain node. */
+        /** A relation stub directly in the POPP container or in a chain node instead of inside a domain node. */
         MISPLACED_STUB(Severity.ERROR),
         /** A relation stub whose edge has no partner stub. */
         DANGLING_STUB(Severity.ERROR),

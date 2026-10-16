@@ -8,6 +8,7 @@ import org.bigraphs.framework.simulation.matching.pure.PureBigraphMatch;
 import org.bigraphs.framework.simulation.matching.pure.PureBigraphMatcher;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageMarker;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageRewriteRules;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageRewriteRules.CompiledRule;
@@ -30,13 +31,14 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * whose control is its kind, or a chain node {@code AndDecomp}/{@code OrDecomp}) as the receiver, its direct children
  * and their marker children; a link rule names two domain nodes whose stubs share
  * one relation edge. Everything else a match touches lies in a site. So, for a receiver {@code N}, a match in the full
- * coverage bigraph exists iff a match exists in the <i>node fragment</i> of {@code N}: {@code N} with its marker
- * children and its tree-node children, each of those with its marker children only. For a relation edge it is
- * the <i>link fragment</i>: both endpoints with their state marker and the two stubs on that edge. The parts that are
- * left out are exactly the ones a redex can only cover with a site, which {@link #validate} checks for every rule at
- * construction; rules that do not have this shape are rejected rather than evaluated wrongly. Matches are only used
- * when the receiver is the fragment's own node (resp. one of the two endpoints), which makes the correspondence a
- * plain argument about one node and its neighbourhood.
+ * coverage bigraph exists if and only if a match exists in the <i>node fragment</i> of {@code N}: {@code N} and each of
+ * its tree-node children, every one with the markers {@link CoverageBigraph} gives it (state cell, {@code CovIntrinsic}
+ * unless {@code slim}, {@code PartDecomp} on a PARTIAL chain node), but without stubs and grandchildren. For a relation
+ * edge it is the <i>link fragment</i>: both endpoints with their state cell and the two stubs on that edge. The parts
+ * that are left out are exactly the ones a redex can only cover with a site, which {@link #validate} checks for every
+ * rule at construction; rules that do not have this shape are rejected rather than evaluated wrongly. Matches are only
+ * used when the receiver is the fragment's own node (for a link fragment: one of its two endpoints), which makes the
+ * correspondence a plain argument about one node and its neighbourhood.
  * <p>
  * One corner where fragments and the full agent could differ: a two-root link redex cannot match a relation between
  * a node and one of its own descendants in the full agent (the two roots would overlap), but it can in a link
@@ -50,16 +52,17 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * {@link RewritingCoverageAnalyzer}. Fragments are built from a per-session snapshot of the structure bigraph, not
  * by copying the whole bigraph.
  * <p>
- * <b>Matching.</b> Only through the Bigraph Framework: every fragment is a framework {@code PureBigraph} over the
- * rules' signature and is matched against the rule with {@code PureBigraphMatcher}. The node embedding of a match,
+ * <b>Matching.</b> Only through the Bigraph Framework: every fragment is a framework {@link PureBigraph} over the
+ * rules' signature and is matched against the rule with {@link PureBigraphMatcher}. The node embedding of a match,
  * which says which fragment node is the receiver (and the giver), is read from the framework's match
- * ({@code PureBigraphMatch#getJLibMatchResult}); nothing calls jLibBig directly. {@code matchFirst} is not used: in
- * bigraph-simulation 2.4.1 it returns no match for the link redexes where {@code match} finds one.
+ * ({@code PureBigraphMatch#getJLibMatchResult}). {@code matchFirst} is not used: in bigraph-simulation 2.4.1 its
+ * iterator never runs the matching engine, so it returns no match at all (fixed in 2.4.2). Even then it could not
+ * replace {@code match}: the first match need not be a usable one, i.e. have its receiver at a fragment root.
  * <p>
- * <b>Cost.</b> With all levers on, every matcher call succeeds and there is one call per rule application, i.e. per
- * state upgrade; each call works on a fragment of 6-13 nodes. Underneath, the framework encodes fragment and redex
- * for jLibBig and solves a constraint model per call, whose cost is nearly independent of the fragment size. A session
- * is therefore linear in the model.
+ * <b>Cost.</b> With the default levers, every matcher call succeeds and there is one call per rule application, i.e.
+ * per state upgrade; each call works on a fragment of at most 9 nodes (a link fragment has 6). Underneath, the framework translates
+ * fragment and redex for jLibBig and solves a constraint model per call, which stays small because fragments are
+ * bounded. A session should therefore scale linearly with the model size.
  * <p>
  * <b>Levers</b> ({@link Options}), all on by default except {@code memo}:
  * <ul>
@@ -78,6 +81,8 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  *   then only runs for shapes not seen before, so this turns the rule set into a lookup table after warm-up and is
  *   reported separately.</li>
  * </ul>
+ * {@code memo} is off by default so that the default configuration measures matching, not a cache; its results
+ * depend on the shape key capturing everything the redexes distinguish.
  */
 public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer {
     private static final Logger logger = LoggerFactory.getLogger(FragmentRewritingCoverageAnalyzer.class);
@@ -198,8 +203,9 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
     /**
      * Runs a few sessions on a small built-in model, so that class loading and JIT compilation of the matcher (the
      * framework's matcher, with jLibBig and its constraint solver underneath) do not land on the user's first
-     * inspection. Meant to be called once, off the UI path, e.g. in a background thread when the server starts; the
-     * first real session is then close to the steady state. Not called by the analyzer itself, so the cold-start benchmark still measures the unprepared case.
+     * inspection. Meant to be called once per JVM, off the UI path ({@code POPPExtension} starts it in a background
+     * thread when the first model is loaded); the first real session is then close to the steady state. Not called by
+     * the analyzer itself, so the cold-start benchmark still measures the unprepared case.
      */
     public static void warmUp() {
         DynamicSignature sig = POPPBigraphSignature.create();
@@ -372,7 +378,11 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
                     if (stub != null && stubOwner.containsKey(stub.getName())) stubs.add(stub.getName());
                 }
             }
-            if (stubs.size() != 2) throw new IllegalStateException("Relation edge " + e.getName() + " has " + stubs.size() + " stubs");
+            // an edge without exactly two stubs (a broken file; the validator reports it) carries no relation
+            if (stubs.size() != 2) {
+                logger.debug("Skipping relation edge {} with {} stubs", e.getName(), stubs.size());
+                continue;
+            }
             SNode a = stubOwner.get(stubs.get(0)), b = stubOwner.get(stubs.get(1));
             if (a == b) continue; // a two-root redex never matches a single node
             SLink l = new SLink(e.getName(), a, stubControl.get(stubs.get(0)), b, stubControl.get(stubs.get(1)));
@@ -445,7 +455,7 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
 
         Coverage state(SNode n) { return states.get(n.id); }
 
-        /** The markers {@link org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageBigraph} gives a tree node. */
+        /** The markers {@link CoverageBigraph} gives a tree node ({@code CovIntrinsic} only without {@code slim}). */
         void markers(FNode f, SNode n) {
             Coverage c = state(n);
             f.add(new FNode(CoverageMarker.of(c).controlName(), n.id + ".state", null));
@@ -571,6 +581,7 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
         }
 
         void run() {
+            // generous bound: every evaluation that changes something upgrades a node, at most twice per node
             int budget = 4 * (s.nodes().size() + s.links().size()) * (s.nodes().size() + 2) + 16;
             if (options.incremental()) {
                 // keys: SNode (node fragment) or SLink (link fragment), FIFO without duplicates

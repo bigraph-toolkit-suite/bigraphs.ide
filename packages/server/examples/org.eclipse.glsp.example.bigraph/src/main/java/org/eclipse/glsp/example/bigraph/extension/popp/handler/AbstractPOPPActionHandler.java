@@ -16,6 +16,11 @@ import org.eclipse.glsp.server.features.core.model.UpdateModelAction;
 
 import java.util.List;
 
+/**
+ * Base for handlers that change the POPP model. Ignores the action (with a notification) unless the POPP variant is
+ * active, turns a {@link POPPValidationException} or any other exception into an error notification, and after a
+ * successful change marks the model dirty and sends the client an {@link UpdateModelAction}.
+ */
 public abstract class AbstractPOPPActionHandler<A extends Action> extends AbstractActionHandler<A> {
 
     protected final Logger logger = LogManager.getLogger(getClass());
@@ -69,5 +74,6 @@ public abstract class AbstractPOPPActionHandler<A extends Action> extends Abstra
         return List.of();
     }
 
+    /** Applies the action to the model; returns whether something changed (then the client is updated). */
     protected abstract boolean applyMutation(A action);
 }

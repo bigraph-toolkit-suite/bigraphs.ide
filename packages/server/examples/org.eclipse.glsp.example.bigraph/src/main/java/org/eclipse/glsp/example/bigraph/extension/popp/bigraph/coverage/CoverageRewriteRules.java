@@ -23,14 +23,19 @@ import java.util.stream.Collectors;
 
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 
+/** Builds the coverage rules for the rewriting analyzers: one {@link CompiledRule} per state upgrade a match justifies. */
 public final class CoverageRewriteRules {
     private static final Logger logger = LoggerFactory.getLogger(CoverageRewriteRules.class);
 
-    record P(String control, String link, List<P> kids) {
-        static final P SITE = new P(null, null, List.of());
+    /**
+     * One element of a rule side, written as a bigraph term: a node with a control,
+     * an optional link (outer name) and its children, or a site.
+     */
+    record Term(String control, String link, List<Term> kids) {
+        static final Term SITE = new Term(null, null, List.of());
         boolean isSite() { return control == null; }
-        static P n(String control, P... kids)              { return new P(control, null, List.of(kids)); }
-        static P n(String control, String link, P... kids) { return new P(control, link, List.of(kids)); }
+        static Term node(String control, Term... kids)              { return new Term(control, null, List.of(kids)); }
+        static Term node(String control, String link, Term... kids) { return new Term(control, link, List.of(kids)); }
     }
 
     /**
@@ -39,22 +44,19 @@ public final class CoverageRewriteRules {
      * the state it is upgraded to and the reason marker that justifies it.
      * The matcher-only session applies this instead of building the reactum.
      */
-    record Effect(P receiver, P giver, Coverage target, CoverageMarker reason,
-                         RelationType relation, Coverage giverState, Coverage receiverState) {
+    record Effect(Term receiver, Term giver, Coverage target, CoverageMarker reason,
+                  RelationType relation, Coverage giverState, Coverage receiverState) {
         /** Non-link rules: no relation guard. */
-        public Effect(P receiver, P giver, Coverage target, CoverageMarker reason) {
+        public Effect(Term receiver, Term giver, Coverage target, CoverageMarker reason) {
             this(receiver, giver, target, reason, null, null, null);
         }
     }
 
-    record Spec(String name, List<P> redex, List<P> reactum, Map<P, P> pairs, Effect effect) {
-        public Spec(String name, List<P> redex, List<P> reactum) {
-            this(name, redex, reactum, Map.of(), null);
-        }
-        public Spec(String name, List<P> redex, List<P> reactum, Map<P, P> pairs) {
-            this(name, redex, reactum, pairs, null);
-        }
-    }
+    /**
+     * A rule as terms: redex and reactum roots, {@code pairs} maps a redex term to the reactum term that keeps its
+     * identity (for the tracking map), and the rule's {@link Effect}.
+     */
+    record RuleSpecification(String name, List<Term> redex, List<Term> reactum, Map<Term, Term> pairs, Effect effect) {}
 
     /**
      * A rule ready for matching. {@code receiverNode} / {@code giverNode} are node names in the redex
@@ -64,12 +66,12 @@ public final class CoverageRewriteRules {
                                String receiverNode, String giverNode,
                                Coverage target, CoverageMarker reason,
                                RelationType relation, Coverage giverState, Coverage receiverState) {
-        /** Link rules only: can any relation of this type currently have a giver/receiver in the states the redex needs? */
+        /** Whether this is a link rule, i.e. has a relation type; place rules (chain, lift) have none. */
         public boolean isLinkRule() { return relation != null; }
     }
 
-    private static Map<P, P> pair(P redexNode, P reactumNode) {
-        Map<P, P> m = new IdentityHashMap<>();
+    private static Map<Term, Term> pair(Term redexNode, Term reactumNode) {
+        Map<Term, Term> m = new IdentityHashMap<>();
         m.put(redexNode, reactumNode);
         return m;
     }
@@ -84,23 +86,23 @@ public final class CoverageRewriteRules {
      * expansions are the minimal sound set, i.e. only combinations that can occur in a model:
      * <ul>
      *   <li><b>chain rules</b>: a chain node holds its state, {@code PartDecomp} when it is PARTIAL, and its slots
-     *       exactly (no site, so the slot count is exact). A slot is a domain node of kind K or the next chain node;
+     *       exactly (no site, so the slot count is exact). A slot is a domain node of kind K ({@link NodeKind}) or the next chain node;
      *       all domain slots of one chain share the kind K of the decomposed node (a tree holds a single kind), so per
      *       kind: one K slot, two K slots, or one K slot and one chain-node slot;</li>
-     *   <li><b>lift rules</b>: a domain node of kind K takes the state of its chain node. The chain node directly
+     *   <li><b>lift rules</b>: a domain node of kind K ({@link NodeKind}) takes the state of its chain node. The chain node directly
      *       under a domain node is always the first one of the chain, so no extra marker is needed;</li>
-     *   <li><b>link rules</b>: per supported (from, to) kind pair of the relation type.</li>
+     *   <li><b>link rules</b>: per supported (from, to) kind pair of the {@link RelationType}.</li>
      * </ul>
      */
-    static List<Spec> specs() {
-        List<Spec> out = new ArrayList<>();
+    static List<RuleSpecification> specs() {
+        List<RuleSpecification> out = new ArrayList<>();
         chainRules(out);
         liftRules(out);
         linkRules(out);
         return out;
     }
 
-    private static P state(Coverage c) { return P.n(CoverageMarker.of(c).controlName()); }
+    private static Term state(Coverage c) { return Term.node(CoverageMarker.of(c).controlName()); }
 
     private static String kind(NodeKind k) { return POPPBigraphSignature.getByNodeKind(k).controlName(); }
 
@@ -114,15 +116,15 @@ public final class CoverageRewriteRules {
                 : (cov ? CoverageMarker.COV_DECOMP : CoverageMarker.PART_DECOMP);
     }
 
-    private static P why(Coverage target, boolean link) {
+    private static Term why(Coverage target, boolean link) {
         CoverageMarker m = whyMarker(target, link);
-        return link ? P.n(m.controlName(), "x") : P.n(m.controlName());
+        return link ? Term.node(m.controlName(), "x") : Term.node(m.controlName());
     }
 
     /** One slot of a chain node: a node with {@code control} in {@code state}, and whatever else it contains. */
     private record Slot(String control, Coverage state) {}
 
-    private static void chainRules(List<Spec> out) {
+    private static void chainRules(List<RuleSpecification> out) {
         for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR)) {
             String g = gate(type);
             for (Coverage cur : UPGRADABLE) {
@@ -143,76 +145,82 @@ public final class CoverageRewriteRules {
         }
     }
 
-    private static void addChain(List<Spec> out, DecompositionType type, Coverage cur, NodeKind nk, List<Slot> slots) {
+    private static void addChain(List<RuleSpecification> out, DecompositionType type, Coverage cur, NodeKind nk, List<Slot> slots) {
         Coverage target = AbstractCoverageSession.aggregate(type, slots.stream().map(Slot::state).toList());
         if (target.compareTo(cur) <= 0) return;
-        P[] slotPatterns = slots.stream().map(s -> P.n(s.control(), state(s.state()), P.SITE)).toArray(P[]::new);
+        Term[] slotPatterns = slots.stream().map(s -> Term.node(s.control(), state(s.state()), Term.SITE)).toArray(Term[]::new);
 
-        List<P> kept = new ArrayList<>();
-        if (cur == Coverage.PARTIAL) kept.add(P.n(CoverageMarker.PART_DECOMP.controlName()));
+        List<Term> kept = new ArrayList<>();
+        if (cur == Coverage.PARTIAL) kept.add(Term.node(CoverageMarker.PART_DECOMP.controlName()));
 
-        List<P> redexKids = new ArrayList<>(List.of(state(cur)));
+        List<Term> redexKids = new ArrayList<>(List.of(state(cur)));
         redexKids.addAll(kept);
         redexKids.addAll(List.of(slotPatterns));
-        List<P> reactumKids = new ArrayList<>(List.of(state(target)));
+        List<Term> reactumKids = new ArrayList<>(List.of(state(target)));
         reactumKids.addAll(kept);
         reactumKids.add(why(target, false));
         reactumKids.addAll(List.of(slotPatterns));
 
-        P redexNode = P.n(gate(type), redexKids.toArray(P[]::new));
-        P reactumNode = P.n(gate(type), reactumKids.toArray(P[]::new));
+        Term redexNode = Term.node(gate(type), redexKids.toArray(Term[]::new));
+        Term reactumNode = Term.node(gate(type), reactumKids.toArray(Term[]::new));
         String name = "chain-" + type + "-" + nk + "-" + cur + "-"
                 + slots.stream().map(s -> s.control() + "_" + s.state()).collect(Collectors.joining("+"));
-        out.add(new Spec(name, List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
+        out.add(new RuleSpecification(name, List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
                 new Effect(redexNode, null, target, whyMarker(target, false))));
     }
 
-    private static void collect(PureBigraph b, BigraphEntity<?> parent, List<P> ps, IdentityHashMap<P, String> out) {
+    /**
+     * Pairs each non-site term with the bigraph node built from it. Relies on {@link #side} adding the children of a
+     * node in term order and on {@code getChildrenOf} returning them in that order (true for the framework's builder).
+     */
+    private static void collect(PureBigraph b, BigraphEntity<?> parent, List<Term> terms, IdentityHashMap<Term, String> out) {
         List<BigraphEntity.NodeEntity<?>> nodes = b.getChildrenOf(parent).stream()
                 .filter(BigraphEntity.NodeEntity.class::isInstance)
                 .map(e -> (BigraphEntity.NodeEntity<?>) e).collect(Collectors.toUnmodifiableList());
-        List<P> pn = ps.stream().filter(p -> !p.isSite()).toList();
+        List<Term> pn = terms.stream().filter(term -> !term.isSite()).toList();
         for (int i = 0; i < pn.size(); i++) {
             out.put(pn.get(i), nodes.get(i).getName());
             collect(b, nodes.get(i), pn.get(i).kids(), out);
         }
     }
 
-    private static IdentityHashMap<P, String> names(PureBigraph b, List<P> roots) {
-        var out = new IdentityHashMap<P, String>();
+    /** Term -> generated node name in {@code b}, which was built from {@code roots} by {@link #side}. */
+    private static IdentityHashMap<Term, String> names(PureBigraph b, List<Term> roots) {
+        var out = new IdentityHashMap<Term, String>();
         var rs = new ArrayList<>(b.getRoots());
         rs.sort(Comparator.comparing(BigraphEntity.RootEntity::getIndex));
         for (int i = 0; i < roots.size(); i++) collect(b, rs.get(i), List.of(roots.get(i)), out);
         return out;
     }
 
-    static TrackingMap trackingMap(Spec s, PureBigraph redex, PureBigraph reactum) {
+    /** Reactum node name -> redex node name it keeps (empty for new nodes, i.e. the added markers). */
+    static TrackingMap trackingMap(RuleSpecification s, PureBigraph redex, PureBigraph reactum) {
         var rn = names(redex, s.redex());
         var an = names(reactum, s.reactum());
 
-        var partnerOf = new IdentityHashMap<P, P>();
-        s.pairs().forEach((redexP, reactumP) -> partnerOf.put(reactumP, redexP));
+        var partnerOf = new IdentityHashMap<Term, Term>();
+        s.pairs().forEach((redexTerm, reactumTerm) -> partnerOf.put(reactumTerm, redexTerm));
 
         var tm = new TrackingMap();
         tm.setRuleName(s.name());
-        an.forEach((reactumP, reactumName) -> {
-            P redexP = rn.containsKey(reactumP) ? reactumP : partnerOf.get(reactumP);
-            tm.put(reactumName, redexP != null && rn.containsKey(redexP) ? rn.get(redexP) : "");
+        an.forEach((reactumTerm, reactumName) -> {
+            Term redexTerm = rn.containsKey(reactumTerm) ? reactumTerm : partnerOf.get(reactumTerm);
+            tm.put(reactumName, redexTerm != null && rn.containsKey(redexTerm) ? rn.get(redexTerm) : "");
         });
         return tm;
     }
 
-    private static void liftRules(List<Spec> out) {
+    private static void liftRules(List<RuleSpecification> out) {
         for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR)) {
             for (NodeKind nk : NodeKind.values()) {
                 String k = kind(nk);
                 for (Coverage s : PARTIAL_OR_COVERED) {
                     for (Coverage c : UPGRADABLE) {
                         if (s.compareTo(c) <= 0) continue;
-                        P chain = P.n(gate(type), state(s), P.SITE); // the chain node directly under a domain node
-                        P redexNode = P.n(k, state(c), P.SITE, chain);
-                        P reactumNode = P.n(k, state(s), why(s, false), P.SITE, chain);
-                        out.add(new Spec("lift-" + type + "-" + nk + "-" + c + "-" + s,
+                        Term chain = Term.node(gate(type), state(s), Term.SITE); // the chain node directly under a domain node
+                        Term redexNode = Term.node(k, state(c), Term.SITE, chain);
+                        Term reactumNode = Term.node(k, state(s), why(s, false), Term.SITE, chain);
+                        out.add(new RuleSpecification("lift-" + type + "-" + nk + "-" + c + "-" + s,
                                 List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
                                 new Effect(redexNode, null, s, whyMarker(s, false))));
                     }
@@ -221,7 +229,7 @@ public final class CoverageRewriteRules {
         }
     }
 
-    private static void linkRules(List<Spec> out) {
+    private static void linkRules(List<RuleSpecification> out) {
         for (RelationType t : RelationType.values()) {
             RelationType.CoveragePropagation dir = t.getCoveragePropagation();
             if (dir.hasNoCoveragePropagation()) continue;
@@ -237,12 +245,12 @@ public final class CoverageRewriteRules {
                         Coverage target = Coverage.best(c, g);
                         if (target.compareTo(c) <= 0) continue;
 
-                        P giver = P.n(giverKind, state(g), P.n(giverStub, "x"), P.SITE);
-                        P recv = P.n(recvStub, "x");
-                        P redexRecv = P.n(recvKind, state(c), recv, P.SITE);
-                        P reactumRecv = P.n(recvKind, state(target), why(target, true), recv, P.SITE);
+                        Term giver = Term.node(giverKind, state(g), Term.node(giverStub, "x"), Term.SITE);
+                        Term recv = Term.node(recvStub, "x");
+                        Term redexRecv = Term.node(recvKind, state(c), recv, Term.SITE);
+                        Term reactumRecv = Term.node(recvKind, state(target), why(target, true), recv, Term.SITE);
 
-                        out.add(new Spec("link-" + t + "-" + kinds.from() + "-" + kinds.to() + "-" + g + "-" + c,
+                        out.add(new RuleSpecification("link-" + t + "-" + kinds.from() + "-" + kinds.to() + "-" + g + "-" + c,
                                 List.of(giver, redexRecv), List.of(giver, reactumRecv), pair(redexRecv, reactumRecv),
                                 new Effect(redexRecv, giver, target, whyMarker(target, true), t, g, c)));
                     }
@@ -251,17 +259,18 @@ public final class CoverageRewriteRules {
         }
     }
 
-    /** Rules for the matcher-only session: the rule plus where to find receiver/giver in a match. */
+    /** The coverage rules, each with where to find receiver and giver in a match; used by both rewriting analyzers. */
     public static List<CompiledRule> compile() {
         DynamicSignature sig = CoverageSignature.get();
         List<CompiledRule> out = new ArrayList<>();
-        for (Spec s : specs()) {
+        for (RuleSpecification s : specs()) {
             Effect fx = Objects.requireNonNull(s.effect(), "Spec without effect: " + s.name());
             try {
                 PureBigraph redex = side(sig, s.redex()), reactum = side(sig, s.reactum());
                 ParametricReactionRule<PureBigraph> rule = new ParametricReactionRule<>(redex, reactum);
-                // Not needed by the matcher-only session; kept so a rule can still be executed through
-                // PureReactiveSystem.buildParametricReaction (e.g. to cross-check the effect on a flat agent).
+                // Not needed by the analyzers, which only match; kept so the rules are complete reaction rules, e.g. for
+                // export (toBigrapher) or a cross-check through PureReactiveSystem.buildParametricReaction (which
+                // RewritingCoverageAnalyzer avoids, see there).
                 rule.withTrackingMap(trackingMap(s, redex, reactum));
                 var redexNames = names(redex, s.redex());
                 out.add(new CompiledRule(s.name(), rule,
@@ -276,47 +285,43 @@ public final class CoverageRewriteRules {
         return List.copyOf(out);
     }
 
-    public static List<ParametricReactionRule<PureBigraph>> build() {
-        return compile().stream().map(CompiledRule::rule).toList();
-    }
-
-    static PureBigraph side(DynamicSignature sig, List<P> roots) {
+    static PureBigraph side(DynamicSignature sig, List<Term> roots) {
         var b = pureBuilder(sig);
-        for (P p : roots) emit(b.root(), p);
+        for (Term term : roots) emit(b.root(), term);
         return b.create();
     }
 
-    private static void emit(PureBigraphBuilder<DynamicSignature>.Hierarchy level, P p) {
-        if (p.isSite()) {
+    private static void emit(PureBigraphBuilder<DynamicSignature>.Hierarchy level, Term term) {
+        if (term.isSite()) {
             level.site();
             return;
         }
         PureBigraphBuilder<DynamicSignature>.Hierarchy self;
         try {
-            self = p.link() == null ? level.child(p.control()) : level.child(p.control(), p.link());
+            self = term.link() == null ? level.child(term.control()) : level.child(term.control(), term.link());
         } catch (InvalidConnectionException e) {
             throw new RuntimeException(e);
         }
-        if (!p.kids().isEmpty()) {
+        if (!term.kids().isEmpty()) {
             var inner = self.down();
-            p.kids().forEach(k -> emit(inner, k));
+            term.kids().forEach(k -> emit(inner, k));
         }
     }
 
-    /** Helper to visualize rules as text */
-    static String toBigrapher(Spec s) {
+    /** The rule in BigraphER syntax, for logging and inspection. */
+    static String toBigrapher(RuleSpecification s) {
         return "react " + ident(s.name()) + " =\n  " + side(s.redex()) + "\n  --> " + side(s.reactum()) + ";\n";
     }
     private static String ident(String n) {
         return n.toLowerCase().replaceAll("[^a-z0-9]+", "_").replaceAll("_$", "");
     }
-    private static String side(List<P> roots) {
+    private static String side(List<Term> roots) {
         return roots.stream().map(CoverageRewriteRules::expr).collect(Collectors.joining(" || "));
     }
-    private static String expr(P p) {
-        if (p.isSite()) return "id";
-        String head = p.control() + (p.link() == null ? "" : "{" + p.link() + "}");
-        return p.kids().isEmpty() ? head
-                : head + ".(" + p.kids().stream().map(CoverageRewriteRules::expr).collect(Collectors.joining(" | ")) + ")";
+    private static String expr(Term term) {
+        if (term.isSite()) return "id";
+        String head = term.control() + (term.link() == null ? "" : "{" + term.link() + "}");
+        return term.kids().isEmpty() ? head
+                : head + ".(" + term.kids().stream().map(CoverageRewriteRules::expr).collect(Collectors.joining(" | ")) + ")";
     }
 }

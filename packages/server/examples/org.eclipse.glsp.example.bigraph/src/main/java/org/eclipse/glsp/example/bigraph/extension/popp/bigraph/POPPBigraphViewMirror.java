@@ -42,7 +42,6 @@ public class POPPBigraphViewMirror implements POPPBigraphObserver {
                 view.getGModelIdForEntity(node).ifPresent(view::onDeleteNode));
     }
 
-    /** Re-targets an existing place-edge to the new parent, or creates one if the child never had one. */
     @Override
     public void onNodeReparented(final BigraphEntity.NodeEntity<DynamicControl> child,
                                  final BigraphEntity.NodeEntity<DynamicControl> newParent) {

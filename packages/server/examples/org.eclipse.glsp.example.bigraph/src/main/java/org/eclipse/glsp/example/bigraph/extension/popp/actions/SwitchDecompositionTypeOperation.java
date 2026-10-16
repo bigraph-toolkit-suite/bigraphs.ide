@@ -3,6 +3,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.actions;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
 import org.eclipse.glsp.server.operations.Operation;
 
+/** Sent by the client to switch the decomposition of a node with children between {@link DecompositionType} AND and OR. */
 public class SwitchDecompositionTypeOperation extends Operation {
     public static final String KIND = "popp.switchDecompositionType";
     private String nodeId;
@@ -12,6 +13,10 @@ public class SwitchDecompositionTypeOperation extends Operation {
         super(KIND);
     }
 
+    /**
+     * @param nodeId    POPP node id (= GModel id)
+     * @param newType   The new decomposition type of the given node
+     */
     public SwitchDecompositionTypeOperation(final String nodeId, final DecompositionType newType) {
         super(KIND);
         this.nodeId = nodeId;

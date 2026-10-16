@@ -14,9 +14,11 @@ public class CoverageGapsAction extends ResponseAction {
 
     /**
      * @param nodeId    POPP node id (= GModel id)
+     * @param label     kind and description, e.g. {@code goal "Ship v2"}
      * @param coverage  {@code UNCOVERED} or {@code PARTIAL}
      * @param rootCause nothing beneath or behind the node could still contribute: this is where to act
-     * @param message   what is missing (root causes only), e.g. "Goal needs a SuccessCriteria (causes)"
+     * @param message   what is missing (root causes only, otherwise empty), e.g.
+     *                  "needs a success criteria (causes)", several joined with " or "
      */
     public record Gap(String nodeId, String label, String coverage, boolean rootCause, String message) {}
 

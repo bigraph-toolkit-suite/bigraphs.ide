@@ -6,6 +6,7 @@ import org.eclipse.glsp.server.features.directediting.ApplyLabelEditOperation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/** Applies an inline label edit to the description of the node the label belongs to. */
 public class EditDescriptionNodeHandler extends AbstractPOPPActionHandler<ApplyLabelEditOperation> {
     private final static Logger LOGGER = LoggerFactory.getLogger(EditDescriptionNodeHandler.class);
     private final POPPGModelFactory factory = new POPPGModelFactory();
@@ -17,7 +18,7 @@ public class EditDescriptionNodeHandler extends AbstractPOPPActionHandler<ApplyL
             return false;
         }
         TreeNode<?> node = context.getOwnState().getPoppModel().findNode(factory.toNodeId(labelId));
-        if (node == null) throw new POPPValidationException("Not not found");
+        if (node == null) throw new POPPValidationException("Node not found");
         node.setDescription(action.getText());
         return true;
     }
