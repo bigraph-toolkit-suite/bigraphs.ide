@@ -8,8 +8,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * @param rootCause true if nothing is left that could still contribute coverage (no children, no
- *                  candidate links that are themselves uncovered): this is the actionable part
+ * A node that is not COVERED.
+ *
+ * @param node      the node
+ * @param coverage  UNCOVERED or PARTIAL
+ * @param rootCause true if no child and no candidate relation partner of the node is itself not covered. For a node
+ *                  that is not covered this means it has neither: nothing below or behind it has to be fixed first,
+ *                  so this is where to act
  * @param missing   the ways this node could be covered; only filled for root causes
  */
 public record CoverageGap(TreeNode<?> node, Coverage coverage, boolean rootCause, List<CoverageGap.CoverageRemedy> missing) {
@@ -34,9 +39,11 @@ public record CoverageGap(TreeNode<?> node, Coverage coverage, boolean rootCause
     }
 
     /**
-     * One way a node could still become covered: a missing neighbour of {@code missingKind} connected via {@code type}.
+     * One way a node could still become covered: a missing neighbour of {@code missingKind} connected via {@code type},
+     * as the relation's source if {@code missingIsSource}.
      */
     public record CoverageRemedy(RelationType type, NodeKind missingKind, boolean missingIsSource) {
+        /** E.g. "needs a success proof (validates)". */
         public String describe() {
             return "needs a " + missingKind.getName() + " (" + type.name().toLowerCase() + ")";
         }

@@ -2,6 +2,11 @@ package org.eclipse.glsp.example.bigraph.extension.popp.actions;
 
 import org.eclipse.glsp.server.actions.RequestAction;
 
+/**
+ * Asks for the coverage report in the given mode: the coverage of every root and the size of the trees per kind.
+ *
+ * @see org.eclipse.glsp.example.bigraph.extension.popp.actions.CoverageReportAction
+ */
 public class RequestCoverageReportAction extends RequestAction<CoverageReportAction> {
     public static final String KIND = "popp.requestCoverageReport";
     private String mode;

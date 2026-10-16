@@ -6,8 +6,8 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import java.util.Collection;
 
 /**
- * Create one per inspection or report and discard it.
- * Results are only valid until the model changes.
+ * The coverage of one model revision in one mode. Results are only valid until the model changes;
+ * {@link CachingCoverageAnalyzer} reuses a session until then and never across a change. Not thread-safe.
  */
 public interface CoverageSession {
     Coverage coverage(TreeNode<?> node);

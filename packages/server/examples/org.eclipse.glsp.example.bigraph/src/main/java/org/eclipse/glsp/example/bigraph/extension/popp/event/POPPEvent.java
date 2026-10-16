@@ -2,7 +2,10 @@ package org.eclipse.glsp.example.bigraph.extension.popp.event;
 
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
-/** Emitted after a domain-model mutation has been applied successfully. */
+/**
+ * A domain-model change, emitted while it is applied. The event's fields are authoritative: a listener should read
+ * them rather than query the model, which can still be mid-change (see {@link NodeChangedParent}).
+ */
 public sealed interface POPPEvent {
 
     record NodeCreated(NodeKind kind, TreeNode<?> node) implements POPPEvent {
@@ -21,7 +24,10 @@ public sealed interface POPPEvent {
     record NodeRemoved(NodeKind kind, TreeNode<?> node) implements POPPEvent {
     }
 
-    /** There is no guarantee that node is updated before the event is handled, therefore the {@code newParent} should be used. */
+    /**
+     * The node moved from {@code oldParent} to {@code newParent} ({@code null}: root). When it becomes a root, the event
+     * is emitted before the node's parent field and the old parent's child list are updated, so use these fields.
+     */
     record NodeChangedParent(NodeKind kind, TreeNode<?> node, TreeNode<?> oldParent, TreeNode<?> newParent) implements POPPEvent {
     }
 

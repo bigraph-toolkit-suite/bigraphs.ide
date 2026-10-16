@@ -8,6 +8,11 @@ import org.eclipse.glsp.example.bigraph.model.IBigraphModelState;
 
 import java.util.Map;
 
+/**
+ * Per-session state of the POPP extension and its composition root: the model, its bigraph and GModel, and the
+ * coverage analyzer. The analyzer is the fragment analyzer behind a cache; it reads model and bigraph lazily from
+ * here, so it follows a model that is replaced when a file is (re)loaded.
+ */
 public class POPPExtensionState {
     private final IBigraphModelState bigraphModelState;
     private final POPPGModel gModel;

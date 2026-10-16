@@ -13,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+/** Simple factory to handle domain-gmodel conversion (elements and ids). */
 public class POPPGModelFactory {
     private static final String DESCRIPTION_ID_SUFFIX = "_description";
     private static final String DECOMPOSITION_ID_SUFFIX = "_decomp";
@@ -93,7 +94,11 @@ public class POPPGModelFactory {
         return gnode;
     }
 
-    /** Recomputes wrapping, node size, label position and label size from the TreeNode. Idempotent. */
+    /**
+     * Recomputes node size, label position and label size from the TreeNode. Idempotent. The width is the narrowest
+     * one (from {@code MIN_W} to 480 in steps of 20) that reaches the smallest line count possible within the aspect
+     * ratio {@code MAX_RATIO}; the label keeps the unwrapped text, the client wraps it to the label's width.
+     */
     public void applyLayout(final GNode gnode, final TreeNode<?> treeNode) {
         String desc = treeNode.getDescription() == null ? "" : treeNode.getDescription();
 

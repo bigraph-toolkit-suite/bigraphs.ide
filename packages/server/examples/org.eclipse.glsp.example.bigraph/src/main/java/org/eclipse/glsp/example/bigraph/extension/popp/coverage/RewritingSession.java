@@ -43,6 +43,7 @@ final class RewritingSession extends AbstractCoverageSession {
             };
         }
 
+        // no derivation: the node stayed UNCOVERED; explain it like DomainCoverageAnalyzer (decomposition first)
         if (!node.getChildren().isEmpty()) return decompositionReason(node, Coverage.UNCOVERED);
         return candidates(node).stream().findFirst()
                 .<CoverageReason>map(c -> linkReason(node, Coverage.UNCOVERED, c.relation(), c.node()))

@@ -6,8 +6,8 @@ import org.eclipse.glsp.example.bigraph.extension.popp.actions.InspectionResultA
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.RequestInspectionAction;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
-import org.eclipse.glsp.example.bigraph.extension.popp.inspection.InspectionResult;
-import org.eclipse.glsp.example.bigraph.extension.popp.inspection.InspectionTracer;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.InspectionResult;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.InspectionTracer;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.server.actions.AbstractActionHandler;

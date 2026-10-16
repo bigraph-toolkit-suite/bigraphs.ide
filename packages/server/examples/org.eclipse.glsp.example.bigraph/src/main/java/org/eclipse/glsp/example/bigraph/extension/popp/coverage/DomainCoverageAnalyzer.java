@@ -5,8 +5,10 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 import java.util.*;
 
 /**
- * Three-valued coverage over a {@link RelationGraph}. Stateless; all memoization lives in the
- * short-lived {@link CoverageSession}.
+ * Three-valued coverage computed directly on the domain model (trees and {@link RelationGraph}), without the bigraph.
+ * The analyzer keeps no results; memoization lives in the {@link CoverageSession}. A node's coverage is the best of its
+ * decomposition and its candidate relations; on a tie the explanation prefers the decomposition. The metamodel's
+ * relations cannot form a dependency cycle, so the cycle check is only a safeguard.
  */
 public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
 
@@ -24,13 +26,12 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
     }
 
     private final class Session extends AbstractCoverageSession {
-        private final CoverageMode mode;
+        /** Coverage of every node computed so far in this session. */
         private final Map<TreeNode<?>, Coverage> memo = new HashMap<>();
         private final Set<TreeNode<?>> visiting = new HashSet<>();
 
         Session(CoverageMode mode, RelationGraph relations) {
             super(mode, relations);
-            this.mode = mode;
         }
 
         private boolean isIntrinsicallyCovered(TreeNode<?> node) {

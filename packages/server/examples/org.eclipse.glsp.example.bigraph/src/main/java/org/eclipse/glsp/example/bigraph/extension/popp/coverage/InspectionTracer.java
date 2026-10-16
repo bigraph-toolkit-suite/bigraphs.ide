@@ -1,8 +1,5 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.inspection;
+package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReason;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
@@ -30,6 +27,7 @@ public final class InspectionTracer {
                 List.copyOf(nodes), List.copyOf(edges), coverage, gaps);
     }
 
+    /** Pre-order depth-first walk over the reason DAG; each node is visited once, every edge on the way is kept. */
     private void walk(CoverageReason reason, Set<String> nodes, Set<String> edges,
                       Map<String, String> coverage, List<InspectionResult.GapInfo> gaps) {
         String id = reason.node().getId();

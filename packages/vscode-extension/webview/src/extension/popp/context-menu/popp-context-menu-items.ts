@@ -24,13 +24,15 @@ export function getPoppContextMenuItems(ctx: ContextMenuContext): LabeledAction[
 
     const items: LabeledAction[] = [];
 
-    if (currentDecompositionType !== 'AND') {
+    // Only a node with children has a decomposition (the server refuses AND/OR on a leaf, whose type is NONE),
+    // so offer the other type of the current one.
+    if (currentDecompositionType === 'OR') {
         items.push({
             label: 'Decompose with AND',
             actions: [createSwitchDecompositionTypeOperation(nodeId, 'AND')]
         });
     }
-    if (currentDecompositionType !== 'OR') {
+    if (currentDecompositionType === 'AND') {
         items.push({
             label: 'Decompose with OR',
             actions: [createSwitchDecompositionTypeOperation(nodeId, 'OR')]

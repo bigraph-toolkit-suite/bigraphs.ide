@@ -21,8 +21,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Rebuilds a {@link POPPModel} from a bigraph.  Uses a read-only {@link POPPBigraph}
- * for every structural query, so it can't drift from the write side.
+ * Rebuilds a {@link POPPModel} from a bigraph. Every structural query goes through a {@link POPPBigraph} (only read,
+ * never written here), so decoding cannot drift from the encoding.
  */
 @SuppressWarnings("unchecked")
 public final class POPPBigraphLoader {
@@ -45,6 +45,12 @@ public final class POPPBigraphLoader {
         this.validationService = validationService;
     }
 
+    /**
+     * Replaces the state's model with one decoded from {@code bigraph}. The listener order matters: the GModel
+     * synchronizer listens during loading (it builds the diagram), the bigraph synchronizer and the validation service
+     * only afterwards, so loading never writes back into the bigraph it reads. Node data from the meta file is applied
+     * last, through the attached listeners.
+     */
     public void loadModelFromBigraph(final PureBigraphMutable bigraph) {
         if (bigraph == null || bigraph.getRoots().isEmpty()) {
             return;
@@ -120,7 +126,9 @@ public final class POPPBigraphLoader {
         if (parentOrNull != null) {
             DecompositionResult attached = model.decompose(parentOrNull, node);
             if (!attached.isSuccess()) {
-                // e.g. a node of another kind nested in the file: keep it as a root, validation reports the file
+                // e.g. a node of another kind nested in the file: keep it as a root of the model. Only nesting directly
+                // under the node is reported by validation (CHILD_WITHOUT_DECOMPOSITION); one inside the chain is not,
+                // and the bigraph keeps the nesting until the node is reparented.
                 LOGGER.warn("Could not attach {} under {} while loading: {}", node.getId(), parentOrNull.getId(), attached);
             }
         }
@@ -130,14 +138,8 @@ public final class POPPBigraphLoader {
             buildDomainSubtree(structure, childB, model, node, nodesById);
         }
         if (decoded.type() != DecompositionType.NONE && !decoded.children().isEmpty()) {
-            setDecompositionType(node, decoded.type());
+            node.setDecompositionType(decoded.type()); // an empty chain in the file stays NONE in the model
         }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T extends TreeNode<T>> void setDecompositionType(
-            TreeNode<T> node, DecompositionType type) {
-        node.setDecompositionType(type);
     }
 
     private static void reconstructRelations(

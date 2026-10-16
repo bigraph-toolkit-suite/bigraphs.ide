@@ -46,20 +46,20 @@ public final class POPPValidationPatterns {
     // -- pattern tree --------------------------------------------------------------------------------------------
 
     /** A redex node: control, name, optional link ({@code OPEN} outer name or {@code CLOSED} edge), children. */
-    private record N(String control, String name, Link link, List<N> kids) {
-        static final N SITE = new N(null, null, null, List.of());
+    private record Node(String control, String name, Link link, List<Node> children) {
+        static final Node SITE = new Node(null, null, null, List.of());
 
         boolean isSite() { return control == null; }
     }
 
     private enum Link { OPEN, CLOSED }
 
-    private static N n(POPPBigraphSignature c, String name, N... kids) {
-        return new N(c.controlName(), name, null, List.of(kids));
+    private static Node node(POPPBigraphSignature c, String name, Node... children) {
+        return new Node(c.controlName(), name, null, List.of(children));
     }
 
-    private static N stub(POPPBigraphSignature c, String name, Link link) {
-        return new N(c.controlName(), name, link, List.of());
+    private static Node stub(POPPBigraphSignature c, String name, Link link) {
+        return new Node(c.controlName(), name, link, List.of());
     }
 
     // -- the conditions --------------------------------------------------------------------------------------------
@@ -71,7 +71,7 @@ public final class POPPValidationPatterns {
         // A chain node directly in the container: decomposition structure that belongs to no decomposed node.
         for (POPPBigraphSignature chain : CHAINS) {
             out.add(pattern("chain-in-container-" + chain.controlName(), ValidationIssue.Code.CHAIN_OUTSIDE_DECOMPOSITION,
-                    n(popp, "container", n(chain, "chain", N.SITE), N.SITE),
+                    node(popp, "container", node(chain, "chain", Node.SITE), Node.SITE),
                     List.of("chain"),
                     s -> chain.controlName() + " node directly in the POPP container, not under a decomposed node",
                     false));
@@ -81,7 +81,7 @@ public final class POPPValidationPatterns {
         for (POPPBigraphSignature chain : CHAINS) {
             String type = chain == POPPBigraphSignature.AND_DECOMP ? "AND" : "OR";
             out.add(pattern("empty-" + chain.controlName(), ValidationIssue.Code.EMPTY_DECOMPOSITION,
-                    n(chain, "chain"),
+                    node(chain, "chain"),
                     List.of("chain"),
                     s -> s.getFirst() + " has an " + type + " decomposition without children",
                     false));
@@ -96,13 +96,13 @@ public final class POPPValidationPatterns {
                     false));
             // Stubs belong directly inside domain nodes, never in the container or in a chain node.
             out.add(pattern("stub-in-container-" + stub.controlName(), ValidationIssue.Code.MISPLACED_STUB,
-                    n(popp, "container", stub(stub, "stub", Link.OPEN), N.SITE),
+                    node(popp, "container", stub(stub, "stub", Link.OPEN), Node.SITE),
                     List.of("stub"),
                     s -> stub.controlName() + " stub directly in the POPP container, not in a node",
                     false));
             for (POPPBigraphSignature chain : CHAINS) {
                 out.add(pattern("stub-in-" + chain.controlName() + "-" + stub.controlName(), ValidationIssue.Code.MISPLACED_STUB,
-                        n(chain, "chain", stub(stub, "stub", Link.OPEN), N.SITE),
+                        node(chain, "chain", stub(stub, "stub", Link.OPEN), Node.SITE),
                         List.of("stub"),
                         s -> s.getFirst() + ": " + stub.controlName() + " stub inside a decomposition node instead of the node itself",
                         false));
@@ -114,7 +114,7 @@ public final class POPPValidationPatterns {
             for (POPPBigraphSignature child : KINDS) {
                 out.add(pattern("direct-" + parent.controlName() + "-" + child.controlName(),
                         ValidationIssue.Code.CHILD_WITHOUT_DECOMPOSITION,
-                        n(parent, "parent", n(child, "child", N.SITE), N.SITE),
+                        node(parent, "parent", node(child, "child", Node.SITE), Node.SITE),
                         List.of("parent", "child"),
                         s -> s.get(1) + " is attached directly to " + s.getFirst()
                                 + (parent == child ? " without a decomposition node" : " (a different kind)"),
@@ -126,7 +126,7 @@ public final class POPPValidationPatterns {
         // one occurrence per root (a redex with two roots would have one per ordered pair); the defect is two or more.
         for (POPPBigraphSignature kind : KINDS) {
             out.add(pattern("trees-" + kind.controlName(), ValidationIssue.Code.MULTIPLE_TREES,
-                    n(popp, "container", n(kind, "root", N.SITE), N.SITE),
+                    node(popp, "container", node(kind, "root", Node.SITE), Node.SITE),
                     List.of("root"),
                     s -> s.size() + " separate " + kind.controlName() + " trees (" + String.join(", ", s)
                             + "); connect them into one tree",
@@ -135,17 +135,18 @@ public final class POPPValidationPatterns {
         return List.copyOf(out);
     }
 
-    private static ValidationPattern pattern(String name, ValidationIssue.Code code, N root, List<String> subjects,
+    private static ValidationPattern pattern(String name, ValidationIssue.Code code, Node root, List<String> subjects,
                                              Function<List<String>, String> message, boolean aggregate) {
         return pattern(name, code, root, subjects, message, aggregate, 1);
     }
 
-    private static ValidationPattern pattern(String name, ValidationIssue.Code code, N root, List<String> subjects,
+    private static ValidationPattern pattern(String name, ValidationIssue.Code code, Node root, List<String> subjects,
                                              Function<List<String>, String> message, boolean aggregate,
                                              int minOccurrences) {
         PureBigraph redex = redex(root);
         Map<String, Integer> required = new HashMap<>(census(root));
-        // n occurrences of a one-node pattern need n nodes of its control
+        // n occurrences need n nodes of every control below the redex root (the root itself, e.g. the container, is
+        // shared by all occurrences)
         required.replaceAll((control, count) -> control.equals(root.control()) ? count : count * minOccurrences);
         try {
             return new ValidationPattern(name, code, new ParametricReactionRule<>(redex, redex),
@@ -155,35 +156,35 @@ public final class POPPValidationPatterns {
         }
     }
 
-    private static PureBigraph redex(N root) {
-        PureBigraphMutable g = pureBuilder(SIGNATURE).createMutable();
-        emit(g, g.addRoot(), root);
-        return g;
+    private static PureBigraph redex(Node root) {
+        PureBigraphMutable bigraph = pureBuilder(SIGNATURE).createMutable();
+        emit(bigraph, bigraph.addRoot(), root);
+        return bigraph;
     }
 
-    private static void emit(PureBigraphMutable g, BigraphEntity<?> parent, N n) {
-        if (n.isSite()) {
-            g.addSite(parent);
+    private static void emit(PureBigraphMutable bigraph, BigraphEntity<?> parent, Node node) {
+        if (node.isSite()) {
+            bigraph.addSite(parent);
             return;
         }
-        var node = g.addNode(parent, SIGNATURE.getControlByName(n.control()), n.name());
-        if (n.link() == Link.CLOSED) {
-            g.connectNodeToLink(node, g.addEdge(n.name() + "-edge"));
-        } else if (n.link() == Link.OPEN) {
-            g.connectNodeToLink(node, g.addOuterName(n.name() + "-link"));
+        var bigraphNode = bigraph.addNode(parent, SIGNATURE.getControlByName(node.control()), node.name());
+        if (node.link() == Link.CLOSED) {
+            bigraph.connectNodeToLink(bigraphNode, bigraph.addEdge(node.name() + "-edge"));
+        } else if (node.link() == Link.OPEN) {
+            bigraph.connectNodeToLink(bigraphNode, bigraph.addOuterName(node.name() + "-link"));
         }
-        n.kids().forEach(k -> emit(g, node, k));
+        node.children().forEach(child -> emit(bigraph, bigraphNode, child));
     }
 
     /** How many nodes of each control the redex needs. */
-    private static Map<String, Integer> census(N root) {
+    private static Map<String, Integer> census(Node root) {
         Map<String, Integer> counts = new HashMap<>();
-        Deque<N> todo = new ArrayDeque<>(List.of(root));
+        Deque<Node> todo = new ArrayDeque<>(List.of(root));
         while (!todo.isEmpty()) {
-            N n = todo.pop();
-            if (n.isSite()) continue;
-            counts.merge(n.control(), 1, Integer::sum);
-            todo.addAll(n.kids());
+            Node node = todo.pop();
+            if (node.isSite()) continue;
+            counts.merge(node.control(), 1, Integer::sum);
+            todo.addAll(node.children());
         }
         return Map.copyOf(counts);
     }
