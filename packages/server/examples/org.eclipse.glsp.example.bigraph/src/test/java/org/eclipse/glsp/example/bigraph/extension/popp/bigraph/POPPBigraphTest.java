@@ -495,4 +495,71 @@ class POPPBigraphTest {
         POPPBigraph readOnly = new POPPBigraph(mutable, null);
         assertThrows(IllegalStateException.class, () -> readOnly.addTreeNode(criteria("a")));
     }
+
+    // ---- queries and attributes -------------------------------------------------------------------------------
+
+    @Test
+    void nodeQueriesTellDomainNodesChainNodesAndStubsApart() {
+        SuccessCriteria parent = parentWithChildren(DecompositionType.OR, 2);
+        Chain chain = chain();
+        popp.createRelation(relation(chain.proof(), chain.criteria()));
+        var domain = entity(parent);
+        var chainNode = popp.getById(parent.getId() + "_DECOMP").orElseThrow();
+        var stub = popp.getBigraph().getNodes().stream().filter(POPPBigraphSignature.VALIDATES_INCOMING::matches)
+                .findFirst().orElseThrow();
+
+        assertTrue(popp.isDomainNode(domain));
+        assertFalse(popp.isChainNode(domain));
+        assertEquals(NodeKind.SUCCESS_CRITERIA, popp.kindOf(domain).orElseThrow());
+        assertEquals(DecompositionType.NONE, popp.decompositionTypeOf(domain));
+
+        assertTrue(popp.isChainNode(chainNode));
+        assertTrue(popp.kindOf(chainNode).isEmpty());
+        assertEquals(DecompositionType.OR, popp.decompositionTypeOf(chainNode));
+
+        assertFalse(popp.isDomainNode(stub));
+        assertFalse(popp.isChainNode(stub));
+        assertTrue(popp.kindOf(stub).isEmpty());
+        assertEquals(chain.criteria().getId(), ((BigraphEntity.NodeEntity<?>) popp.getBigraph().getParent(stub)).getName());
+    }
+
+    @Test
+    void decodingANodeWithoutChainReportsItsDirectDomainChildren() {
+        SuccessCriteria parent = criteria("parent");
+        SuccessCriteria child = criteria("child");
+        popp.addTreeNode(parent);
+        popp.addTreeNode(child);
+        popp.getBigraph().moveNode(entity(child), entity(parent)); // a defect: no chain in between
+
+        var decoded = popp.decodeDecomposition(entity(parent));
+
+        assertEquals(DecompositionType.NONE, decoded.type());
+        assertEquals(List.of(child.getId()), decoded.children().stream().map(BigraphEntity.NodeEntity::getName).toList());
+    }
+
+    @Test
+    void updateDescriptionStoresTheTextWithoutNotifyingObservers() {
+        SuccessCriteria node = criteria("old");
+        popp.addTreeNode(node);
+        Recorder recorder = new Recorder(popp);
+        popp.addObserver(recorder);
+
+        popp.updateDescription(node.getId(), "new");
+        popp.updateDescription(node.getId(), null);
+
+        assertEquals("", entity(node).getAttributes().get("description"), "null is stored as empty text");
+        assertTrue(recorder.added.isEmpty() && recorder.removed.isEmpty() && recorder.reparented.isEmpty()
+                && recorder.positions.isEmpty() && recorder.relationsAdded.isEmpty());
+    }
+
+    @Test
+    void theContainerIsCreatedOnceAndFoundAgain() {
+        popp.addTreeNode(criteria("a"));
+        popp.addTreeNode(criteria("b"));
+
+        var container = popp.findPOPPContainer(popp.getDefaultRoot());
+        assertNotNull(container);
+        assertEquals(1, popp.getBigraph().getNodes().stream().filter(POPPBigraphSignature.POPP::matches).count());
+        assertEquals(1, popp.getBigraph().getRoots().size());
+    }
 }

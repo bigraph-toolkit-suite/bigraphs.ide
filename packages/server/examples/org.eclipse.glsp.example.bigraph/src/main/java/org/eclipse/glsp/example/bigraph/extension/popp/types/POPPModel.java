@@ -99,6 +99,7 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
             nodeRegistry.remove(node.getId());
             relations.incoming(node).forEach(relation -> unrelate(relation.source(), node));
             relations.outgoing(node).forEach(relation -> unrelate(node, relation.target()));
+            removeRoot(node); // a deleted root must not stay listed (no-op for a former child, which is a root now)
             publish(new POPPEvent.NodeRemoved(node.getKind(), node));
         }
 
