@@ -10,6 +10,11 @@ import java.util.*;
  * A node of one of the six homogeneous POPP trees (CRTP: {@code T} is the concrete node type, so children and parent
  * are statically of the same kind). Sealed, so that code dispatching over the node kinds (e.g.
  * {@link POPPModel#decompose}) is checked for exhaustiveness by the compiler.
+ * <p>
+ * Every node forwards the events of its children to its own listeners, so a listener on a root (the
+ * {@link POPPModel}) hears about the whole tree. Invariant: the decomposition type is {@code NONE} exactly while the
+ * node has no children. The first {@link #addChild} sets {@code AND} before the child is attached, so that listeners
+ * see the decomposition before the child's parent change.
  */
 public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEmitter implements POPPEventListener
         permits Problem, Goal, Consequence, Solution, SuccessCriteria, SuccessProof {
@@ -72,12 +77,12 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
         emitEvent(event);
     }
 
-    /** Template method to enable future node types to store custom data. */
+    /** Hook for node types with extra state to persist (see {@code POPPExtensionMeta}); no node type uses it yet. */
     public Map<String, String> exportProperties() {
         return Map.of();
     }
 
-    /** Template method to enable future node types to load custom data. */
+    /** Counterpart of {@link #exportProperties()}, called when a saved model is loaded. */
     public void importProperties(Map<String, String> properties) {}
 
     public Optional<T> getParent() {
@@ -88,6 +93,12 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
         return List.copyOf(children);
     }
 
+    /**
+     * Attaches {@code child} below this node and returns whether it did. Moves the child away from a previous parent;
+     * if {@code child} is this node's own parent, the two are flipped (this node first becomes a root). Refuses
+     * {@code null}, this node itself, an existing child or other descendant, and any other ancestor (a cycle). The
+     * first child gives this node the default decomposition type {@code AND}.
+     */
     public boolean addChild(T child) {
         if (child == null || child == self() || children.contains(child)) {
             return false;
@@ -100,9 +111,9 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
             setParent(null);
         }
 
-        if (decompositionType == DecompositionType.NONE){
-            /** Fallback {@link DecompositionType} value. */
-            setDecompositionType(DecompositionType.AND);
+        if (decompositionType == DecompositionType.NONE) {
+            // first child: AND is the default decomposition (set before the child is added, see the class comment)
+            changeDecompositionType(DecompositionType.AND);
         }
 
         T oldParent = child.getParent().filter(p -> p != self()).orElse(null);
@@ -120,6 +131,7 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
         return true;
     }
 
+    /** Detaches {@code child}, which becomes a root; the last child takes the decomposition type with it. */
     public boolean removeChild(T child) {
         if (child == null || !children.contains(child)) {
             return false;
@@ -140,10 +152,16 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
     void afterChildDetached(T child) { // package-private: called on the old parent, typed as T
         child.removeListener(this);
         if (children.isEmpty() && decompositionType != DecompositionType.NONE) {
-            setDecompositionType(DecompositionType.NONE);
+            changeDecompositionType(DecompositionType.NONE);
         }
     }
 
+    /**
+     * Moves this node below {@code parent}, or makes it a root for {@code null}. Keeps both sides consistent by going
+     * through {@link #addChild}/{@link #removeChild}, and emits one {@link POPPEvent.NodeChangedParent}: for
+     * {@code null} before the old parent lets go (so the old parent still forwards it), otherwise afterwards. Refuses
+     * this node itself and its own descendants; setting the current parent again is a successful no-op.
+     */
     public boolean setParent(T parent) {
         if (parent == self() || (parent != null && parent.isChildOf(self()))) {
             return false;
@@ -182,11 +200,13 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
         return false;
     }
 
+    /** Number of levels of the subtree rooted here (1 for a leaf). */
     public int getHeight(){
         return 1 + children.stream().mapToInt(TreeNode::getHeight).max().orElse(0);
     }
 
-    public int getWidth(){ 
+    /** Number of leaves of the subtree rooted here. */
+    public int getWidth(){
         if (children.isEmpty()) {
             return 1;
         } else {
@@ -205,19 +225,26 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
         return getClass().equals(other.getClass()) && id.equals(other.id);
     }
 
-    public boolean isIntrinsicallyCovered() {
-        return getKind().isIntrinsicallyCovered();
-    }
-
+    /**
+     * Sets how the children combine. A node has a decomposition type exactly while it has children, so this refuses
+     * {@code NONE} while there are children and {@code AND}/{@code OR} while there are none ({@link #addChild} and
+     * {@link #removeChild} switch between {@code NONE} and {@code AND} themselves). Setting the current type again is
+     * a successful no-op without an event.
+     */
     public boolean setDecompositionType(DecompositionType decompositionType) {
-        if (decompositionType == DecompositionType.NONE && !children.isEmpty()){
+        if (decompositionType == null || (decompositionType == DecompositionType.NONE) != children.isEmpty()) {
             return false;
         }
+        if (decompositionType != this.decompositionType) {
+            changeDecompositionType(decompositionType);
+        }
+        return true;
+    }
 
+    private void changeDecompositionType(DecompositionType decompositionType) {
         POPPEvent event = new POPPEvent.NodeDecompositionTypeChanged(kind, self(), this.decompositionType);
         this.decompositionType = decompositionType;
         emitEvent(event);
-        return true;
     }
 
     public DecompositionType getDecompositionType() {

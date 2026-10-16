@@ -7,6 +7,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
 import org.eclipse.glsp.graph.*;
 
+/** Keeps the GModel the user interacts with in sync with the domain model, by applying its events. */
 @Singleton
 public class POPPGModelSynchronizer extends POPPSpecificEventListener {
     private final POPPExtensionContext context;

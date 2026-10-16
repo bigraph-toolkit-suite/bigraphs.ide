@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /**
  * Every case of {@link RewritingCoverageAnalyzerTest}, run against {@link FragmentRewritingCoverageAnalyzer}, plus a
  * differential check of each lever combination against {@link DomainCoverageAnalyzer} on random models (n-ary,
- * single-child and childless decompositions, every relation type, both modes).
+ * single-child decompositions, empty chain nodes from files, every relation type, both modes).
  */
 class FragmentRewritingCoverageAnalyzerTest extends RewritingCoverageAnalyzerTest {
 

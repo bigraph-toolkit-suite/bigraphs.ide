@@ -6,7 +6,6 @@ import org.eclipse.glsp.example.bigraph.extensions.AbstractExtensionContext;
 import org.eclipse.glsp.example.bigraph.extensions.ExtensionStateRepository;
 import org.eclipse.glsp.example.bigraph.model.IBigraphModelState;
 
-
 @Singleton
 public class POPPExtensionContext extends AbstractExtensionContext<POPPExtensionState> {
     @Inject

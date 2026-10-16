@@ -28,16 +28,17 @@ import java.util.function.Supplier;
  * from the framework's match result. Underneath, the framework encodes agent and redex for jLibBig and solves a
  * constraint model per call whose size grows with the agent, so a session costs roughly
  * (matcher calls) x (agent size)^1.5..2. {@link DomainCoverageAnalyzer} does the same job in microseconds;
- * {@link FragmentRewritingCoverageAnalyzer} evaluates the same rules on local fragments and is linear in the model.
+ * {@link FragmentRewritingCoverageAnalyzer} evaluates the same rules on local fragments and scales better.
  * <p>
  * <b>Why the matcher only.</b> The framework's {@code PureReactiveSystem.buildParametricReaction} is deliberately not
- * used: it corrupts links that cross the parameter/context boundary and its relabeling asserts on the tracking map.
+ * used: it seemed to corrupt links that cross the parameter/context boundary and its relabeling asserts on the tracking map.
  * All rules are monotone state upgrades, so a rule's effect is applied directly from its match: the agent node the
  * redex's receiver node was embedded into gets the rule's target state and reason marker.
  * <p>
  * <b>Evaluation.</b> Rounds: build the scratch bigraph from the current states, match every rule against that
- * snapshot, apply all effects (never lowering a state), repeat until a round changes nothing. Stale matches within a
- * round stay sound because states only increase and every rule's target is monotone in the states it reads.
+ * snapshot, and apply each match's effect to the state map, never to the bigraph. A match is skipped when its
+ * receiver already has the rule's target state or a higher one, so matches that went stale earlier in the round are
+ * harmless and every node keeps exactly one state and one reason. Repeat until a round changes nothing.
  * <p>
  * <b>Pruning</b> ({@link Pruning}): two cheap necessary conditions skip matcher calls that cannot succeed. The
  * <i>census</i> compares the number of nodes per control the redex needs with the agent's; the <i>link guard</i> asks
@@ -96,10 +97,11 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
         Map<String, Coverage> states = new HashMap<>(initial.coverage());
         Map<String, Derivation> why = new HashMap<>(initial.derivation());
 
+        // every round but the last upgrades some node, and a node can be upgraded at most twice (UNC -> PART -> COV)
         int roundBudget = 2 * agent.getNodes().size() + 2;
         PureBigraphMatcher matcher = new PureBigraphMatcher();
         int rounds = 0, matcherCalls = 0, successfulCalls = 0;
-        long tBuild = 0, tEncode = 0, tMatch = 0, t0;
+        long tBuild = 0, tMatch = 0, t0;
         int agentNodes = agent.getNodes().size();
 
         for (boolean changed = true; changed; ) {
@@ -118,13 +120,13 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
                 matcherCalls++;
                 t0 = System.nanoTime();
                 boolean any = false;
-                // the framework encodes agent and redex for jLibBig inside the call; that time counts as matching
+                // the framework translates agent and redex for jLibBig inside the call; that time counts as matching
                 for (PureBigraphMatch match : matcher.match(agent, rule.rule())) {
                     any = true;
                     Map<String, String> embedding = embedding(match.getJLibMatchResult());
                     String receiver = resolve(embedding, rule.receiverNode(), rule);
                     Coverage current = states.getOrDefault(receiver, Coverage.UNCOVERED);
-                    if (rule.target().compareTo(current) <= 0) continue;
+                    if (rule.target().compareTo(current) <= 0) continue; // prevent stale matches
 
                     String giver = rule.giverNode() == null ? null : resolve(embedding, rule.giverNode(), rule);
                     states.put(receiver, rule.target());
@@ -137,11 +139,12 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
 
             if (changed) {
                 t0 = System.nanoTime();
+                // Rebuild the whole coverage bigraph, with the new states initialized
                 agent = CoverageBigraph.build(input.bigraph(), mode, states);
                 tBuild += System.nanoTime() - t0;
             }
         }
-        lastStats = new RewritingStats(rounds, matcherCalls, successfulCalls, agentNodes, tBuild, tEncode, tMatch);
+        lastStats = new RewritingStats(rounds, matcherCalls, successfulCalls, agentNodes, tBuild, 0, tMatch);
         logger.debug("[session {}] {}", mode, lastStats);
         return new RewritingSession(mode, input.model().getRelations(), new Readout(states, why));
     }
@@ -199,10 +202,16 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
         return agentNode;
     }
 
+    /** Why a node has its state: the reason marker of the rule that set it, and the giver for link rules. */
     record Derivation(CoverageMarker marker, String giverId) {}
 
+    /** State and derivation per domain node id; chain nodes are internal and not included. */
     record Readout(Map<String, Coverage> coverage, Map<String, Derivation> derivation) {
-        /** Reads state cells off a bigraph. Only valid on a freshly built bigraph, never on a rewritten one. */
+        /**
+         * Reads the state cells of the domain nodes off a freshly built coverage bigraph. Such a bigraph only carries
+         * the reason marker {@code CovIntrinsic} (see {@link CoverageBigraph}); the derivations of all upgrades are
+         * recorded in the session's maps, never in a bigraph.
+         */
         static Readout of(PureBigraph g) {
             Map<String, Coverage> cov = new HashMap<>();
             Map<String, Derivation> why = new HashMap<>();
@@ -210,30 +219,14 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
                 Optional<Coverage> state = CoverageMarker.forNode(cell).flatMap(CoverageMarker::state);
                 if (state.isEmpty()) continue;
                 var owner = (BigraphEntity.NodeEntity<?>) g.getParent(cell);
-                boolean isDomain = POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(owner));
-                Derivation d = null;
+                if (!POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(owner))) continue;
+                cov.put(owner.getName(), state.get());
                 for (BigraphEntity<?> sib : g.getChildrenOf(owner)) {
-                    if (!(sib instanceof BigraphEntity.NodeEntity<?> s)) continue;
-
-                    Optional<CoverageMarker> m = CoverageMarker.forNode(s).filter(x -> x.belongsTo(state.get()));
-                    if (m.isEmpty()) continue;
-                    String giver = null;
-                    if (m.get() == CoverageMarker.PART_LINK || m.get() == CoverageMarker.COV_LINK) {
-                        var link = g.getLinkOfPoint(g.getPorts(s).get(0));
-                        for (BigraphEntity<?> pt : g.getPointsFromLink(link)) {
-                            if (!(pt instanceof BigraphEntity.Port port)) continue;
-                            var pointNode = g.getNodeOfPort(port);
-                            if (pointNode == null || pointNode == s) continue;
-                            var pointOwner = g.getParent(pointNode);
-                            if (pointOwner instanceof BigraphEntity.NodeEntity<?> po && !po.getName().equals(owner.getName())) {
-                                giver = po.getName();
-                            }
-                        }
+                    if (sib instanceof BigraphEntity.NodeEntity<?> s && CoverageMarker.forNode(s)
+                            .filter(m -> m.belongsTo(state.get())).isPresent()) {
+                        why.put(owner.getName(), new Derivation(CoverageMarker.forNode(s).get(), null));
                     }
-                    d = new Derivation(m.get(), giver);
                 }
-
-                if (isDomain) { cov.put(owner.getName(), state.get()); if (d != null) why.put(owner.getName(), d); }
             }
             return new Readout(cov, why);
         }

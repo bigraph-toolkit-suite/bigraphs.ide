@@ -35,6 +35,11 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
+/**
+ * The POPP editor as an IDE extension: contributes the POPP model variant, its handlers, type hints and Guice
+ * bindings, loads the POPP model from the bigraph when a file is opened, and maps deletions, moves and the meta file
+ * onto the domain model.
+ */
 public class POPPExtension implements IdeExtension {
     public static final ExtensionStateKey<POPPExtensionState> STATE_KEY =
             ExtensionStateKey.of("popp", POPPExtensionState.class);
@@ -49,9 +54,8 @@ public class POPPExtension implements IdeExtension {
             .iconCodicon("new-popp-model")
             .build();
 
-    // CoverageAnalyzer warmup
+    /** The coverage warm-up runs once per JVM: JIT and class loading are shared by all sessions. */
     private static final AtomicBoolean WARMED_UP = new AtomicBoolean();
-
 
     @Override
     public String getId() {
@@ -180,7 +184,7 @@ public class POPPExtension implements IdeExtension {
         meta.setExtensionSection(getId(), new POPPExtensionMeta(data).toJson());
     }
 
-    /** Is called before onModelLoaded */
+    /** Called before {@link #onModelLoaded}; the node data is applied by the loader once the model exists. */
     @Override
     public void readExtensionMeta(BigraphMetaInformation meta, Injector injector) {
         POPPExtensionState state = injector.getInstance(POPPExtensionContext.class).getOwnState();

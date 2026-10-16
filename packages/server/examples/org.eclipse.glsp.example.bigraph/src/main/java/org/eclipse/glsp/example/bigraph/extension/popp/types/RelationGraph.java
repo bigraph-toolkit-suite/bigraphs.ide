@@ -41,6 +41,7 @@ public final class RelationGraph extends POPPEventEmitter {
         return a != null && b != null && a != b && resolve(a, b).isPresent();
     }
 
+    /** Adds the relation between {@code a} and {@code b}, given in either order; the type follows from their kinds. */
     public RelationResult relate(TreeNode<?> a, TreeNode<?> b) {
         if (a == null || b == null) {
             return RelationResult.NULL_ARGUMENT;
@@ -62,6 +63,7 @@ public final class RelationGraph extends POPPEventEmitter {
         return RelationResult.CREATED;
     }
 
+    /** Removes the relation between {@code a} and {@code b}, given in either order. */
     public RelationResult unrelate(TreeNode<?> a, TreeNode<?> b) {
         if (a == null || b == null) {
             return RelationResult.NULL_ARGUMENT;

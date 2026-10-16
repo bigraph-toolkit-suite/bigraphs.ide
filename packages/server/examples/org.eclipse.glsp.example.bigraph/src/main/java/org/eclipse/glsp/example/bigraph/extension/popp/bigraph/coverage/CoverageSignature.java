@@ -6,6 +6,8 @@ import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignat
 
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureSignatureBuilder;
 
+/** Provides the signature used in {@link CoverageBigraph}.
+ * Re-uses the signature of POPPBigraphSignature and extends it with the marker controls defined in {@link CoverageMarker}. */
 final class CoverageSignature {
     private static final class Holder { static final DynamicSignature INSTANCE = create(); }
 

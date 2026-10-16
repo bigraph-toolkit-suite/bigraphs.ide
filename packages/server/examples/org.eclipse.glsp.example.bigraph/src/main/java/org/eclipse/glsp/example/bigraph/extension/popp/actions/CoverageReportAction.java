@@ -3,6 +3,11 @@ package org.eclipse.glsp.example.bigraph.extension.popp.actions;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReportBuilder;
 import org.eclipse.glsp.server.actions.ResponseAction;
 
+/**
+ * Answer to {@link RequestCoverageReportAction}.
+ *
+ * @see org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReportBuilder.CoverageReport
+ */
 public class CoverageReportAction extends ResponseAction {
     public static final String KIND = "popp.coverageReport";
     private CoverageReportBuilder.CoverageReport report;

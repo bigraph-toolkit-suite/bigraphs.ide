@@ -9,12 +9,10 @@ import java.util.List;
 
 /** Result of {@link CoverageSession#explain}: a reason tree that follows the evidence down to its end. */
 public sealed interface CoverageReason {
-
     TreeNode<?> node();
-
     Coverage coverage();
 
-    /** Inherently covered kind (solution, criteria); COVERED unless it is only planned in VERIFY mode. */
+    /** Covered by its kind alone: a solution always, a success criterion in PLANNING mode. Always COVERED. */
     record Intrinsic(TreeNode<?> node, Coverage coverage) implements CoverageReason {
     }
 
@@ -26,7 +24,10 @@ public sealed interface CoverageReason {
             implements CoverageReason {
     }
 
-    /** Best propagating relation to a neighbour; {@code coveringReason} explains that neighbour. */
+    /**
+     * Covered (or not) through a propagating relation; {@code coveringReason} explains the giving neighbour. When the
+     * node is not covered at all, this is the first candidate relation, so the explanation still leads somewhere.
+     */
     record Link(TreeNode<?> node, Coverage coverage, Relation relation, CoverageReason coveringReason)
             implements CoverageReason {
         public RelationType type() {
@@ -38,7 +39,10 @@ public sealed interface CoverageReason {
         }
     }
 
-    /** Nothing to follow: no children and no propagating relation. {@code gaps} says what could fix that. */
+    /**
+     * Nothing to follow: no children and no propagating relation. {@code gaps} lists the remedies, i.e. the relations
+     * that could cover the node (empty for kinds that cannot be covered).
+     */
     record NotCovered(TreeNode<?> node, List<CoverageGap.CoverageRemedy> gaps) implements CoverageReason {
         @Override
         public Coverage coverage() {

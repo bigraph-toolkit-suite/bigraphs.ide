@@ -8,17 +8,20 @@ public enum RelationType {
     PRODUCES(CoveragePropagation.FORWARD, new NodeTypePair(NodeKind.SOLUTION, NodeKind.SUCCESS_PROOF)),
     /** SuccessProof to SuccessCriteria, the proof confirms the criterion. */
     VALIDATES(CoveragePropagation.FORWARD, new NodeTypePair(NodeKind.SUCCESS_PROOF, NodeKind.SUCCESS_CRITERIA)),
-    /** Problem to Consequence, and Goal to SuccessCriteria: achieving the goal causes the criterion. */
+    /** Problem to Consequence (the problem causes it), and Goal to SuccessCriteria (achieving the goal causes it). */
     CAUSES(CoveragePropagation.BACKWARD,
         new NodeTypePair(NodeKind.PROBLEM, NodeKind.CONSEQUENCE), new NodeTypePair(NodeKind.GOAL, NodeKind.SUCCESS_CRITERIA)),
-    /** Problem to Goal: the derived, inverted counterpart. */
+    /** Problem to Goal: the goal is the problem inverted into a desired state. */
     INVERTS(CoveragePropagation.BACKWARD,
         new NodeTypePair(NodeKind.PROBLEM, NodeKind.GOAL)),
-    /** Solution to Goal, the goal means relationship; provenance only, does not imply coverage. */
+    /** Solution to Goal: the solution is a means to the goal; provenance only, does not propagate coverage. */
     REALIZES(CoveragePropagation.NONE, new NodeTypePair(NodeKind.SOLUTION, NodeKind.GOAL));
 
 
-    /** Direction coverage flows relative to how a relation is stored as source to target. */
+    /**
+     * Direction coverage flows, relative to the stored {@code source -> target}: FORWARD covers the target from the
+     * source, BACKWARD the source from the target, NONE neither.
+     */
     public enum CoveragePropagation {
         NONE, FORWARD, BACKWARD;
 

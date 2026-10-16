@@ -16,7 +16,8 @@ import java.util.function.Function;
  * @param rule      redex (= reactum) to match
  * @param required  control name to minimum count: if the bigraph has fewer, the pattern cannot occur and is skipped
  * @param subjects  names of redex nodes whose matched agent nodes are reported (and mapped to POPP node ids)
- * @param message   builds the message from the matched agent nodes' descriptions, in the order of {@code subjects}
+ * @param message   builds the message from the labels of the matched agent nodes (kind and description of the enclosing
+ *                  domain node, see {@code POPPModelValidator.Snapshot#labelOf}), in the order of {@code subjects}
  * @param aggregate merge all occurrences into one issue (e.g. every root of one kind), instead of one per occurrence
  * @param minOccurrences the defect needs at least this many occurrences (2 for "more than one root of a kind")
  */

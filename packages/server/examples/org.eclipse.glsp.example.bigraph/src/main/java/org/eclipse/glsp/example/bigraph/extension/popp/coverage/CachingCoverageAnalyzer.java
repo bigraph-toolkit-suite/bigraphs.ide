@@ -5,7 +5,8 @@ import java.util.Map;
 import java.util.function.LongSupplier;
 
 /**
- * Caches one {@link CoverageSession} per {@link CoverageMode} for as long as the model's version is unchanged.
+ * Caches one {@link CoverageSession} per {@link CoverageMode} for as long as {@link CoverageInput#revision()} is
+ * unchanged, i.e. the same model object at the same version.
  * <p>
  * Every other method of {@link CoverageAnalyzer} (coverage, isCovered, explain, gaps) goes through
  * {@link #session(CoverageMode)}, so this is the only method that needs to be decorated, and it works for any

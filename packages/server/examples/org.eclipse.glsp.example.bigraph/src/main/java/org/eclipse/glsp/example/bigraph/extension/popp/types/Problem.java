@@ -1,5 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
+/** Represents a problem of the POPP model */
 public final class Problem extends TreeNode<Problem> {
     Problem(String description, double x, double y) {
         super(NodeKind.PROBLEM, description, x, y);

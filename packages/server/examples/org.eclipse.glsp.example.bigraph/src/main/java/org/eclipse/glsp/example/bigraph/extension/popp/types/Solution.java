@@ -1,5 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
+/** Represents a solution of the POPP model */
 public final class Solution extends TreeNode<Solution> {
     Solution(String description, double x, double y) {
         super(NodeKind.SOLUTION, description, x, y);

@@ -81,6 +81,7 @@ public enum POPPBigraphSignature {
                 .getControl().getNamedType().stringValue().equals(controlName);
     }
 
+    /** The control of {@code node}; {@code null} if it is not in this signature (e.g. a coverage marker). */
     public static POPPBigraphSignature forNode(BigraphEntity.NodeEntity<?> node) {
         for (POPPBigraphSignature control : values()) {
             if (control.matches(node)) {
@@ -118,6 +119,7 @@ public enum POPPBigraphSignature {
         }
     }
 
+    /** The node kind of a domain-node control; throws for every other control. */
     public static NodeKind toNodeKind(POPPBigraphSignature control) {
         return switch (control) {
             case PROBLEM -> NodeKind.PROBLEM;
@@ -130,7 +132,7 @@ public enum POPPBigraphSignature {
         };
     }
 
-    /** The control for the given {@link DecompositionType} */
+    /** The chain-node control for AND or OR; {@code null} for {@code NONE}, which has no chain. */
     public static POPPBigraphSignature getByDecompositionType(final DecompositionType decompositionType) {
         switch (decompositionType) {
             case OR -> { return OR_DECOMP; }
@@ -139,6 +141,7 @@ public enum POPPBigraphSignature {
         }
     }
 
+    /** The decomposition type of a chain-node control; {@code NONE} for every other control. */
     public static DecompositionType decompositionTypeOf(POPPBigraphSignature control) {
         if (control == AND_DECOMP) return DecompositionType.AND;
         if (control == OR_DECOMP) return DecompositionType.OR;
@@ -171,15 +174,7 @@ public enum POPPBigraphSignature {
         return incomingStubFor(relation.type());
     }
 
-    /**
-     * Creates the initial canonical POPP signature.
-     *
-     * <p>AND decomposition is normalized to a binary subtree so the coverage rule
-     * can be expressed as "left covered and right covered implies parent
-     * covered". OR decomposition may also use the same binary shape for
-     * simplicity, but semantically it can also be represented by a local rule
-     * saying that any covered child suffices.
-     */
+    /** Builds the POPP signature from the constants of this enum (control name and arity each). */
     public static DynamicSignature create() {
         var builder = pureSignatureBuilder();
         for (POPPBigraphSignature control : values()) {

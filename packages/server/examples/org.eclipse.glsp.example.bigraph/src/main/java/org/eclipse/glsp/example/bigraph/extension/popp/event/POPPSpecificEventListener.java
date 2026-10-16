@@ -1,7 +1,9 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.event;
 
-/** Simple helper to split each event type into its own handler method.
- *  If only one event type should be handled, only this method needs to be overridden by the subclass. */
+/**
+ * Dispatches each event type to its own method; all are no-ops by default, so a subclass overrides only the event
+ * types it handles.
+ */
 public abstract class POPPSpecificEventListener implements POPPEventListener {
     @Override
     public void onPOPPEvent(POPPEvent event) {

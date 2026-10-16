@@ -55,7 +55,7 @@ public class EdgeCreationHandler extends GModelCreateEdgeOperationHandler {
         if (source.getKind() == target.getKind()) {
             if (model.decompose(source, target) == DecompositionResult.REJECTED) {
                 BigraphNotifications.notifyError(actionDispatcher,
-                        "This decomposition would create a cycle or already exists.");
+                        "This decomposition would create a cycle, or the node is already below the parent.");
             }
             return;
         }
