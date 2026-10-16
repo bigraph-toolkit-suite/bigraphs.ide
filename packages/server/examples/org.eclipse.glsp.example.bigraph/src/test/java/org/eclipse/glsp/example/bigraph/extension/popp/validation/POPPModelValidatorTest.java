@@ -6,6 +6,7 @@ import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageTestModels;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
+import org.eclipse.glsp.example.bigraph.testsupport.BigraphTestSupport;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -130,6 +131,132 @@ class POPPModelValidatorTest {
                     depth, popp.model.getAllNodes().size(), (System.nanoTime() - t0) / 1e6,
                     report.patternsMatched(), report.patternsSkipped(), report.issues().size());
             assertTrue(report.valid());
+        }
+    }
+
+    @Test
+    void anEmptyFileIsValidAndNoPatternIsMatched() {
+        ValidationReport report = validate(new CoverageTestModels.Synced());
+
+        assertTrue(report.valid());
+        assertTrue(report.issues().isEmpty());
+        assertEquals(0, report.patternsMatched(), "the census rules every pattern out");
+        assertEquals(POPPValidationPatterns.all().size(), report.patternsSkipped());
+    }
+
+    @Test
+    void aStubInTheContainerIsMisplaced() {
+        CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
+        Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "goal", 0, 0);
+        SuccessCriteria criterion = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "sc", 0, 0);
+        popp.model.relate(goal, criterion);
+        PureBigraphMutable g = popp.bigraph.getBigraph();
+        var stub = g.getNodes().stream().filter(POPPBigraphSignature.CAUSES_OUTGOING::matches).findFirst().orElseThrow();
+        g.moveNode(stub, popp.bigraph.findPOPPContainer(popp.bigraph.getDefaultRoot()));
+
+        List<ValidationIssue> misplaced = issues(validate(popp), ValidationIssue.Code.MISPLACED_STUB);
+
+        assertEquals(1, misplaced.size());
+        assertEquals(List.of(stub.getName()), misplaced.getFirst().elements());
+        assertTrue(misplaced.getFirst().nodeIds().isEmpty(), "the container belongs to no POPP node");
+        assertEquals(ValidationIssue.Severity.ERROR, misplaced.getFirst().severity());
+    }
+
+    @Test
+    void aStubInAChainNodeIsMisplacedAndAttributedToTheDecomposedNode() {
+        CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
+        Goal parent = (Goal) popp.model.createNode(NodeKind.GOAL, "parent", 0, 0);
+        parent.addChild((Goal) popp.model.createNode(NodeKind.GOAL, "child", 0, 0));
+        SuccessCriteria criterion = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "sc", 0, 0);
+        popp.model.relate(parent, criterion);
+        PureBigraphMutable g = popp.bigraph.getBigraph();
+        var stub = g.getNodes().stream().filter(POPPBigraphSignature.CAUSES_OUTGOING::matches).findFirst().orElseThrow();
+        g.moveNode(stub, node(g, parent.getId() + "_DECOMP"));
+
+        List<ValidationIssue> misplaced = issues(validate(popp), ValidationIssue.Code.MISPLACED_STUB);
+
+        assertEquals(1, misplaced.size());
+        assertEquals(List.of(parent.getId()), misplaced.getFirst().nodeIds());
+        assertTrue(misplaced.getFirst().message().contains("Goal \"parent\""), misplaced.getFirst().message());
+    }
+
+    @Test
+    void aNodeOfAnotherKindDirectlyInsideIsReported() {
+        CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
+        Problem problem = (Problem) popp.model.createNode(NodeKind.PROBLEM, "problem", 0, 0);
+        Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "goal", 0, 0);
+        PureBigraphMutable g = popp.bigraph.getBigraph();
+        g.moveNode(node(g, goal.getId()), node(g, problem.getId()));
+
+        List<ValidationIssue> direct = issues(validate(popp), ValidationIssue.Code.CHILD_WITHOUT_DECOMPOSITION);
+
+        assertEquals(1, direct.size());
+        assertEquals(List.of(problem.getId(), goal.getId()), direct.getFirst().nodeIds());
+        assertTrue(direct.getFirst().message().endsWith("(a different kind)"), direct.getFirst().message());
+    }
+
+    @Test
+    void aControlOutsideTheSignatureIsReportedAndItsSubtreeIsNotCopied() {
+        List<BigraphTestSupport.ControlSpec> controls = new java.util.ArrayList<>();
+        for (POPPBigraphSignature c : POPPBigraphSignature.values()) {
+            controls.add(new BigraphTestSupport.ControlSpec(c.controlName(), c.arity()));
+        }
+        controls.add(new BigraphTestSupport.ControlSpec("Foreign", 0));
+        var signature = BigraphTestSupport.signature(
+                controls.toArray(BigraphTestSupport.ControlSpec[]::new));
+        PureBigraphMutable g = BigraphTestSupport.emptyBigraph(signature);
+        var container = BigraphTestSupport.addNode(
+                g, g.getRoots().getFirst(), "POPP", "POPP");
+        var foreign = BigraphTestSupport.addNode(g, container, "Foreign", "foreign");
+        BigraphTestSupport.addNode(g, foreign, "Goal", "hidden goal");
+
+        POPPModelValidator.Snapshot snapshot = POPPModelValidator.snapshot(g, 7);
+        ValidationReport report = validator.validate(snapshot);
+
+        assertEquals(List.of("foreign"), snapshot.unknown());
+        assertFalse(snapshot.census().containsKey("Goal"), "nothing below an unknown node is copied");
+        List<ValidationIssue> unknown = issues(report, ValidationIssue.Code.UNKNOWN_CONTROL);
+        assertEquals(1, unknown.size());
+        assertEquals(List.of("foreign"), unknown.getFirst().elements());
+        assertFalse(report.valid());
+        assertEquals(7, report.modelVersion());
+    }
+
+    @Test
+    void aNodeWithoutDescriptionIsLabelledByItsShortId() {
+        CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
+        Goal first = (Goal) popp.model.createNode(NodeKind.GOAL, "", 0, 0);
+        popp.model.createNode(NodeKind.GOAL, "second", 0, 0);
+
+        ValidationIssue trees = issues(validate(popp), ValidationIssue.Code.MULTIPLE_TREES).getFirst();
+
+        assertTrue(trees.message().contains("Goal " + first.getId().substring(0, 8)), trees.message());
+        assertTrue(trees.message().contains("Goal \"second\""), trees.message());
+        assertTrue(trees.message().startsWith("2 separate Goal trees"), trees.message());
+    }
+
+    @Test
+    void reportsListErrorsBeforeWarningsAndCountBoth() {
+        ValidationIssue warning = new ValidationIssue(ValidationIssue.Code.MULTIPLE_TREES,
+                ValidationIssue.Severity.WARNING, "w", List.of(), List.of(), "p");
+        ValidationIssue error = new ValidationIssue(ValidationIssue.Code.DANGLING_STUB,
+                ValidationIssue.Severity.ERROR, "e", List.of(), List.of(), "p");
+
+        ValidationReport report = ValidationReport.of(3, List.of(warning, error), 12, 4, 5);
+
+        assertEquals(List.of(error, warning), report.issues());
+        assertEquals(1, report.errors());
+        assertEquals(1, report.warnings());
+        assertFalse(report.valid());
+        assertTrue(ValidationReport.of(3, List.of(warning), 0, 0, 0).valid(), "warnings alone keep it valid");
+    }
+
+    @Test
+    void everyCodeHasTheDocumentedSeverity() {
+        for (ValidationIssue.Code code : ValidationIssue.Code.values()) {
+            boolean warning = code == ValidationIssue.Code.EMPTY_DECOMPOSITION || code == ValidationIssue.Code.MULTIPLE_TREES;
+            assertEquals(warning ? ValidationIssue.Severity.WARNING : ValidationIssue.Severity.ERROR, code.severity(),
+                    code.name());
         }
     }
 

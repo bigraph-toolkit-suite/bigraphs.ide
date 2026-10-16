@@ -165,4 +165,39 @@ class POPPModelTest {
         model.createNode(NodeKind.GOAL, "goal", 0, 0);
         assertTrue(found.get());
     }
+
+    @Test
+    void deletingANodeAnnouncesEachOrphanedChildOnce() {
+        POPPModel model = new POPPModel();
+        TreeNode<?> parent = model.createNode(NodeKind.GOAL, "parent", 0, 0);
+        TreeNode<?> a = model.createNode(NodeKind.GOAL, "a", 0, 0);
+        TreeNode<?> b = model.createNode(NodeKind.GOAL, "b", 0, 0);
+        model.decompose(parent, a);
+        model.decompose(parent, b);
+        List<POPPEvent.NodeChangedParent> changes = new java.util.ArrayList<>();
+        model.addListener(e -> { if (e instanceof POPPEvent.NodeChangedParent c) changes.add(c); });
+
+        model.deleteNode(parent.getId());
+
+        assertEquals(2, changes.size(), changes::toString);
+        assertTrue(changes.stream().allMatch(c -> c.oldParent() == parent && c.newParent() == null));
+        assertEquals(Set.of(a, b), Set.copyOf(model.getGoalRoots()));
+    }
+
+    @Test
+    void aDeletedRootIsNoLongerListed() {
+        POPPModel model = new POPPModel();
+        TreeNode<?> goal = model.createNode(NodeKind.GOAL, "goal", 0, 0);
+        TreeNode<?> other = model.createNode(NodeKind.GOAL, "other", 0, 0);
+
+        model.deleteNode(goal.getId());
+
+        assertEquals(List.of(other), model.getGoalRoots());
+        assertEquals(List.of(other), model.getAllGoals());
+        assertNull(model.findNode(goal.getId()));
+        AtomicBoolean heard = new AtomicBoolean();
+        model.addListener(e -> heard.set(true));
+        goal.move(1, 1);
+        assertFalse(heard.get(), "the model stopped listening to the deleted node");
+    }
 }
