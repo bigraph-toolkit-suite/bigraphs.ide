@@ -29,9 +29,9 @@ final class RewritingSession extends AbstractCoverageSession {
 
         if (d != null) {
             return switch (d.marker()) {
-                case CoverageMarker.COV_INTRINSIC -> new CoverageReason.Intrinsic(node, Coverage.COVERED);
-                case CoverageMarker.PART_DECOMP, CoverageMarker.COV_DECOMP -> decompositionReason(node, state);
-                case CoverageMarker.PART_LINK, CoverageMarker.COV_LINK -> {
+                case COV_INTRINSIC -> new CoverageReason.Intrinsic(node, Coverage.COVERED);
+                case PART_DECOMP, COV_DECOMP -> decompositionReason(node, state);
+                case PART_LINK, COV_LINK -> {
                     Relation r = relations.all().stream()
                             .filter(x -> giverOf(x).getId().equals(d.giverId())
                                     && receiverOf(x).getId().equals(node.getId()))

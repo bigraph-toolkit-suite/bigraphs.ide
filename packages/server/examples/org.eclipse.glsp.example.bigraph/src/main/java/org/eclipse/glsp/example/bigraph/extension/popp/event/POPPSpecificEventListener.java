@@ -7,18 +7,17 @@ package org.eclipse.glsp.example.bigraph.extension.popp.event;
 public abstract class POPPSpecificEventListener implements POPPEventListener {
     @Override
     public void onPOPPEvent(POPPEvent event) {
-        switch (event) {
-            case POPPEvent.NodeCreated e -> onNodeCreated(e);
-            case POPPEvent.NodeDescriptionChanged e -> onNodeDescriptionChanged(e);
-            case POPPEvent.NodeMoved e -> onNodeMoved(e);
-            case POPPEvent.NodeDecompositionTypeChanged e -> onNodeDecompositionTypeChanged(e);
-            case POPPEvent.NodeRemoved e -> onNodeRemoved(e);
-            case POPPEvent.NodeChangedParent e -> onNodeChangedParent(e);
-            case POPPEvent.RelationCreated e -> onRelationCreated(e);
-            case POPPEvent.RelationRemoved e -> onRelationRemoved(e);
-            default -> {}
-        }
+        // If language standard is updated to 21 replace with switch casting
+        if (event instanceof POPPEvent.NodeCreated e) onNodeCreated(e);
+        else if (event instanceof POPPEvent.NodeDescriptionChanged e) onNodeDescriptionChanged(e);
+        else if (event instanceof POPPEvent.NodeMoved e) onNodeMoved(e);
+        else if (event instanceof POPPEvent.NodeDecompositionTypeChanged e) onNodeDecompositionTypeChanged(e);
+        else if (event instanceof POPPEvent.NodeRemoved e) onNodeRemoved(e);
+        else if (event instanceof POPPEvent.NodeChangedParent e) onNodeChangedParent(e);
+        else if (event instanceof POPPEvent.RelationCreated e) onRelationCreated(e);
+        else if (event instanceof POPPEvent.RelationRemoved e) onRelationRemoved(e);
     }
+
 
     protected void onNodeCreated(POPPEvent.NodeCreated e) {}
     protected void onNodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {}

@@ -88,13 +88,10 @@ class POPPModelTest {
         POPPModel model = new POPPModel();
         AtomicBoolean created = new AtomicBoolean(false);
         AtomicBoolean deleted = new AtomicBoolean(false);
-        model.addListener((event -> {
-            switch (event) {
-                case POPPEvent.NodeCreated e -> {created.set(true);}
-                case POPPEvent.NodeRemoved e -> {deleted.set(true);}
-                default -> {}
-            }
-        }));
+        model.addListener(event -> {
+            if (event instanceof POPPEvent.NodeCreated) created.set(true);
+            else if (event instanceof POPPEvent.NodeRemoved) deleted.set(true);
+        });
 
         assertFalse(created.get());
         assertFalse(deleted.get());
