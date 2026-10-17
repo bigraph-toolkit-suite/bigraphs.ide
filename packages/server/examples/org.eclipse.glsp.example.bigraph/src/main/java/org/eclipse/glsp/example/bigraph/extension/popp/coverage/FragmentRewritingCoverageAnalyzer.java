@@ -519,7 +519,7 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
                 t0 = System.nanoTime();
                 boolean any = false;
                 // never matchFirst (see the class comment); firstMatch stops after the first usable match below
-                for (PureBigraphMatch found : matcher.match(agent, p.rule().rule())) {
+                for (PureBigraphMatch found : matcher.matchAll(agent, p.rule().rule())) {
                     Match m = found.getJLibMatchResult();
                     Map<String, String> emb = new HashMap<>();
                     m.emb_nodes.forEach((rn, an) -> emb.put(rn.getEditable().getName(), an.getEditable().getName()));

@@ -121,7 +121,7 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
                 t0 = System.nanoTime();
                 boolean any = false;
                 // the framework translates agent and redex for jLibBig inside the call; that time counts as matching
-                for (PureBigraphMatch match : matcher.match(agent, rule.rule())) {
+                for (PureBigraphMatch match : matcher.matchAll(agent, rule.rule())) {
                     any = true;
                     Map<String, String> embedding = embedding(match.getJLibMatchResult());
                     String receiver = resolve(embedding, rule.receiverNode(), rule);
