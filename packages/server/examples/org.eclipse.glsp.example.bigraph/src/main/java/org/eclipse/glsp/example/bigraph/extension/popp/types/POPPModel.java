@@ -160,14 +160,14 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         if (parent == null || child == null) {
             return DecompositionResult.NULL_ARGUMENT;
         }
-        return switch (parent) {
-            case Problem p -> attach(p, child, Problem.class);
-            case Goal g -> attach(g, child, Goal.class);
-            case Consequence c -> attach(c, child, Consequence.class);
-            case Solution s -> attach(s, child, Solution.class);
-            case SuccessCriteria sc -> attach(sc, child, SuccessCriteria.class);
-            case SuccessProof sp -> attach(sp, child, SuccessProof.class);
-        };
+        // If language standard is updated to 21 replace with switch casting
+        if (parent instanceof Problem p) return attach(p, child, Problem.class);
+        if (parent instanceof Goal g) return attach(g, child, Goal.class);
+        if (parent instanceof Consequence c) return attach(c, child, Consequence.class);
+        if (parent instanceof Solution s) return attach(s, child, Solution.class);
+        if (parent instanceof SuccessCriteria sc) return attach(sc, child, SuccessCriteria.class);
+        if (parent instanceof SuccessProof sp) return attach(sp, child, SuccessProof.class);
+        throw new IllegalStateException("Unhandled node type: " + parent.getClass().getName());
     }
 
     private static <N extends TreeNode<N>> DecompositionResult attach(N parent, TreeNode<?> child, Class<N> type) {
@@ -267,14 +267,20 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         boolean lostRootStatus = event.oldParent() == null && event.newParent() != null;
         if (!becameRoot && !lostRootStatus) return;
 
-        switch (event.node()) {
-            case Problem r -> { if (becameRoot) problems.addRoot(r); else problems.removeRoot(r); }
-            case Goal r -> { if (becameRoot) goals.addRoot(r); else goals.removeRoot(r); }
-            case Consequence r -> { if (becameRoot) consequences.addRoot(r); else consequences.removeRoot(r); }
-            case Solution r -> { if (becameRoot) solutions.addRoot(r); else solutions.removeRoot(r); }
-            case SuccessCriteria r -> { if (becameRoot) successCriteria.addRoot(r); else successCriteria.removeRoot(r); }
-            case SuccessProof r -> { if (becameRoot) successProofs.addRoot(r); else successProofs.removeRoot(r); }
-            default -> {}
+        // If language standard is updated to 21 replace with switch casting
+        TreeNode<?> node = event.node();
+        if (node instanceof Problem r) {
+            if (becameRoot) problems.addRoot(r); else problems.removeRoot(r);
+        } else if (node instanceof Goal r) {
+            if (becameRoot) goals.addRoot(r); else goals.removeRoot(r);
+        } else if (node instanceof Consequence r) {
+            if (becameRoot) consequences.addRoot(r); else consequences.removeRoot(r);
+        } else if (node instanceof Solution r) {
+            if (becameRoot) solutions.addRoot(r); else solutions.removeRoot(r);
+        } else if (node instanceof SuccessCriteria r) {
+            if (becameRoot) successCriteria.addRoot(r); else successCriteria.removeRoot(r);
+        } else if (node instanceof SuccessProof r) {
+            if (becameRoot) successProofs.addRoot(r); else successProofs.removeRoot(r);
         }
     }
 }
