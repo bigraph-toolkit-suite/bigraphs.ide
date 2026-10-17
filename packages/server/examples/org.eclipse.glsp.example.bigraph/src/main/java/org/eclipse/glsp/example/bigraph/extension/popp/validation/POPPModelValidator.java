@@ -162,7 +162,7 @@ public final class POPPModelValidator {
         // Symmetric patterns find the same nodes several times: one issue per set of offending nodes.
         Map<Set<String>, List<String>> found = new LinkedHashMap<>();
         int n = 0;
-        for (PureBigraphMatch match : matcher.match(s.bigraph(), pattern.rule())) {
+        for (PureBigraphMatch match : matcher.matchAll(s.bigraph(), pattern.rule())) {
             Map<String, String> emb = new HashMap<>();
             match.getJLibMatchResult().emb_nodes.forEach((r, a) -> emb.put(r.getEditable().getName(), a.getEditable().getName()));
             List<String> elements = pattern.subjects().stream().map(emb::get).filter(Objects::nonNull).toList();
