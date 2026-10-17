@@ -47,7 +47,7 @@ public class POPPBigraphViewMirror implements POPPBigraphObserver {
                                  final BigraphEntity.NodeEntity<DynamicControl> newParent) {
         viewSupplier.get().ifPresent(view -> view.getGModelIdForEntity(child).ifPresent(childId ->
                 view.getGModelIdForEntity(newParent).ifPresent(parentId ->
-                        view.onMoveNode(childId, parentId))));
+                        view.onChangeNodeParent(childId, parentId))));
     }
 
     @Override
