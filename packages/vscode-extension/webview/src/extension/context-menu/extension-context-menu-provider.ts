@@ -5,7 +5,9 @@
  */
 
 import { inject, injectable } from 'inversify';
+import { isSelected } from '@eclipse-glsp/client';
 import type {
+    GModelElement,
     GModelRoot,
     IContextMenuItemProvider,
     LabeledAction,
@@ -39,7 +41,7 @@ export class ExtensionContextMenuProvider implements IContextMenuItemProvider {
 
         const point = diagramLocalPoint(root, lastMousePosition);
         const eligibleTypes = new Set(extension.contextMenuElementTypes);
-        const element = findElementAt(root, point, eligibleTypes);
+        const element = selectedTarget(root, eligibleTypes) ?? findElementAt(root, point, eligibleTypes);
 
         const ctx: ContextMenuContext = {
             root,
@@ -50,4 +52,15 @@ export class ExtensionContextMenuProvider implements IContextMenuItemProvider {
 
         return Promise.resolve(extension.getContextMenuItems(ctx));
     }
+}
+
+/**
+ * The element the menu was opened on. GLSP selects the right-clicked element before it asks for the items (keeping
+ * a multi-selection that contains it, and clearing the selection on empty canvas), so a single selected element of an
+ * eligible type is that target. Unlike the bounds hit test this also finds edges, which have no bounds, and an edge
+ * crossing a node. For a multi-selection the hit test decides.
+ */
+function selectedTarget(root: Readonly<GModelRoot>, eligibleTypes: ReadonlySet<string>): GModelElement | undefined {
+    const selected = Array.from(root.index.all().filter(isSelected));
+    return selected.length === 1 && eligibleTypes.has(selected[0].type) ? selected[0] : undefined;
 }
