@@ -9,10 +9,12 @@ import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignat
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.FragmentRewritingCoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPEdgeCreationChecker;
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPTypeHints;
 import org.eclipse.glsp.example.bigraph.extension.popp.handler.*;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.Relation;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.example.bigraph.extension.popp.validation.POPPValidationService;
 import org.eclipse.glsp.example.bigraph.extensions.ExtensionStateKey;
@@ -29,9 +31,11 @@ import org.eclipse.glsp.server.types.EdgeTypeHint;
 import org.eclipse.glsp.server.types.ShapeTypeHint;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
@@ -145,15 +149,39 @@ public class POPPExtension implements IdeExtension {
     @Override
     public boolean deleteElements(final List<String> elementIds, final Injector injector) {
         POPPModel model = injector.getInstance(POPPExtensionContext.class).getOwnState().getPoppModel();
+        return model != null && deleteElements(model, elementIds);
+    }
 
-        boolean handledAny = false;
+    /**
+     * Deletes the POPP elements among {@code elementIds} (GModel ids): nodes, relation edges (the relation is removed)
+     * and decomposition edges (the child leaves its parent and becomes a root). Edges are resolved against the domain
+     * model, not the GModel, and before any node is deleted, so a selection of a node together with its edges works.
+     * Ids that name nothing (any more) are skipped. Returns whether anything was deleted.
+     */
+    static boolean deleteElements(final POPPModel model, final List<String> elementIds) {
+        POPPGModelFactory ids = new POPPGModelFactory();
+        Set<String> wanted = new HashSet<>(elementIds);
+        List<Relation> relations = model.getRelations().all().stream()
+                .filter(r -> wanted.contains(ids.toRelationEdgeId(r))).toList();
+        List<TreeNode<?>> detached = model.getAllNodes().stream()
+                .filter(child -> child.getParent()
+                        .map(parent -> wanted.contains(ids.toDecompositionEdgeId(parent, child))).orElse(false))
+                .toList();
+
+        boolean deleted = false;
+        for (Relation relation : relations) {
+            deleted |= model.unrelate(relation.source(), relation.target()).isSuccess();
+        }
+        for (TreeNode<?> child : detached) {
+            deleted |= child.setParent(null);
+        }
         for (String elementId : elementIds) {
             if (model.findNode(elementId) != null) {
                 model.deleteNode(elementId);
-                handledAny = true;
+                deleted = true;
             }
         }
-        return handledAny;
+        return deleted;
     }
 
     @Override
