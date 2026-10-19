@@ -26,7 +26,7 @@ public class CoverageGapsHandler extends AbstractActionHandler<RequestCoverageGa
         POPPModel model = context.getOwnState().getPoppModel();
         List<CoverageGapsAction.Gap> gaps = model == null ? List.of()
                 : context.getOwnState().getAnalyzer().gaps(model, mode).gaps().stream()
-                .filter(g -> Coverage.isCoverable(g.node())) // consequences cannot be covered at all
+                .filter(g -> mode.gapKinds().contains(g.node().getKind())) // only kinds between emitters and targets
                 .map(CoverageGapsHandler::toGap)
                 .toList();
 

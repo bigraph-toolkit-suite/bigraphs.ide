@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Set;
@@ -260,9 +260,13 @@ class RewritingCoverageAnalyzerTest {
         agreesWithTheDomainAnalyzerOnBalancedTrees(4, proveAll, CoverageMode.VERIFY);
     }
 
+    static java.util.stream.Stream<CoverageMode> modes() {
+        return CoverageMode.presets().stream();
+    }
+
     /** Regression for mode handling: which kinds are intrinsically covered must match in every mode. */
     @ParameterizedTest(name = "{0}")
-    @EnumSource(CoverageMode.class)
+    @MethodSource("modes")
     void agreesWithTheDomainAnalyzerOnEveryKindInIsolation(CoverageMode mode) {
         for (NodeKind kind : NodeKind.values()) {
             SyncedPOPP popp = new SyncedPOPP();

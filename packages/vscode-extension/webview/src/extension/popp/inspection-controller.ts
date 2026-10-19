@@ -18,6 +18,7 @@ import {
     InspectionResult,
     InspectionResultAction,
     PoppCoverageMode,
+    coverageModeLabel,
     RequestInspectionAction,
     SetInspectionAction
 } from './popp-actions';
@@ -120,7 +121,7 @@ export class InspectionController extends MouseListener implements IActionHandle
 
         const gap = result.gaps[0];
         const more = result.gaps.length > 1 ? ` (+${result.gaps.length - 1} more)` : '';
-        const text = `${result.label || result.nodeId}: ${result.coverage} (${result.mode.toLowerCase()})`
+        const text = `${result.label || result.nodeId}: ${result.coverage} (${coverageModeLabel(result.mode)})`
             + (gap ? ` \u2014 ${gap.message}${more}` : '');
         this.dispatcher.dispatch(StatusAction.create(text, { severity: result.coverage === 'COVERED' ? 'INFO' : 'WARNING' }));
     }

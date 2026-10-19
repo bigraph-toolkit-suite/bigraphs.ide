@@ -1,8 +1,7 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.function.LongSupplier;
 
 /**
  * Caches one {@link CoverageSession} per {@link CoverageMode} for as long as {@link CoverageInput#revision()} is
@@ -18,7 +17,7 @@ public final class CachingCoverageAnalyzer implements CoverageAnalyzer {
 
     private final CoverageInput input;
     private final CoverageAnalyzer delegate;
-    private final Map<CoverageMode, Entry> cache = new EnumMap<>(CoverageMode.class);
+    private final Map<CoverageMode, Entry> cache = new HashMap<>();
 
     public CachingCoverageAnalyzer(CoverageInput input, CoverageAnalyzer delegate) {
         this.input = input;

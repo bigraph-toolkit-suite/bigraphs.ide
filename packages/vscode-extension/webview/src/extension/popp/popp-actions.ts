@@ -4,7 +4,49 @@ import type { Action, Operation, RequestAction, ResponseAction } from '@eclipse-
 export const POPP_CONNECT_ELEMENT_TYPE_ID = 'popp:connect';
 
 export type PoppDecompositionType = 'AND' | 'OR';
-export type PoppCoverageMode = 'PLANNING' | 'VERIFY';
+/** Names of the server's {@code CoverageMode} presets; keep in sync with {@code CoverageMode.presets()}. */
+export type PoppCoverageMode = 'PLANNING' | 'VERIFY' | 'GOALS_BY_CRITERIA' | 'PROBLEMS_BY_GOALS' | 'PROBLEMS_BY_PROOFS';
+
+export interface PoppCoverageModeInfo {
+    id: PoppCoverageMode;
+    /** Short name for the dropdowns. */
+    label: string;
+    /** What counts as covered by itself, for the tooltip. */
+    description: string;
+}
+
+/** The coverage modes in display order: one per question of the task, then the two about the whole model. */
+export const POPP_COVERAGE_MODES: readonly PoppCoverageModeInfo[] = [
+    {
+        id: 'PROBLEMS_BY_GOALS',
+        label: 'Problems by goals',
+        description: 'Is the problem tree covered by the goal tree? Every goal counts.'
+    },
+    {
+        id: 'PROBLEMS_BY_PROOFS',
+        label: 'Problems by proofs',
+        description: 'Is the problem tree covered by the success proof tree? Every proof counts, through criteria and goals.'
+    },
+    {
+        id: 'GOALS_BY_CRITERIA',
+        label: 'Goals by criteria',
+        description: 'Is the goal tree covered by the success criteria tree? Every criterion counts.'
+    },
+    {
+        id: 'PLANNING',
+        label: 'Planning',
+        description: 'Whole model; every success criterion counts, even if no proof validates it yet.'
+    },
+    {
+        id: 'VERIFY',
+        label: 'Verify',
+        description: 'Whole model; a success criterion only counts once a proof that a solution produces validates it.'
+    }
+];
+
+export function coverageModeLabel(mode: string): string {
+    return POPP_COVERAGE_MODES.find(m => m.id === mode)?.label ?? mode;
+}
 export type PoppCoverage = 'COVERED' | 'PARTIAL' | 'UNCOVERED';
 
 // ---------------------------------------------------------------------------
@@ -57,9 +99,22 @@ export interface InspectionResultAction extends ResponseAction {
     result: InspectionResult;
 }
 
+/** Mirrors the server's {@code CoverageReportBuilder.ModeSummary}: how well a mode's trees are covered in it. */
+export interface CoverageModeSummary {
+    mode: PoppCoverageMode;
+    /** The kind of tree the mode asks about; absent for the modes about the whole model. */
+    kind?: string | null;
+    /** Coverage of those trees' roots (the lowest); absent without any such tree. */
+    coverage?: PoppCoverage | null;
+    counts: Record<PoppCoverage, number>;
+}
+
 /** Mirrors the server's {@code CoverageReportBuilder.CoverageReport}. */
 export interface CoverageReport {
     mode: PoppCoverageMode;
+    /** One per mode, in {@link POPP_COVERAGE_MODES} order, independent of {@link mode}. */
+    modes: CoverageModeSummary[];
+    /** The roots in {@link mode}. */
     roots: { id: string; kind: string; description: string; coverage: PoppCoverage }[];
     trees: Record<string, { roots: number; nodes: number; height: number; width: number }>;
 }

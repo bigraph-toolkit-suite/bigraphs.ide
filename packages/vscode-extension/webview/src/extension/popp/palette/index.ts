@@ -6,7 +6,13 @@ import {
     TriggerNodeCreationAction
 } from '@eclipse-glsp/client';
 import { POPP_VARIANT_ID } from '../diagramExtension';
-import { POPP_CONNECT_ELEMENT_TYPE_ID, SetInspectionAction, ValidationReport } from '../popp-actions';
+import {
+    POPP_CONNECT_ELEMENT_TYPE_ID,
+    POPP_COVERAGE_MODES,
+    PoppCoverageMode,
+    SetInspectionAction,
+    ValidationReport
+} from '../popp-actions';
 import { PoppViewState, poppStore } from '../popp-store';
 import { poppToolEvents } from './popp-tool-events';
 import { applyStoredKindColoring, setKindColoring } from './popp-kind-colors';
@@ -166,9 +172,14 @@ class PoppVariantPalette implements IVariantPalette {
             };
         }
 
-        const toggle = root.querySelector<HTMLInputElement>('[data-popp-mode-toggle]');
-        if (toggle) {
-            toggle.onchange = () => poppStore.update({ mode: toggle.checked ? 'VERIFY' : 'PLANNING' });
+        const select = root.querySelector<HTMLSelectElement>('[data-popp-mode-select]');
+        if (select) {
+            select.replaceChildren(...POPP_COVERAGE_MODES.map(m => {
+                const option = new Option(m.label, m.id);
+                option.title = m.description;
+                return option;
+            }));
+            select.onchange = () => poppStore.update({ mode: select.value as PoppCoverageMode });
         }
 
         const report = root.querySelector<HTMLElement>('.popp-card[data-popp-report-open]');
@@ -203,10 +214,10 @@ class PoppVariantPalette implements IVariantPalette {
             return;
         }
         if (changed.has('mode')) {
-            const toggle = root.querySelector<HTMLInputElement>('[data-popp-mode-toggle]');
-            if (toggle) toggle.checked = state.mode === 'VERIFY';
-            root.querySelectorAll<HTMLElement>('[data-popp-mode-label]').forEach(label =>
-                label.classList.toggle('active', label.dataset.poppModeLabel === state.mode));
+            const select = root.querySelector<HTMLSelectElement>('[data-popp-mode-select]');
+            if (select) select.value = state.mode;
+            // a native tooltip: the palette sections clip anything positioned outside them
+            if (select) select.title = POPP_COVERAGE_MODES.find(m => m.id === state.mode)?.description ?? '';
             this.pushInspection();
         }
         if (changed.has('gapsActive')) {

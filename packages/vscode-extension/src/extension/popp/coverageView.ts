@@ -9,12 +9,27 @@ const CONTEXT_KEY = 'bigraph.poppActive';
 /** What the diagram webview reports (see PoppAnalysisController#postToHost); opaque to the host. */
 export interface PoppSidebarState {
     active: boolean;
-    mode: 'PLANNING' | 'VERIFY';
+    /** A coverage mode name, see {@link COVERAGE_MODES}. */
+    mode: string;
     validation?: unknown;
     report?: unknown;
     gaps?: unknown;
     gapsActive: boolean;
 }
+
+/**
+ * The coverage modes for the dropdown and the coverage statements; the same list as {@code POPP_COVERAGE_MODES} in the webview and the server's
+ * {@code CoverageMode.presets()} (the sidebar script cannot import webview modules).
+ */
+const COVERAGE_MODES: ReadonlyArray<{ id: string; label: string; description: string; by: string }> = [
+    { id: 'PROBLEMS_BY_GOALS', label: 'Problems by goals', description: 'Every goal counts', by: 'by the goal tree' },
+    { id: 'PROBLEMS_BY_PROOFS', label: 'Problems by proofs', description: 'Every success proof counts, through criteria and goals',
+      by: 'by the success proof tree' },
+    { id: 'GOALS_BY_CRITERIA', label: 'Goals by criteria', description: 'Every success criterion counts', by: 'by the success criteria tree' },
+    { id: 'PLANNING', label: 'Planning', description: 'Whole model; every success criterion counts', by: 'when planning' },
+    { id: 'VERIFY', label: 'Verify', description: 'Whole model; only criteria validated by a proof that a solution produces count',
+      by: 'when verifying' }
+];
 
 /**
  * Sidebar view with the coverage report, the coverage gaps and the validation results of the active POPP diagram.
@@ -123,8 +138,6 @@ function renderHtml(webview: vscode.Webview): string {
     .empty { opacity: .7; padding: 12px 0; }
     .bar { display: flex; align-items: center; gap: 6px; padding: 8px 0 4px; flex-wrap: wrap; }
     .file { font-weight: 600; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .seg { display: inline-flex; border: 1px solid var(--vscode-panel-border, rgba(128,128,128,.4)); border-radius: 4px; overflow: hidden; }
-    .seg button { border: 0; border-radius: 0; }
     button { font: inherit; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground);
              border: 1px solid transparent; border-radius: 3px; padding: 2px 8px; cursor: pointer; }
     button:hover { background: var(--vscode-button-secondaryHoverBackground); }
@@ -141,6 +154,13 @@ function renderHtml(webview: vscode.Webview): string {
     .partial, .warning { color: var(--vscode-editorWarning-foreground, #d29922); }
     .uncovered, .error { color: var(--vscode-editorError-foreground, #f85149); }
     .sub { font-size: 11px; opacity: .75; }
+    select { font: inherit; color: var(--vscode-dropdown-foreground); background: var(--vscode-dropdown-background);
+             border: 1px solid var(--vscode-dropdown-border, transparent); border-radius: 2px; padding: 1px 4px; }
+    .mode { border-left: 2px solid transparent; border-radius: 0 3px 3px 0; }
+    .mode.current { border-left-color: var(--vscode-focusBorder); background: var(--vscode-list-inactiveSelectionBackground); }
+    .mode .text b { font-weight: 600; }
+    .trees { margin: 0 0 4px 14px; }
+    .trees .row { padding: 1px 6px; }
 </style>
 </head>
 <body>
@@ -150,6 +170,7 @@ function renderHtml(webview: vscode.Webview): string {
     const vscode = acquireVsCodeApi();
     const root = document.getElementById('root');
     const send = (command, extra) => vscode.postMessage(Object.assign({ type: 'command', command }, extra || {}));
+    const MODES = ${JSON.stringify(COVERAGE_MODES)};
 
     // Every user-written text goes through textContent, never innerHTML.
     function el(tag, cls, text) {
@@ -181,14 +202,17 @@ function renderHtml(webview: vscode.Webview): string {
         }
         const bar = el('div', 'bar');
         bar.appendChild(el('span', 'file', fileName || 'POPP model'));
-        const seg = el('span', 'seg');
-        ['PLANNING', 'VERIFY'].forEach(m => {
-            const b = el('button', s.mode === m ? 'on' : '', m === 'PLANNING' ? 'Planning' : 'Verify');
-            b.title = m === 'PLANNING' ? 'Every success criterion counts' : 'Only criteria validated by a produced proof count';
-            b.onclick = () => send('setMode', { mode: m });
-            seg.appendChild(b);
+        const select = el('select');
+        select.title = 'Coverage mode: what counts as covered by itself, and which nodes the gaps are reported for';
+        MODES.forEach(m => {
+            const o = el('option', null, m.label);
+            o.value = m.id;
+            o.title = m.description;
+            select.appendChild(o);
         });
-        bar.appendChild(seg);
+        select.value = s.mode;
+        select.onchange = () => send('setMode', { mode: select.value });
+        bar.appendChild(select);
         const refresh = el('button', null, 'Refresh');
         refresh.onclick = () => send('refresh');
         bar.appendChild(refresh);
@@ -213,7 +237,16 @@ function renderHtml(webview: vscode.Webview): string {
                 + v.patternsMatched + ' patterns matched, ' + v.durationMs + ' ms');
         }
 
-        // Gaps
+        // Tree coverage: one statement per mode; the selected one lists its trees. A click selects the mode.
+        const r = s.report;
+        section('Tree coverage');
+        if (!r) {
+            row(root, null, null, 'Computing\\u2026');
+        } else {
+            (r.modes || []).forEach(m => modeStatement(m, m.mode === s.mode ? r.roots : null));
+        }
+
+        // Gaps of the selected mode
         const gaps = s.gaps || [];
         const toggle = el('button', s.gapsActive ? 'on' : '', s.gapsActive ? 'Highlighted' : 'Highlight');
         toggle.title = 'Highlight uncovered nodes in the diagram';
@@ -221,7 +254,7 @@ function renderHtml(webview: vscode.Webview): string {
         section('Uncovered (' + gaps.length + ')', toggle);
         const roots = gaps.filter(g => g.rootCause);
         if (gaps.length === 0) {
-            row(root, null, null, s.report ? 'Everything that can be covered is covered' : 'Computing\\u2026', null);
+            row(root, null, null, r ? 'Everything this mode asks about is covered' : 'Computing\\u2026', null);
         }
         roots.forEach(g => row(root, g.coverage === 'PARTIAL' ? 'partial' : 'uncovered', g.coverage.toLowerCase(),
             g.label, [g.nodeId], g.message ? g.message : undefined));
@@ -231,18 +264,48 @@ function renderHtml(webview: vscode.Webview): string {
                 affected.map(g => g.nodeId));
         }
 
-        // Report
-        const r = s.report;
         if (!r) return;
-        section('Tree coverage');
-        if (r.roots.length === 0) row(root, null, null, 'No coverable trees yet');
-        r.roots.forEach(t => row(root, t.coverage.toLowerCase(), t.coverage.toLowerCase(),
-            t.kind.toLowerCase().replace(/_/g, ' ') + ': ' + (t.description || t.id), [t.id]));
-    
-        section('Size');
+        section('Depth and breadth');
         Object.entries(r.trees).forEach(([kind, m]) => row(root, null, null,
-            kind.toLowerCase().replace(/_/g, ' ') + ': ' + m.nodes + ' nodes',
-            null, 'trees ' + m.roots + ' \\u00b7 height ' + m.height + ' \\u00b7 width ' + m.width));
+            kindName(kind) + ': ' + m.nodes + ' nodes',
+            null, 'trees ' + m.roots + ' \\u00b7 depth ' + m.height + ' \\u00b7 breadth ' + m.width));
+    }
+
+    const kindName = k => String(k || '').toLowerCase().replace(/_/g, ' ');
+    const VERB = { COVERED: 'is covered', PARTIAL: 'is partially covered', UNCOVERED: 'is not covered' };
+
+    // e.g. "Problem tree is partially covered by the goal tree", "Model is covered when planning"
+    function modeStatement(m, trees) {
+        const info = MODES.find(x => x.id === m.mode) || { label: m.mode, by: '', description: '' };
+        const cov = m.coverage ? String(m.coverage) : null;
+        const subject = m.kind ? kindName(m.kind).replace(/^./, c => c.toUpperCase()) + ' tree' : 'Model';
+        const r = el('div', 'row click mode' + (trees ? ' current' : ''));
+        r.appendChild(el('span', 'badge ' + (cov ? cov.toLowerCase() : 'muted'), cov ? cov.toLowerCase() : 'empty'));
+        const t = el('span', 'text');
+        if (cov) {
+            t.appendChild(document.createTextNode(subject + ' '));
+            t.appendChild(el('b', null, VERB[cov]));
+            t.appendChild(document.createTextNode(' ' + info.by));
+        } else {
+            t.appendChild(document.createTextNode((m.kind ? 'No ' + kindName(m.kind) + ' tree' : 'No coverable trees') + ' yet (' + info.label + ')'));
+        }
+        const c = m.counts || {};
+        const total = (c.COVERED || 0) + (c.PARTIAL || 0) + (c.UNCOVERED || 0);
+        if (total > 0) {
+            t.appendChild(document.createElement('br'));
+            t.appendChild(el('span', 'sub', (c.COVERED || 0) + ' of ' + total + ' ' + (m.kind ? kindName(m.kind) : 'node')
+                + ' nodes covered' + (c.PARTIAL ? ', ' + c.PARTIAL + ' partially' : '')));
+        }
+        r.appendChild(t);
+        r.title = info.label + ': ' + info.description + (trees ? '' : ' (click to show in the diagram)');
+        if (!trees) r.onclick = () => send('setMode', { mode: m.mode });
+        root.appendChild(r);
+        if (trees && trees.length) {
+            const list = el('div', 'trees');
+            trees.forEach(tr => row(list, tr.coverage.toLowerCase(), tr.coverage.toLowerCase(),
+                kindName(tr.kind) + ' tree \\u201c' + (tr.description || tr.id) + '\\u201d', [tr.id]));
+            root.appendChild(list);
+        }
     }
 
     window.addEventListener('message', e => {

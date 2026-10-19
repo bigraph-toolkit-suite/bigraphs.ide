@@ -36,7 +36,7 @@
     fill: var(--vscode-editor-foreground);
 }
 
-/* ---- Planning / Verify toggle ---- */
+/* ---- Coverage mode selection; the switch styles are also used by the colour toggle ---- */
 
 .popp-mode-row {
     position: relative;
@@ -54,6 +54,21 @@
 .popp-mode-label.active {
     opacity: 1;
     font-weight: 600;
+}
+
+.popp-mode-select {
+    flex: 1;
+    min-width: 0;
+    padding: 2px 4px;
+    font: inherit;
+    color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+    background: var(--vscode-dropdown-background, var(--vscode-input-background));
+    border: 1px solid var(--vscode-dropdown-border, var(--vscode-widget-border, #888));
+    border-radius: 2px;
+}
+
+.popp-mode-select:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
 }
 
 .popp-switch {
@@ -106,38 +121,6 @@
     outline: 1px solid var(--vscode-focusBorder);
 }
 
-.popp-info {
-    margin-left: auto;
-    cursor: help;
-    opacity: 0.7;
-}
-
-.popp-info:hover,
-.popp-info:focus {
-    opacity: 1;
-}
-
-.popp-tooltip {
-    display: none;
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 100%;
-    margin-top: 4px;
-    padding: 6px 8px;
-    z-index: 10;
-    line-height: 1.4;
-    font-family: var(--vscode-font-family);
-    background: var(--vscode-editorHoverWidget-background);
-    color: var(--vscode-editorHoverWidget-foreground, var(--vscode-foreground));
-    border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-widget-border));
-    border-radius: 4px;
-}
-
-.popp-info:hover .popp-tooltip,
-.popp-info:focus .popp-tooltip {
-    display: block;
-}
 /* ---- Validation status (top of the palette) ---- */
 .popp-validity {
     display: flex;

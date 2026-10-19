@@ -409,6 +409,29 @@ class POPPActionHandlersTest {
     }
 
     @Test
+    void aQuestionModeOnlyReportsGapsOfTheKindsItIsAbout() {
+        TreeNode<?> problem = node(NodeKind.PROBLEM, "problem");
+        TreeNode<?> goal = node(NodeKind.GOAL, "goal");
+        model.relate(problem, goal);
+        TreeNode<?> other = node(NodeKind.PROBLEM, "other");
+        TreeNode<?> criterion = node(NodeKind.SUCCESS_CRITERIA, "criterion");
+        node(NodeKind.SUCCESS_PROOF, "proof"); // an emitter: never a gap
+        RequestCoverageGapsAction request = new RequestCoverageGapsAction();
+
+        request.setMode("PROBLEMS_BY_GOALS");
+        CoverageGapsAction byGoals = (CoverageGapsAction) reading(new CoverageGapsHandler()).executeAction(request).getFirst();
+        assertEquals("PROBLEMS_BY_GOALS", byGoals.getMode());
+        assertEquals(List.of(other.getId()), byGoals.getGaps().stream().map(CoverageGapsAction.Gap::nodeId).toList(),
+                "the goal is covered by itself, the criterion is not asked about");
+
+        request.setMode("PROBLEMS_BY_PROOFS");
+        CoverageGapsAction byProofs = (CoverageGapsAction) reading(new CoverageGapsHandler()).executeAction(request).getFirst();
+        assertEquals(Set.of(problem.getId(), other.getId(), goal.getId(), criterion.getId()),
+                Set.copyOf(byProofs.getGaps().stream().map(CoverageGapsAction.Gap::nodeId).toList()),
+                "problems, the goal and the criterion lie between proofs and problems");
+    }
+
+    @Test
     void triggersARunWhoseResultIsPushedLater() {
         node(NodeKind.GOAL, "first");
         node(NodeKind.GOAL, "second");
