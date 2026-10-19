@@ -72,18 +72,8 @@
             </div>
         </div>
         <div class="popp-mode-row">
-            <span class="popp-mode-label active" data-popp-mode-label="PLANNING">Planning</span>
-            <label class="popp-switch">
-                <input type="checkbox" data-popp-mode-toggle aria-label="Verify coverage mode">
-                <span class="popp-switch-slider"></span>
-            </label>
-            <span class="popp-mode-label" data-popp-mode-label="VERIFY">Verify</span>
-            <span class="popp-info codicon codicon-info" tabindex="0" aria-describedby="popp-mode-tip">
-                <span class="popp-tooltip" id="popp-mode-tip" role="tooltip">
-                    <b>Planning:</b> every criteria node counts, even if it is not yet validated by any proof. Use this while planning.<br>
-                    <b>Verify:</b> a proof only counts once a solution produces it (draw solution &rarr; proof).
-                </span>
-            </span>
+            <label class="popp-mode-label active" for="popp-mode-select">Coverage</label>
+            <select class="popp-mode-select" id="popp-mode-select" data-popp-mode-select></select>
         </div>
     </div>
 </div>

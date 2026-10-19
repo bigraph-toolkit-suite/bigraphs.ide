@@ -12,7 +12,7 @@ public sealed interface CoverageReason {
     TreeNode<?> node();
     Coverage coverage();
 
-    /** Covered by its kind alone: a solution always, a success criterion in PLANNING mode. Always COVERED. */
+    /** Covered by its kind alone, i.e. its kind is one of the mode's emitters ({@link CoverageMode#emitters()}). Always COVERED. */
     record Intrinsic(TreeNode<?> node, Coverage coverage) implements CoverageReason {
     }
 

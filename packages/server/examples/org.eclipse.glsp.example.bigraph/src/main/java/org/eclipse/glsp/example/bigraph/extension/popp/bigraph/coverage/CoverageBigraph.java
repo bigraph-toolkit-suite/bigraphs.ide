@@ -73,7 +73,7 @@ public class CoverageBigraph {
             POPPBigraphSignature control = POPPBigraphSignature.forNode(old);
             if (!POPPBigraphSignature.isTreeControl(control)) continue; // container and stubs have no state
             boolean domain = POPPBigraphSignature.isKindControl(control);
-            boolean intrinsic = domain && POPPBigraphSignature.toNodeKind(control).isIntrinsicallyCovered(mode);
+            boolean intrinsic = domain && mode.isIntrinsic(POPPBigraphSignature.toNodeKind(control));
 
             Coverage state = intrinsic ? Coverage.COVERED
                     : states.getOrDefault(old.getName(), Coverage.UNCOVERED);

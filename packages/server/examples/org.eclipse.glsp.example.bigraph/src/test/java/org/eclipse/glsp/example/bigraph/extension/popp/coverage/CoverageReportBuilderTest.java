@@ -3,6 +3,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReportBuilder.CoverageReport;
@@ -108,5 +109,84 @@ class CoverageReportBuilderTest {
         node(NodeKind.GOAL, "goal");
         assertEquals(java.util.Set.of("GOAL"),
                 CoverageReportBuilder.build(model, analyzer, CoverageMode.PLANNING).trees().keySet());
+    }
+
+    /** P = AND(p1, p2); g1 inverts p1 and causes c1, which proof r1 validates; g2 inverts p2 and has no criterion. */
+    private TreeNode<?> objectivesModel() {
+        TreeNode<?> p = node(NodeKind.PROBLEM, "P");
+        TreeNode<?> p1 = node(NodeKind.PROBLEM, "p1");
+        TreeNode<?> p2 = node(NodeKind.PROBLEM, "p2");
+        model.decompose(p, p1);
+        model.decompose(p, p2);
+        TreeNode<?> g1 = node(NodeKind.GOAL, "g1");
+        TreeNode<?> g2 = node(NodeKind.GOAL, "g2");
+        model.relate(p1, g1);
+        model.relate(p2, g2);
+        TreeNode<?> c1 = node(NodeKind.SUCCESS_CRITERIA, "c1");
+        model.relate(g1, c1);
+        model.relate(node(NodeKind.SUCCESS_PROOF, "r1"), c1);
+        return p;
+    }
+
+    private static Map<String, Integer> counts(int uncovered, int partial, int covered) {
+        return Map.of("UNCOVERED", uncovered, "PARTIAL", partial, "COVERED", covered);
+    }
+
+    private Map<String, CoverageReportBuilder.ModeSummary> summaries(CoverageMode selected) {
+        return CoverageReportBuilder.build(model, analyzer, selected).modes().stream()
+                .collect(Collectors.toMap(CoverageReportBuilder.ModeSummary::mode, m -> m));
+    }
+
+    @Test
+    void everyModeIsSummarisedWhicheverIsSelected() {
+        objectivesModel();
+        for (CoverageMode selected : CoverageMode.presets()) {
+            Map<String, CoverageReportBuilder.ModeSummary> byMode = summaries(selected);
+            assertEquals(CoverageMode.presets().stream().map(CoverageMode::name).toList(),
+                    CoverageReportBuilder.build(model, analyzer, selected).modes().stream()
+                            .map(CoverageReportBuilder.ModeSummary::mode).toList(), "in preset order");
+
+            var byGoals = byMode.get("PROBLEMS_BY_GOALS");
+            assertEquals("PROBLEM", byGoals.kind());
+            assertEquals("COVERED", byGoals.coverage());
+            assertEquals(counts(0, 0, 3), byGoals.counts());
+
+            var byProofs = byMode.get("PROBLEMS_BY_PROOFS");
+            assertEquals("PARTIAL", byProofs.coverage(), "p2's goal has no criterion");
+            assertEquals(counts(1, 1, 1), byProofs.counts());
+
+            var goals = byMode.get("GOALS_BY_CRITERIA");
+            assertEquals("GOAL", goals.kind());
+            assertEquals("UNCOVERED", goals.coverage(), "two goal roots: the lower one counts");
+            assertEquals(counts(1, 0, 1), goals.counts());
+
+            // the whole-model modes: every coverable tree (problems, goals, criteria, proofs)
+            var verify = byMode.get("VERIFY");
+            assertNull(verify.kind());
+            assertEquals("UNCOVERED", verify.coverage(), "no solution produces the proof");
+            assertEquals(counts(7, 0, 0), verify.counts());
+            var planning = byMode.get("PLANNING");
+            assertEquals("UNCOVERED", planning.coverage(), "the proof is not produced, g2 has no criterion");
+            assertEquals(counts(3, 1, 3), planning.counts());
+        }
+    }
+
+    @Test
+    void withoutATreeOfTheKindTheSummaryHasNoCoverage() {
+        node(NodeKind.GOAL, "goal");
+        var byGoals = summaries(CoverageMode.PLANNING).get("PROBLEMS_BY_GOALS");
+        assertEquals("PROBLEM", byGoals.kind());
+        assertNull(byGoals.coverage());
+        assertEquals(counts(0, 0, 0), byGoals.counts());
+    }
+
+    @Test
+    void aQuestionModeOnlyListsTheRootsItIsAbout() {
+        TreeNode<?> p = objectivesModel();
+        assertEquals(Map.of(p.getId(), "COVERED"),
+                coverageById(CoverageReportBuilder.build(model, analyzer, CoverageMode.PROBLEMS_BY_GOALS)));
+        assertEquals(Set.of("PROBLEM", "GOAL", "SUCCESS_CRITERIA"),
+                CoverageReportBuilder.build(model, analyzer, CoverageMode.PROBLEMS_BY_PROOFS).roots().stream()
+                        .map(RootStatus::kind).collect(Collectors.toSet()));
     }
 }

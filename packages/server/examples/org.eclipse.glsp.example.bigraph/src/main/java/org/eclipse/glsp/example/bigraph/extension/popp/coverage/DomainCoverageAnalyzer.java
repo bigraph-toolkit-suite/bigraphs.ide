@@ -35,7 +35,7 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
         }
 
         private boolean isIntrinsicallyCovered(TreeNode<?> node) {
-            return node.getKind().isIntrinsicallyCovered(mode);
+            return mode.isIntrinsic(node.getKind());
         }
 
         @Override

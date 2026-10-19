@@ -80,7 +80,7 @@ final class CoverageRandomModels {
         for (int i = 0; i < models; i++) {
             Synced popp = new Synced();
             build(popp, new Random(seed + i), maxNodes);
-            for (CoverageMode mode : CoverageMode.values()) {
+            for (CoverageMode mode : CoverageMode.presets()) {
                 CoverageSession expected = new DomainCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph)).session(mode);
                 CoverageSession actual = CoverageTestModels.analyzer(analyzer, popp).session(mode);
                 List<String> diff = new ArrayList<>();
@@ -106,8 +106,8 @@ final class CoverageRandomModels {
             StringBuilder report = new StringBuilder();
             long start = System.nanoTime();
             int bad = mismatches(analyzer, models, maxNodes, 1000, report);
-            System.out.printf("[random] %-18s %d models x 2 modes, up to %d nodes: %d mismatching (%d s)%n",
-                    analyzer, models, maxNodes, bad, (System.nanoTime() - start) / 1_000_000_000L);
+            System.out.printf("[random] %-18s %d models x %d modes, up to %d nodes: %d mismatching (%d s)%n",
+                    analyzer, models, CoverageMode.presets().size(), maxNodes, bad, (System.nanoTime() - start) / 1_000_000_000L);
             System.out.print(report.toString().lines().limit(5).map(l -> "[random]   " + l + "\n").reduce("", String::concat));
         }
     }

@@ -15,6 +15,7 @@ import { acquireVsCodeApi } from '../palette-export';
 import {
     CoverageGapsAction,
     CoverageReportAction,
+    POPP_COVERAGE_MODES,
     PoppCoverageMode,
     RequestCoverageGapsAction,
     RequestCoverageReportAction,
@@ -106,7 +107,7 @@ export class PoppAnalysisController implements IActionHandler {
                 this.scheduleRefresh(0);
                 break;
             case 'setMode':
-                if (msg.mode) poppStore.update({ mode: msg.mode });
+                if (POPP_COVERAGE_MODES.some(m => m.id === msg.mode)) poppStore.update({ mode: msg.mode });
                 break;
             case 'setGaps':
                 poppStore.update({ gapsActive: msg.active ?? !poppStore.state.gapsActive });

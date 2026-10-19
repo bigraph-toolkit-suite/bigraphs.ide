@@ -54,10 +54,9 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * <p>
  * <b>Matching.</b> Only through the Bigraph Framework: every fragment is a framework {@link PureBigraph} over the
  * rules' signature and is matched against the rule with {@link PureBigraphMatcher}. The node embedding of a match,
- * which says which fragment node is the receiver (and the giver), is read from the framework's match
+ * which says which fragment node is the receiver (and the giver), is read from the framework's matchAll
  * ({@code PureBigraphMatch#getJLibMatchResult}). {@code matchFirst} is not used: in bigraph-simulation 2.4.1 its
- * iterator never runs the matching engine, so it returns no match at all (fixed in 2.4.2). Even then it could not
- * replace {@code match}: the first match need not be a usable one, i.e. have its receiver at a fragment root.
+ * iterator never runs the matching engine, so it returns no match at all (fixed in 2.4.2).
  * <p>
  * <b>Cost.</b> With the default levers, every matcher call succeeds and there is one call per rule application, i.e.
  * per state upgrade; each call works on a fragment of at most 9 nodes (a link fragment has 6). Underneath, the framework translates
@@ -73,7 +72,12 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  *   <li>{@code incremental}: the worklist; without it every fragment is re-evaluated in rounds until nothing
  *   changes;</li>
  *   <li>{@code firstMatch}: stop enumerating a rule's matches after the first one whose receiver is a fragment root.
- *   Within one fragment the receiver (and the giver) are then fixed, so further matches have the same effect;</li>
+ *   With the current rules every match has its receiver at a fragment root, and within one fragment the receiver
+ *   (and the giver) are fixed, so all matches of a rule have the same effect. A rule can still match twice: a chain
+ *   rule whose two slots have the same pattern (e.g. both children covered) matches once per assignment of the two
+ *   children to the slots. Since {@code matchAll} computes all matches before it returns, stopping early only skips
+ *   reading the second one; the search itself would only be cut short with {@code matchFirst} (usable from 2.4.2), so
+ *   this lever has no measurable effect yet;</li>
  *   <li>{@code slim}: leave {@code CovIntrinsic} out of node fragments. No redex names it and it only occurs on
  *   domain nodes, which every redex covers with a site (checked). With the per-kind encoding this is the only marker
  *   that can be left out, so the lever is small;</li>
@@ -224,7 +228,7 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
         bigraph.createRelation(new Relation(proof, RelationType.VALIDATES, left));
         FragmentRewritingCoverageAnalyzer analyzer = new FragmentRewritingCoverageAnalyzer(CoverageInput.of(model, bigraph));
         for (int i = 0; i < 20; i++) {
-            for (CoverageMode mode : CoverageMode.values()) analyzer.session(mode).coverage(root);
+            for (CoverageMode mode : CoverageMode.presets()) analyzer.session(mode).coverage(root);
         }
     }
 
@@ -346,7 +350,7 @@ public final class FragmentRewritingCoverageAnalyzer implements CoverageAnalyzer
             if (!POPPBigraphSignature.isTreeControl(ctrl)) continue;
             SNode s = new SNode(n.getName(), ctrl.controlName());
             s.domain = POPPBigraphSignature.isKindControl(ctrl);
-            s.intrinsic = s.domain && POPPBigraphSignature.toNodeKind(ctrl).isIntrinsicallyCovered(mode);
+            s.intrinsic = s.domain && mode.isIntrinsic(POPPBigraphSignature.toNodeKind(ctrl));
             nodes.put(n.getName(), s);
         }
         Map<String, SNode> stubOwner = new HashMap<>();
