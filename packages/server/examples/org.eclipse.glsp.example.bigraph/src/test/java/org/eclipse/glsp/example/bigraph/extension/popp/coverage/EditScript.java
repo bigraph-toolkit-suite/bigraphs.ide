@@ -14,7 +14,8 @@ import java.util.*;
  *   <li>{@link Action#NODE}: create a node under a decomposed node of its kind, or delete one created before;</li>
  *   <li>{@link Action#MIXED}: one of the four, at random.</li>
  * </ul>
- * The candidates are taken from the model when the script is created.
+ * The candidates are taken from the model when the script is created; {@link #undo()} brings the model back to that
+ * state, and {@link #reseed} starts another reproducible sequence from it.
  */
 public final class EditScript {
     public enum Action { LINK, TYPE, MOVE, NODE, MIXED }
@@ -22,13 +23,14 @@ public final class EditScript {
     private record Pair(TreeNode<?> a, TreeNode<?> b) {}
 
     private final POPPModel model;
-    private final Random rnd;
+    private Random rnd;
     private final List<Pair> relations = new ArrayList<>();
     private final Set<Pair> removed = new HashSet<>();
     private final List<TreeNode<?>> inner = new ArrayList<>();
     private final List<Pair> children = new ArrayList<>(); // (parent, child)
     private final Set<Pair> detached = new HashSet<>();
     private final List<TreeNode<?>> created = new ArrayList<>();
+    private final Map<TreeNode<?>, DecompositionType> types = new HashMap<>();
     private int counter;
 
     public EditScript(POPPModel model, long seed) {
@@ -39,9 +41,30 @@ public final class EditScript {
         List<TreeNode<?>> nodes = new ArrayList<>(model.getAllNodes());
         nodes.sort(Comparator.comparing(TreeNode::getDescription));
         for (TreeNode<?> n : nodes) {
-            if (!n.getChildren().isEmpty()) inner.add(n);
+            if (!n.getChildren().isEmpty()) {
+                inner.add(n);
+                types.put(n, n.getDecompositionType());
+            }
             n.getParent().ifPresent(p -> children.add(new Pair((TreeNode<?>) p, n)));
         }
+    }
+
+    /** Continues with the random sequence of {@code seed} (the same seed gives the same edits from the same state). */
+    public void reseed(long seed) {
+        // scrambled: java.util.Random gives nearly the same first numbers for consecutive seeds
+        rnd = new Random(new SplittableRandom(seed).nextLong());
+    }
+
+    /**
+     * Undoes every edit so far: puts removed relations back, attaches detached children again, deletes the created
+     * nodes and restores the decomposition types. The model is then structurally the one the script was created on.
+     */
+    public void undo() {
+        for (Pair p : relations) if (removed.remove(p)) model.relate(p.a(), p.b());
+        for (Pair p : children) if (detached.remove(p)) model.decompose(p.a(), p.b());
+        for (TreeNode<?> n : created) model.deleteNode(n.getId());
+        created.clear();
+        types.forEach((n, t) -> { if (n.getDecompositionType() != t) n.setDecompositionType(t); });
     }
 
     /** Performs one edit of {@code action}; returns what it did (for failure reports). */

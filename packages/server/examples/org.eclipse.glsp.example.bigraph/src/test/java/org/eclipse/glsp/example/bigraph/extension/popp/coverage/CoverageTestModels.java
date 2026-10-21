@@ -21,16 +21,15 @@ public final class CoverageTestModels {
     private CoverageTestModels() {}
 
     /**
-     * The analyzer for a benchmark/check name: {@code domain} ({@link DomainCoverageAnalyzer}, the reference);
-     * {@code oracle} (the hits-only bound, {@link OracleRewritingCoverageAnalyzer}); or a schedule of
-     * {@link ScheduledRewritingCoverageAnalyzer}: {@code workset}, {@code workset-seeded}, {@code guards-first},
-     * {@code prefilter}, {@code workset-guards-seeded-first}, {@code workset-prefilter-seeded} (the default, also
-     * {@code default}), {@code workset-guards-seeded-first-prefilter} (all from scratch, applying the rules by
-     * rewriting); or {@link IncrementalCoverageAnalyzer} as {@code incremental} (one coverage
-     * bigraph per mode, edited in place and rewritten with the default schedule; {@code incremental-<schedule>} with
-     * {@code workset-seeded} or {@code workset-guards-seeded-first} instead, i.e. without the prefilter), registered as
-     * an observer of the bigraph. Rewriting needs the fixed jLibBig {@code AgentMatcher}, see
-     * {@link ScheduledRewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}.
+     * The analyzer for a benchmark/check name: {@code domain} ({@link DomainCoverageAnalyzer}, the reference); a schedule
+     * of {@link ScheduledRewritingCoverageAnalyzer} from scratch: {@code rounds} (no optimisation), {@code workset},
+     * {@code workset-seeded},
+     * {@code guards-first}, {@code prefilter}, {@code workset-guards-seeded-first}, {@code workset-prefilter-seeded} (the
+     * default, also {@code default}), {@code workset-guards-seeded-first-prefilter}; {@code oracle-<schedule>}, the
+     * hits-only replay of that schedule ({@link OracleRewritingCoverageAnalyzer}; {@code oracle} is the default
+     * schedule's); or {@code incremental-<schedule>}, the {@link IncrementalCoverageAnalyzer} with that schedule
+     * ({@code incremental} with the default one), registered as an observer of the bigraph. Rewriting needs the fixed
+     * jLibBig {@code AgentMatcher}, see {@link ScheduledRewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}.
      */
     public static CoverageAnalyzer analyzer(String name, Synced popp) {
         CoverageInput input = CoverageInput.of(popp.model, popp.bigraph);
@@ -39,9 +38,11 @@ public final class CoverageTestModels {
             case "oracle" -> new OracleRewritingCoverageAnalyzer(input);
             case "default" -> new ScheduledRewritingCoverageAnalyzer(input);
             case "incremental" -> incremental(popp, input, ScheduledRewritingCoverageAnalyzer.Options.DEFAULT);
-            case "incremental-workset-seeded" -> incremental(popp, input, ScheduledRewritingCoverageAnalyzer.Options.WORKSET_SEEDED);
-            case "incremental-workset-guards-seeded-first" -> incremental(popp, input, ScheduledRewritingCoverageAnalyzer.Options.WORKSET_GUARDS_SEEDED_FIRST);
-            default -> new ScheduledRewritingCoverageAnalyzer(input, options(name));
+            default -> name.startsWith("oracle-")
+                    ? new OracleRewritingCoverageAnalyzer(input, options(name.substring("oracle-".length())))
+                    : name.startsWith("incremental-")
+                    ? incremental(popp, input, options(name.substring("incremental-".length())))
+                    : new ScheduledRewritingCoverageAnalyzer(input, options(name));
         };
     }
 
@@ -55,6 +56,7 @@ public final class CoverageTestModels {
     /** The schedule for a variant name (see {@link #analyzer}). */
     static ScheduledRewritingCoverageAnalyzer.Options options(String name) {
         return switch (name) {
+            case "rounds" -> ScheduledRewritingCoverageAnalyzer.Options.ROUNDS;
             case "workset" -> ScheduledRewritingCoverageAnalyzer.Options.WORKSET;
             case "workset-seeded" -> ScheduledRewritingCoverageAnalyzer.Options.WORKSET_SEEDED;
             case "guards-first" -> ScheduledRewritingCoverageAnalyzer.Options.GUARDS_FIRST;

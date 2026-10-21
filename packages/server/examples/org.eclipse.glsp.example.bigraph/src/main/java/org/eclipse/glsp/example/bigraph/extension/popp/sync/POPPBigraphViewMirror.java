@@ -17,7 +17,7 @@ import java.util.function.Supplier;
 /**
  * Keeps the core "bigraph" variant's {@link BigraphView} mirrored. That view only updates through
  * its public {@code on*} callbacks and has no idea POPP exists, so every structural change
- * {@link org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph} reports is translated into the matching callback here.
+ * {@link POPPBigraph} reports is translated into the matching callback here.
  *
  * <p>The view is looked up lazily on every event since it can come and go (variant switches).</p>
  */

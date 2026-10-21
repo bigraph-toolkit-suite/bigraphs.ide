@@ -10,18 +10,18 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 import java.util.*;
 
 /**
- * Reference point for the analyzers, not an analyzer: the cost of the matcher calls that <i>hit</i> and their rewrites,
- * as if a perfect pruning oracle skipped every call that finds no match. Same evaluation as
- * {@link ScheduledRewritingCoverageAnalyzer} in rounds (every rule every round, each rule rewriting until it has no
- * match), but each round calls only the rules, in order, that rewrote something in that round, once per rewrite.
+ * Reference point for one schedule of {@link ScheduledRewritingCoverageAnalyzer}, not an analyzer: the cost of its
+ * matcher calls that <i>hit</i> and their rewrites, as if a perfect pruning oracle skipped every call of that schedule
+ * that finds no match.
  * <p>
- * The oracle is a recording: {@link #prepare} runs that evaluation once, traced (with the prefilter, which does not
- * change which calls hit), and stores, per round, the sequence of rules whose call found a match. {@link #session}
- * replays it: every call hits and is followed by its rewrite; there are no guards, no workset bookkeeping and no failed
- * calls, so the time is hits x (cost of a hitting call + its rewrite) on that agent, plus building the coverage
- * bigraph and the readout. That is a lower bound for any schedule: any pruning, guard or workset can only add calls,
- * and every upgrade needs a call that finds it and a rewrite. The replay takes the first match of every call, as the
- * recording did; it is checked against the recording's result once.
+ * The oracle is a recording: {@link #prepare} runs the schedule once, traced, and stores, per round, the sequence of
+ * rule calls that found a match (guard calls are not rule calls and are dropped). {@link #session} replays it on a
+ * freshly built coverage bigraph: every call hits and is followed by its rewrite, with the same matcher API as the
+ * schedule ({@code matchFirst} for the {@code *-first} schedules, otherwise the first of all matches), so the replay
+ * rewrites in the same order with the same matches. There are no guards, no prefilter, no workset bookkeeping and no
+ * failed calls: the time is hits x (cost of a hitting call + its rewrite), plus building the coverage bigraph and the
+ * readout, i.e. a lower bound for that schedule. With rewriting the order matters (what a call costs depends on the
+ * agent it runs on), so every schedule has its own oracle; the replay is checked against the recording's result once.
  * <p>
  * Valid for the model it was prepared on: a session on a changed model prepares again (that session then also pays the
  * recording). Benchmark it with {@code inspectRoot} after {@link #prepare}; a cold-start number means nothing here,
@@ -34,11 +34,19 @@ public final class OracleRewritingCoverageAnalyzer implements CoverageAnalyzer {
     private record Schedule(String fingerprint, List<int[]> rounds, Map<String, Coverage> expected) {}
 
     private final CoverageInput input;
+    private final ScheduledRewritingCoverageAnalyzer.Options recorded;
     private final Map<CoverageMode, Schedule> schedules = new HashMap<>();
     private volatile RewritingStats lastStats;
 
+    /** The oracle of the default schedule. */
     public OracleRewritingCoverageAnalyzer(CoverageInput input) {
+        this(input, ScheduledRewritingCoverageAnalyzer.Options.DEFAULT);
+    }
+
+    /** The oracle of the schedule {@code recorded}. */
+    public OracleRewritingCoverageAnalyzer(CoverageInput input, ScheduledRewritingCoverageAnalyzer.Options recorded) {
         this.input = input;
+        this.recorded = recorded;
     }
 
     public RewritingStats lastStats() { return lastStats; }
@@ -93,6 +101,7 @@ public final class OracleRewritingCoverageAnalyzer implements CoverageAnalyzer {
         PureBigraphMatcher matcher = new PureBigraphMatcher();
         PureReactiveSystem reactions = new PureReactiveSystem();
         RewritingTrace trace = tracing ? new RewritingTrace() : null;
+        boolean firstMatch = recorded.firstMatch() && ScheduledRewritingCoverageAnalyzer.FIRST_MATCH_WORKS;
 
         for (int[] round : s.rounds()) {
             r++;
@@ -103,7 +112,8 @@ public final class OracleRewritingCoverageAnalyzer implements CoverageAnalyzer {
                 calls++;
                 t0 = System.nanoTime();
                 long callStart = trace == null ? 0 : trace.now();
-                Iterator<PureBigraphMatch> it = matcher.matchAll(agent, rule.rule()).iterator();
+                Iterator<PureBigraphMatch> it = (firstMatch ? matcher.matchFirst(agent, rule.rule())
+                        : matcher.matchAll(agent, rule.rule())).iterator();
                 if (!it.hasNext()) throw new IllegalStateException("Oracle replay: " + rule.name() + " has no match");
                 PureBigraphMatch match = it.next();
                 tMatch += System.nanoTime() - t0;
@@ -126,9 +136,9 @@ public final class OracleRewritingCoverageAnalyzer implements CoverageAnalyzer {
         return readout;
     }
 
-    /** The real evaluation (rounds with the prefilter), traced; the hitting calls of each round are the schedule. */
+    /** The schedule's real evaluation, traced; its hitting rule calls, round by round, are the recording. */
     private Schedule record(CoverageMode mode, String fp) {
-        var rounds = new ScheduledRewritingCoverageAnalyzer(input, ScheduledRewritingCoverageAnalyzer.Options.PREFILTER);
+        var rounds = new ScheduledRewritingCoverageAnalyzer(input, recorded);
         rounds.setTracing(true);
         CoverageSession session = rounds.session(mode);
         RewritingTrace trace = rounds.lastTrace();
