@@ -187,8 +187,8 @@ class POPPBigraphTest {
         var first = popp.getById(parent.getId() + "_DECOMP").orElseThrow();
         var second = popp.getById(parent.getId() + "_DECOMP_1").orElseThrow();
 
-        assertEquals(POPPBigraphSignature.OR_DECOMP, POPPBigraphSignature.forNode(first));
-        assertEquals(POPPBigraphSignature.OR_DECOMP, POPPBigraphSignature.forNode(second));
+        assertEquals(POPPBigraphSignature.SUCCESS_CRITERIA_OR, POPPBigraphSignature.forNode(first));
+        assertEquals(POPPBigraphSignature.SUCCESS_CRITERIA_OR, POPPBigraphSignature.forNode(second));
         assertTrue(popp.isChainNode(first));
         assertEquals(DecompositionType.OR, popp.decompositionTypeOf(first));
         assertSame(entity(parent), popp.getBigraph().getParent(first));

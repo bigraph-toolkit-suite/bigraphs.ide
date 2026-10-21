@@ -10,13 +10,14 @@ import java.util.Map;
 
 /**
  * Per-session state of the POPP extension and its composition root: the model, its bigraph and GModel, and the
- * coverage analyzer. The analyzer is the fragment analyzer behind a cache; it reads model and bigraph lazily from
- * here, so it follows a model that is replaced when a file is (re)loaded.
+ * coverage analyzer. The analyzer is the {@link IncrementalCoverageAnalyzer} (one coverage bigraph per mode, edited in
+ * place and rewritten with workset, prefilter and seed); it observes the current bigraph and reads model and bigraph
+ * lazily from here, so it follows a model that is replaced when a file is (re)loaded.
  */
 public class POPPExtensionState {
     private final IBigraphModelState bigraphModelState;
     private final POPPGModel gModel;
-    private final CoverageAnalyzer analyzer;
+    private final IncrementalCoverageAnalyzer analyzer;
     private POPPModel poppModel;
     private POPPBigraph poppBigraph;
     private Map<String, POPPExtensionMeta.NodeData> initialLoadedMeta; // Not updated, only relevant for model loading
@@ -25,7 +26,7 @@ public class POPPExtensionState {
         this.bigraphModelState = bigraphModelState;
         this.gModel = new POPPGModel(this);
         CoverageInput input = CoverageInput.lazy(this::getPoppModel, this::getPoppBigraph);
-        this.analyzer = new CachingCoverageAnalyzer(input, new FragmentRewritingCoverageAnalyzer(input));
+        this.analyzer = new IncrementalCoverageAnalyzer(input);
     }
 
     public IBigraphModelState getBigraphModelState() {
@@ -45,7 +46,9 @@ public class POPPExtensionState {
     }
 
     public void setPoppBigraph(POPPBigraph poppBigraph) {
+        if (this.poppBigraph != null) this.poppBigraph.removeObserver(analyzer);
         this.poppBigraph = poppBigraph;
+        if (poppBigraph != null) poppBigraph.addObserver(analyzer);
     }
 
     public CoverageAnalyzer getAnalyzer() {

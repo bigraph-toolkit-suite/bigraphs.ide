@@ -6,7 +6,6 @@ import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.Coverage;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
 
 import java.util.HashMap;
@@ -16,18 +15,16 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 
 /**
  * The coverage bigraph: a copy of the structure bigraph over {@link CoverageSignature} in which every domain node and
- * every chain node holds a state cell ({@code Unc}, {@code Part} or {@code Cov}). Intrinsically covered domain nodes
- * also hold {@code CovIntrinsic}, and PARTIAL chain nodes {@code PartDecomp}, because the chain redexes list a chain
- * node's children exactly. Stubs and relation edges are copied unchanged. Reason markers of upgrades are never part of
- * it: the analyzers record derivations in their own maps.
+ * every chain node holds a state cell ({@code Unc}, {@code Part} or {@code Cov}). Tree nodes of an intrinsically
+ * covered kind start covered and hold {@code CovIntrinsic}: the domain nodes by definition, and their chain nodes
+ * because the chain controls are per kind, so all their slots are covered domain nodes of that kind or chain nodes of
+ * that tree. Every other tree node starts with {@code Unc}. Stubs and relation edges are copied unchanged. Rewriting
+ * adds the reason markers of the upgrades; {@code IncrementalCoverageAnalyzer} keeps one such bigraph per mode and
+ * edits it in place.
  */
 public class CoverageBigraph {
-    /**
-     * Builds the coverage bigraph of {@code source}. Intrinsically covered nodes are COVERED regardless of
-     * {@code states}; every other tree node takes its state from {@code states} (by bigraph node name), UNCOVERED if
-     * absent.
-     */
-    public static PureBigraphMutable build(POPPBigraph source, CoverageMode mode, Map<String, Coverage> states) {
+    /** Builds the coverage bigraph of {@code source} at the start of the evaluation in {@code mode}. */
+    public static PureBigraphMutable build(POPPBigraph source, CoverageMode mode) {
        DynamicSignature sig = CoverageSignature.get();
        PureBigraphMutable src = source.getBigraph();
        PureBigraphMutable g = pureBuilder(sig).createMutable();
@@ -37,10 +34,20 @@ public class CoverageBigraph {
            copyPlaces(src, root, g.addRoot(), g, sig, copies);
        }
        copyEdges(src, g, copies);
-       annotate(source, g, sig, mode, copies, states);
+       annotate(source, g, sig, mode, copies);
        return g;
     }
 
+    /**
+     * Whether a tree node with {@code control} (a domain or a chain control) is covered from the start in {@code mode}:
+     * its kind, or the kind of its tree, is intrinsically covered.
+     */
+    public static boolean isIntrinsic(POPPBigraphSignature control, CoverageMode mode) {
+        if (POPPBigraphSignature.isKindControl(control)) return mode.isIntrinsic(POPPBigraphSignature.toNodeKind(control));
+        return POPPBigraphSignature.chainKindOf(control).map(mode::isIntrinsic).orElse(false);
+    }
+
+    /** Copies the place graph. */
     private static void copyPlaces(PureBigraphMutable src, BigraphEntity<?> oldParent, BigraphEntity<?> newParent,
                                   PureBigraphMutable g, DynamicSignature sig,
                                   Map<String, BigraphEntity.NodeEntity<DynamicControl>> copies) {
@@ -67,22 +74,17 @@ public class CoverageBigraph {
     }
 
     private static void annotate(POPPBigraph source, PureBigraphMutable g, DynamicSignature sig, CoverageMode mode,
-                                 Map<String, BigraphEntity.NodeEntity<DynamicControl>> copies,
-                                 Map<String, Coverage> states) {
+                                 Map<String, BigraphEntity.NodeEntity<DynamicControl>> copies) {
         for (BigraphEntity.NodeEntity<DynamicControl> old : source.getBigraph().getNodes()) {
             POPPBigraphSignature control = POPPBigraphSignature.forNode(old);
             if (!POPPBigraphSignature.isTreeControl(control)) continue; // container and stubs have no state
-            boolean domain = POPPBigraphSignature.isKindControl(control);
-            boolean intrinsic = domain && mode.isIntrinsic(POPPBigraphSignature.toNodeKind(control));
-
-            Coverage state = intrinsic ? Coverage.COVERED
-                    : states.getOrDefault(old.getName(), Coverage.UNCOVERED);
             var copy = copies.get(old.getName());
-            cell(g, sig, copy, CoverageMarker.of(state), ".state");
-            if (intrinsic) cell(g, sig, copy, CoverageMarker.COV_INTRINSIC, ".why");
-            // chain redexes list PartDecomp explicitly when the chain node is PARTIAL
-            if (!domain && state == Coverage.PARTIAL)
-                cell(g, sig, copy, CoverageMarker.PART_DECOMP, ".partwhy");
+            if (isIntrinsic(control, mode)) {
+                cell(g, sig, copy, CoverageMarker.COV, ".state");
+                cell(g, sig, copy, CoverageMarker.COV_INTRINSIC, ".why");
+            } else {
+                cell(g, sig, copy, CoverageMarker.UNC, ".state");
+            }
         }
     }
 

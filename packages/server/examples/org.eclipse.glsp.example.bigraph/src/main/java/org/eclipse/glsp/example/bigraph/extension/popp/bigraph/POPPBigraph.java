@@ -15,7 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * The bigraph encoding of a POPP model, kept in sync with it through explicit calls and announced to observers.
  *
  * <p>Encoding: every domain node is a node whose control is its kind ({@code Problem}, {@code Goal}, ...). An AND/OR
- * decomposition with n children becomes a chain of n-1 binary {@code AndDecomp}/{@code OrDecomp} nodes under the
+ * decomposition with n children becomes a chain of n-1 binary chain nodes ({@code GoalAnd}, {@code ProblemOr}, ...) under the
  * decomposed node (one empty chain node without children, one chain node for a single child); the chain node
  * directly under a domain node is the first one. A relation is an edge between two arity-1 stub nodes, one under each
  * endpoint. Every node is addressable by its id ({@code nodesById}): domain nodes by their model id, chain nodes by
@@ -99,7 +99,7 @@ public class POPPBigraph {
         return POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(node));
     }
 
-    /** Whether {@code node} is a decomposition chain node ({@code AndDecomp} or {@code OrDecomp}). */
+    /** Whether {@code node} is a decomposition chain node ({@code GoalAnd}, {@code ProblemOr}, ...). */
     public boolean isChainNode(BigraphEntity.NodeEntity<?> node) {
         return POPPBigraphSignature.isDecompControl(POPPBigraphSignature.forNode(node));
     }
@@ -117,8 +117,9 @@ public class POPPBigraph {
 
     /** Creates and announces a chain node. Callers must not announce it again. */
     private BigraphEntity.NodeEntity<DynamicControl> addChainNode(
-            BigraphEntity.NodeEntity<DynamicControl> parent, DecompositionType type, String id) {
-        var chain = addNode(parent, POPPBigraphSignature.getByDecompositionType(type), id);
+            BigraphEntity.NodeEntity<DynamicControl> parent, NodeKind kind, DecompositionType type, String id) {
+        POPPBigraphSignature control = POPPBigraphSignature.getChainControl(kind, type);
+        var chain = addNode(parent, control, id);
         fireNodeAdded(chain, parent);
         return chain;
     }
@@ -371,17 +372,17 @@ public class POPPBigraph {
         List<String> chainIds = new ArrayList<>();
 
         if (childIds.isEmpty()) {
-            addChainNode(parent, type, nodeId + "_DECOMP");
+            addChainNode(parent, node.getKind(), type, nodeId + "_DECOMP");
             chainIds.add(nodeId + "_DECOMP");
         } else if (childIds.size() == 1) {
-            var chainRoot = addChainNode(parent, type, nodeId + "_DECOMP");
+            var chainRoot = addChainNode(parent, node.getKind(), type, nodeId + "_DECOMP");
             chainIds.add(nodeId + "_DECOMP");
             moveAndNotify(requireNode(childIds.getFirst()), chainRoot);
         } else {
             BigraphEntity.NodeEntity<DynamicControl> currentParent = parent;
             for (int i = 0; i < childIds.size() - 1; i++) {
                 String chainId = i == 0 ? nodeId + "_DECOMP" : nodeId + "_DECOMP_" + i;
-                var chainNode = addChainNode(currentParent, type, chainId);
+                var chainNode = addChainNode(currentParent, node.getKind(), type, chainId);
                 chainIds.add(chainId);
                 moveAndNotify(requireNode(childIds.get(i)), chainNode);
                 currentParent = chainNode;

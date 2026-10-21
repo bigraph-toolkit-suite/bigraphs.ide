@@ -72,11 +72,11 @@ class POPPModelValidatorTest {
 
     @Test
     void emptyDecompositionInTheBigraphIsReported() {
-        // the editor cannot produce this any more; files written before (or edited by hand) can contain it
+        // the editor cannot produce this; a file edited by hand can contain it
         CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
         Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "goal", 0, 0);
         PureBigraphMutable g = popp.bigraph.getBigraph();
-        g.addNode(node(g, goal.getId()), popp.bigraph.getSignature().getControlByName("AndDecomp"), goal.getId() + "_DECOMP");
+        g.addNode(node(g, goal.getId()), popp.bigraph.getSignature().getControlByName("GoalAnd"), goal.getId() + "_DECOMP");
 
         List<ValidationIssue> empty = issues(validate(popp), ValidationIssue.Code.EMPTY_DECOMPOSITION);
 
@@ -100,7 +100,7 @@ class POPPModelValidatorTest {
                 .findFirst().orElseThrow();
         g.removeNode(goalStub);
         // 2) a chain node directly in the container
-        g.addNode(container, popp.bigraph.getSignature().getControlByName("AndDecomp"), "stray-chain");
+        g.addNode(container, popp.bigraph.getSignature().getControlByName("ProblemAnd"), "stray-chain");
         // 3) a child placed directly in its parent, without the chain
         g.moveNode(node(g, child.getId()), node(g, problem.getId()));
 

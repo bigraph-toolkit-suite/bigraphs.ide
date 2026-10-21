@@ -15,7 +15,8 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class RewritingCoverageAnalyzerTest {
+/** The coverage semantics of the rules, as evaluated by the extension's analyzer, on hand-made and generated models. */
+class CoverageRulesSemanticsTest {
 
     /** A POPP model with its synced bigraph (see {@link CoverageTestModels.Synced}) and the analyzer under test. */
     final class SyncedPOPP {
@@ -31,9 +32,9 @@ class RewritingCoverageAnalyzerTest {
         }
     }
 
-    /** The analyzer under test; subclasses run the same cases against another evaluation of the same rules. */
+    /** The analyzer under test: the extension's analyzer with its default schedule. */
     protected CoverageAnalyzer createAnalyzer(CoverageInput input) {
-        return new RewritingCoverageAnalyzer(input);
+        return new ScheduledRewritingCoverageAnalyzer(input);
     }
 
     @Test
@@ -224,9 +225,8 @@ class RewritingCoverageAnalyzerTest {
 
     // ---- agreement with the domain analyzer, which is the oracle
     //
-    // The rewriting analyzer is a reference model of the coverage rules and is far too slow for interactive use
-    // (see its class comment), so these tests are about correctness; the responsiveness stages are in
-    // DomainCoverageAnalyzerTest.
+    // These tests are about correctness of the coverage rules as the extension evaluates them
+    // (ScheduledRewritingCoverageAnalyzer with its default schedule); timing is measured by CoverageBenchmark.
 
     private static void assertAgree(SyncedPOPP popp, CoverageMode mode, String context) {
         CoverageSession expected = new DomainCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph)).session(mode);

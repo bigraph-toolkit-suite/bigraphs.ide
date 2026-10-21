@@ -60,7 +60,7 @@ class POPPValidationServiceTest {
         var goal = session.model().createNode(NodeKind.GOAL, "goal", 0, 0);
         var g = session.bigraph;
         var container = session.popp().findPOPPContainer(session.popp().getDefaultRoot());
-        g.addNode(container, session.popp().getSignature().getControlByName("OrDecomp"), "stray");
+        g.addNode(container, session.popp().getSignature().getControlByName("GoalOr"), "stray");
 
         session.validationService.runNow();
 

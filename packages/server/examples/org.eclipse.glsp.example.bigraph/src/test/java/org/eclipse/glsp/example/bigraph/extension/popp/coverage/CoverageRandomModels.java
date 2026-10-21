@@ -49,7 +49,7 @@ final class CoverageRandomModels {
                 if (!node.getChildren().isEmpty()) {
                     node.setDecompositionType(t == DecompositionType.NONE ? DecompositionType.AND : t);
                 } else if (t != DecompositionType.NONE) {
-                    emptyChain(popp, node, t); // as a broken or old file would have it
+                    emptyChain(popp, node, t); // as a hand-edited file could have it
                 }
             }
         }
@@ -70,7 +70,7 @@ final class CoverageRandomModels {
         var g = popp.bigraph.getBigraph();
         var parent = popp.bigraph.getById(node.getId()).orElseThrow();
         String control = org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature
-                .getByDecompositionType(type).controlName();
+                .getChainControl(node.getKind(), type).controlName();
         g.addNode(parent, popp.bigraph.getSignature().getControlByName(control), node.getId() + "_DECOMP");
     }
 
