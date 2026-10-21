@@ -1,51 +1,97 @@
 #!/usr/bin/env bash
-# Benchmark run: correctness check, JMH for the domain analyzer and the schedules of ScheduledRewritingCoverageAnalyzer,
-# the hits-only reference, traced sessions and plots, one log.
+# The final benchmark run: correctness check, every schedule of ScheduledRewritingCoverageAnalyzer from scratch and
+# incremental with the hits-only references, the edit chains, a per-phase breakdown of the edit steps, the workset
+# under different rule sets and encodings, traced sessions and plots, one log.
 #
 #   ./run-benchmarks.sh [variant] [cores]
-#   ./run-benchmarks.sh final 0,2,4,6
+#   SHUTDOWN=1 ./run-benchmarks.sh final 0,2,4,6
+#
+# Schedules (SCHEDULES), each from scratch (<schedule>) and incremental (incremental-<schedule>):
+#   rounds                                 no optimisation: every rule every round (the baseline)
+#   workset                                the rule workset (overlap analysis), every rule queued at the start
+#   workset-seeded                         + seed (from scratch: the link rules; incremental: the rules the edit can
+#                                          have enabled, see IncrementalCoverageAnalyzer)
+#   workset-guards-seeded-first            + guard patterns (matchFirst)
+#   prefilter                              the structural prefilter alone (every rule every round, matcher on hits)
+#   workset-prefilter-seeded               workset + seed + prefilter: the default; incremental-workset-prefilter-seeded
+#                                          is the extension's analyzer, also called "incremental"
+#   workset-guards-seeded-first-prefilter  everything
+# References (perfect pruning: only the matcher calls that hit):
+#   oracle                                 from scratch: the default schedule's hits, replayed (JMH, schedules step)
+#   bound_ms                               incremental: computed per edit step from a traced step (breakdown step;
+#                                          a replay would fall into the measured step itself)
+# Rules: threshold chain rules and the overlap analysis (the defaults since this run). The encodings step compares
+# them with enumerated chain rules and the control-pair analysis (-Dpopp.chains, -Dpopp.enabling).
 #
 # Output (in benchmark-results/<variant>-<timestamp>/):
-#   run.log            everything printed by the steps, in order, plus the system settings
-#   default.json       the domain analyzer (reference) and the default schedule from scratch
-#                      (workset-prefilter-seeded): all benchmarks, complete and partial models
-#   schedules.json     every schedule (see SCHEDULES): inspectRoot and coldFirstSession, complete models
-#   oracle.json        the hits-only reference (OracleRewritingCoverageAnalyzer: perfect pruning), inspectRoot
-#   edits.json         chains of edits + inspections (EditChainBenchmark): from scratch every session (default
-#                      schedule) vs. the incremental analyzer (the extension's analyzer: one coverage bigraph
-#                      per mode, edited in place and rewritten to its fixpoint), per action and chain length
-#   trace/             one traced session per schedule and the oracle (RewritingTraceReport): rounds.csv, calls.csv,
-#                      summary.csv; active rules, hits and misses per round and over time, side by side
-#   figures/           all plots (benchmark-plots/*.py), if python3 with matplotlib is installed
+#   run.log              everything printed by the steps, in order, plus the system settings
+#   default.json         the default schedule from scratch (DEFAULT_ANALYZERS): all benchmarks, complete and partial
+#   default-incremental.json  incremental: inspectRoot and inspectAllNodes (reading the kept fixpoint), editOnly (the
+#                        edits with the analyzer observing the bigraph), coldFirstSession (its first fixpoint). Not
+#                        editThenInspect: its undo and the next sample's edit cancel out; edit costs are in the chains.
+#   schedules.json       every schedule and the oracle from scratch: inspectRoot (warm session), complete models
+#   cold.json            every schedule from scratch: coldFirstSession (first session in a fresh JVM)
+#   edits-scratch.json   edit chains from scratch with the default schedule, every action, length 1
+#   edits.json           edit chains with the incremental analyzer: every action, chain lengths EDIT_LENGTHS
+#   edits-schedules.json edit chains, incremental at every other schedule: MIXED edits, length 1
+#                        Every chain starts from the benchmark model (the previous chain is undone untimed).
+#   breakdown-incremental.csv            per edit step and action: time per phase and the hits-only bound (incremental)
+#   breakdown-incremental-schedules.csv  the same for incremental at every other schedule, MIXED edits
+#   breakdown-scratch.csv                the same for every schedule from scratch, MIXED edits
+#                        Every step starts from the benchmark model, with the same edits for every analyzer.
+#   encodings/           the workset under the rule sets: encodings-static.csv (rules and enabled rules per encoding,
+#                        incl. the two earlier ones), and per chains x enabling: <c>-<e>.json (JMH inspectRoot of
+#                        ENCODING_SCHEDULES), precision-<c>-<e>/ (queued rule calls vs. hits, WorksetPrecision),
+#                        breakdown-<c>-<e>.csv (incremental workset schedules on identical edits)
+#   trace/               one traced session per schedule and the oracle (RewritingTraceReport)
+#   figures/             plots (benchmark-plots/*.py), if python3 with matplotlib is installed
 #
 # Models: CoverageTestModels.fullModel, all six trees balanced, 6 / 18 / 42 / 90 POPP nodes for depth 0..3.
-# Only some steps: STEPS=edits,plot ./run-benchmarks.sh   (any of check,default,schedules,oracle,edits,trace,plot; default
-# all). The plot step plots every *.json and trace/ in the output folder of this run.
-# Depths: DEFAULT_DEPTHS / SCHEDULE_DEPTHS / ORACLE_DEPTHS / TRACE_DEPTHS (all 0,1,2,3 by default), EDIT_DEPTHS
-# (1,2,3: edits need a decomposition); EDIT_LENGTHS (1,10) and EDIT_ACTIONS (LINK,TYPE,MOVE,NODE,MIXED).
-# Every analyzer but the domain reference applies the rules by rewriting, so the run needs the fixed jLibBig
-# AgentMatcher (see jlibbig-agentmatcher-fix) and refuses to start without it.
-# The *-first schedules need a framework whose matchFirst works (the PureMatchIteratorImpl.FirstMatchOnly fix);
-# without it they fall back to enumerating all matches. The log says "framework fixes: firstMatch=...".
-# Power off when done: SHUTDOWN=1 ./run-benchmarks.sh  (also after a failed step, never after Ctrl-C;
-# 60 s grace period in which Ctrl-C cancels the shutdown).
-# Rough duration on a desktop: 4-5 hours, most of it the schedules without prefilter at 90 nodes and the
-# from-scratch edit chains at 90 nodes.
+# Only some steps: STEPS=edits,plot ./run-benchmarks.sh   (any of check,default,edits,schedules,breakdown,encodings,
+# trace,plot; default all, in this order). The plot step plots everything in the output folder of this run.
+# Depths: DEFAULT_DEPTHS, SCHEDULE_DEPTHS, TRACE_DEPTHS, ENCODING_DEPTHS (0..3); EDIT_DEPTHS, BREAKDOWN_SCRATCH_DEPTHS
+# (1..3: edits need a decomposition). EDIT_LENGTHS (1), EDIT_ACTIONS (LINK,TYPE,MOVE,NODE,MIXED). BREAKDOWN_STEPS (6)
+# and BREAKDOWN_WARMUP (2) per chain.
+# Every analyzer but domain applies the rules by rewriting, so the run needs the fixed jLibBig AgentMatcher (see the
+# patched framework jars) and refuses to start without it. The *-first schedules need a framework whose matchFirst works;
+# without it they enumerate all matches. The log says "framework fixes: firstMatch=... rewrite=...".
+# Power off when done: SHUTDOWN=1 (also after a failed step, never after Ctrl-C; 60 s grace period in which Ctrl-C
+# cancels the shutdown).
+# Rough duration on a Ryzen 5800X3D: about 6.5 hours; the longest steps are edits and breakdown (the schedules without
+# the prefilter, incremental, with an untimed reset per step) and encodings (the enumerated rules without prefilter).
 set -euo pipefail
 
 VARIANT="${1:-final}"
 CORES="${2:-0,2,4,6}"            # four distinct physical cores (no SMT siblings); adjust to your CPU
 DEFAULT_DEPTHS="${DEFAULT_DEPTHS:-0,1,2,3}"
 SCHEDULE_DEPTHS="${SCHEDULE_DEPTHS:-0,1,2,3}"
-ORACLE_DEPTHS="${ORACLE_DEPTHS:-0,1,2,3}"
 TRACE_DEPTHS="${TRACE_DEPTHS:-0,1,2,3}"
+ENCODING_DEPTHS="${ENCODING_DEPTHS:-0,1,2,3}"
 EDIT_DEPTHS="${EDIT_DEPTHS:-1,2,3}"
-EDIT_LENGTHS="${EDIT_LENGTHS:-1,10}"
+EDIT_LENGTHS="${EDIT_LENGTHS:-1}"      # every chain starts from the benchmark model; 10 only adds drift
 EDIT_ACTIONS="${EDIT_ACTIONS:-LINK,TYPE,MOVE,NODE,MIXED}"
-STEPS=",${STEPS:-check,default,schedules,oracle,edits,trace,plot},"
+BREAKDOWN_SCRATCH_DEPTHS="${BREAKDOWN_SCRATCH_DEPTHS:-1,2,3}"
+DEFAULT_JMH="${DEFAULT_JMH:--f 2}"
+SCHEDULE_JMH="${SCHEDULE_JMH:--f 2 -wi 2 -i 5}"
+COLD_JMH="${COLD_JMH:--f 5}"
+ENCODING_JMH="${ENCODING_JMH:--f 1 -wi 1 -i 3}"
+BREAKDOWN_STEPS="${BREAKDOWN_STEPS:-6}"      # measured steps per chain (each chain runs twice: untraced, traced)
+BREAKDOWN_WARMUP="${BREAKDOWN_WARMUP:-2}"
+# the most important results first, so a run that overruns the night still has them
+STEPS=",${STEPS:-check,default,edits,schedules,breakdown,encodings,trace,plot},"
 step() { [[ "$STEPS" == *",$1,"* ]]; }
-DEFAULT="domain,workset-prefilter-seeded"
-SCHEDULES="workset,workset-seeded,guards-first,prefilter,workset-guards-seeded-first,workset-prefilter-seeded,workset-guards-seeded-first-prefilter"
+DEFAULT_SCHEDULE="workset-prefilter-seeded"
+SCHEDULES="${SCHEDULES:-rounds,workset,workset-seeded,workset-guards-seeded-first,prefilter,workset-prefilter-seeded,workset-guards-seeded-first-prefilter}"
+DEFAULT_ANALYZERS="${DEFAULT_ANALYZERS:-$DEFAULT_SCHEDULE}"       # add domain for its numbers in summary.csv
+ORACLES="${ORACLES:-oracle}"
+prefixed() { local out="" s; for s in ${SCHEDULES//,/ }; do out="$out,$1$s"; done; echo "${out#,}"; }
+INCREMENTALS="$(prefixed incremental-)"
+OTHER_INCREMENTALS="$(echo "$INCREMENTALS" | tr ',' '\n' | grep -vx "incremental-$DEFAULT_SCHEDULE" | paste -sd,)"
+# the encodings step: the workset schedules under both chain encodings and both enabling analyses
+ENCODING_CHAINS="${ENCODING_CHAINS:-enumerated,threshold}"
+ENCODING_ENABLING="${ENCODING_ENABLING:-controls,overlap}"
+ENCODING_SCHEDULES="${ENCODING_SCHEDULES:-workset,workset-seeded}"   # + rounds once per chain encoding
+ENCODING_INCREMENTALS="${ENCODING_INCREMENTALS:-incremental-workset,incremental-workset-seeded}"
 OUT="benchmark-results/${VARIANT}-$(date +%Y%m%d-%H%M%S)"
 
 SHUTDOWN="${SHUTDOWN:-0}"
@@ -64,7 +110,8 @@ mkdir -p "$OUT"
 # Compile main and test classes (incl. the JMH-generated benchmark list) and write the classpath.
 # Always runs, so edits since the last build are never benchmarked stale.
 mvn -q test-compile dependency:build-classpath -Dmdep.outputFile=target/cp.txt -Dmdep.includeScope=test
-for c in CoverageBenchmark CoverageBenchmarkCheck RewritingTraceReport; do
+for c in CoverageBenchmark CoverageBenchmarkCheck RewritingTraceReport EditChainBenchmark EditChainBreakdown \
+         WorksetPrecision EncodingComparison; do
   if [ ! -f "target/test-classes/org/eclipse/glsp/example/bigraph/extension/popp/coverage/$c.class" ]; then
     echo "missing $c.class after mvn test-compile" >&2; exit 1
   fi
@@ -75,11 +122,11 @@ fi
 CP="target/classes:target/test-classes:$(cat target/cp.txt)"
 RUN="taskset -c $CORES java"
 JMH="$RUN -cp $CP org.openjdk.jmh.Main"
-CAPS="$(java -cp "$CP" org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageBenchmarkCheck --capabilities 2>/dev/null | tail -1)"
+PKG=org.eclipse.glsp.example.bigraph.extension.popp.coverage
+CAPS="$(java -cp "$CP" $PKG.CoverageBenchmarkCheck --capabilities 2>/dev/null | tail -1)"
 if [[ "$CAPS" != *"rewrite=true"* ]]; then
   echo "the jLibBig AgentMatcher on the classpath splits links ($CAPS); install jlibbig-agentmatcher-fix first" >&2; exit 1
 fi
-EDITORS="workset-prefilter-seeded,incremental"
 
 {
   echo "=== $(date -Is)  variant=$VARIANT  cores=$CORES  shutdown=$SHUTDOWN  steps=$STEPS"
@@ -93,64 +140,116 @@ EDITORS="workset-prefilter-seeded,incremental"
   cpupower frequency-info -p 2>/dev/null | tail -2 || true
   cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor 2>/dev/null | sed 's/^/governor: /' || true
   echo "--- framework fixes: $CAPS"
+  echo "--- rules: $(java -cp "$CP" $PKG.CoverageBenchmarkCheck --rules 2>/dev/null | tail -1)"
   echo
 
   if step check; then
-  echo "=== check: every schedule and the oracle vs Domain, all coverage modes, depth 0..2"
-  $RUN -Dvariant="$VARIANT" -cp "$CP" \
-    org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageBenchmarkCheck 2 "$SCHEDULES,oracle"
-  $RUN -cp "$CP" org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageBenchmarkCheck --edits incremental
+  echo "=== check: analyzers vs domain, all coverage modes (default schedule, oracle, incremental up to depth 2, the others up to 1)"
+  $RUN -Dvariant="$VARIANT" -cp "$CP" $PKG.CoverageBenchmarkCheck \
+    2 "$DEFAULT_SCHEDULE,oracle-$DEFAULT_SCHEDULE,incremental-$DEFAULT_SCHEDULE"
+  $RUN -Dvariant="$VARIANT" -cp "$CP" $PKG.CoverageBenchmarkCheck 1 "$SCHEDULES,$ORACLES,$OTHER_INCREMENTALS"
+  $RUN -cp "$CP" $PKG.CoverageBenchmarkCheck --edits incremental,incremental-workset
   echo
   fi
 
   if step default; then
-  echo "=== default: JMH $DEFAULT, all benchmarks, depth $DEFAULT_DEPTHS"
-  $JMH CoverageBenchmark -rf json -rff "$OUT/default.json" \
-    -p analyzer="$DEFAULT" -p depth="$DEFAULT_DEPTHS" -p complete=true,false \
+  echo "=== default: JMH $DEFAULT_ANALYZERS ($DEFAULT_JMH), all benchmarks, depth $DEFAULT_DEPTHS"
+  $JMH CoverageBenchmark $DEFAULT_JMH -rf json -rff "$OUT/default.json" \
+    -p analyzer="$DEFAULT_ANALYZERS" -p depth="$DEFAULT_DEPTHS" -p complete=true,false \
     -jvmArgsAppend "-Dvariant=$VARIANT"
-  echo
-  fi
-
-  if step schedules; then
-  echo "=== schedules: JMH $SCHEDULES, depth $SCHEDULE_DEPTHS"
-  # seconds per session for the schedules without prefilter: only the session benchmarks (inspectRoot, cold start)
-  $JMH 'CoverageBenchmark\.(inspectRoot|coldFirstSession)' -rf json -rff "$OUT/schedules.json" \
-    -p analyzer="$SCHEDULES" -p depth="$SCHEDULE_DEPTHS" -p complete=true \
-    -jvmArgsAppend "-Dvariant=$VARIANT"
-  echo
-  fi
-
-  if step oracle; then
-  echo "=== oracle: JMH hits-only reference (perfect pruning), depth $ORACLE_DEPTHS"
-  # warm sessions only: recording the oracle's schedule in the setup already warms the JVM, so no cold start
-  $JMH 'CoverageBenchmark\.inspectRoot' -rf json -rff "$OUT/oracle.json" \
-    -p analyzer=oracle -p depth="$ORACLE_DEPTHS" -p complete=true \
+  echo "=== default: JMH incremental ($DEFAULT_JMH), inspectRoot, inspectAllNodes, editOnly, coldFirstSession, depth $DEFAULT_DEPTHS"
+  $JMH 'CoverageBenchmark\.(inspectRoot|inspectAllNodes|editOnly|coldFirstSession)$' $DEFAULT_JMH -rf json \
+    -rff "$OUT/default-incremental.json" -p analyzer=incremental -p depth="$DEFAULT_DEPTHS" -p complete=true,false \
     -jvmArgsAppend "-Dvariant=$VARIANT"
   echo
   fi
 
   if step edits; then
-  echo "=== edits: JMH edit chains ($EDITORS), depth $EDIT_DEPTHS, lengths $EDIT_LENGTHS, actions $EDIT_ACTIONS"
-  $JMH EditChainBenchmark -rf json -rff "$OUT/edits.json" \
-    -p analyzer="$EDITORS" -p depth="$EDIT_DEPTHS" -p length="$EDIT_LENGTHS" -p action="$EDIT_ACTIONS" \
+  echo "=== edits: from scratch ($DEFAULT_SCHEDULE), length 1, depth $EDIT_DEPTHS, actions $EDIT_ACTIONS"
+  $JMH EditChainBenchmark -rf json -rff "$OUT/edits-scratch.json" \
+    -p analyzer="$DEFAULT_SCHEDULE" -p depth="$EDIT_DEPTHS" -p length=1 -p action="$EDIT_ACTIONS" \
     -jvmArgsAppend "-Dvariant=$VARIANT"
+  echo "=== edits: incremental, lengths $EDIT_LENGTHS, depth $EDIT_DEPTHS, actions $EDIT_ACTIONS"
+  $JMH EditChainBenchmark -rf json -rff "$OUT/edits.json" \
+    -p analyzer=incremental -p depth="$EDIT_DEPTHS" -p length="$EDIT_LENGTHS" -p action="$EDIT_ACTIONS" \
+    -jvmArgsAppend "-Dvariant=$VARIANT"
+  echo "=== edits: incremental at the other schedules, MIXED, length 1, depth $EDIT_DEPTHS"
+  $JMH EditChainBenchmark -rf json -rff "$OUT/edits-schedules.json" \
+    -p analyzer="$OTHER_INCREMENTALS" -p depth="$EDIT_DEPTHS" -p length=1 -p action=MIXED \
+    -jvmArgsAppend "-Dvariant=$VARIANT"
+  echo
+  fi
+
+  if step schedules; then
+  echo "=== schedules: JMH inspectRoot of $SCHEDULES,$ORACLES ($SCHEDULE_JMH), depth $SCHEDULE_DEPTHS"
+  # the oracle records its schedule in the setup (outside the measurement), so it has no cold start of its own
+  $JMH 'CoverageBenchmark\.inspectRoot' $SCHEDULE_JMH -rf json -rff "$OUT/schedules.json" \
+    -p analyzer="$SCHEDULES,$ORACLES" -p depth="$SCHEDULE_DEPTHS" -p complete=true \
+    -jvmArgsAppend "-Dvariant=$VARIANT"
+  echo "=== schedules: JMH coldFirstSession of $SCHEDULES ($COLD_JMH), depth $SCHEDULE_DEPTHS"
+  $JMH 'CoverageBenchmark\.coldFirstSession' $COLD_JMH -rf json -rff "$OUT/cold.json" \
+    -p analyzer="$SCHEDULES" -p depth="$SCHEDULE_DEPTHS" -p complete=true \
+    -jvmArgsAppend "-Dvariant=$VARIANT"
+  echo
+  fi
+
+  if step breakdown; then
+  echo "=== breakdown: phases and hits-only bound per edit step, incremental, depth $EDIT_DEPTHS, actions $EDIT_ACTIONS"
+  $RUN -cp "$CP" $PKG.EditChainBreakdown \
+    "$OUT/breakdown-incremental.csv" incremental "$EDIT_DEPTHS" "$EDIT_ACTIONS" "$BREAKDOWN_STEPS" "$BREAKDOWN_WARMUP"
+  echo "=== breakdown: incremental at the other schedules, MIXED, depth $EDIT_DEPTHS"
+  $RUN -cp "$CP" $PKG.EditChainBreakdown \
+    "$OUT/breakdown-incremental-schedules.csv" "$OTHER_INCREMENTALS" "$EDIT_DEPTHS" MIXED "$BREAKDOWN_STEPS" "$BREAKDOWN_WARMUP"
+  echo "=== breakdown: every schedule from scratch, MIXED, depth $BREAKDOWN_SCRATCH_DEPTHS"
+  $RUN -cp "$CP" $PKG.EditChainBreakdown \
+    "$OUT/breakdown-scratch.csv" "$SCHEDULES" "$BREAKDOWN_SCRATCH_DEPTHS" MIXED "$BREAKDOWN_STEPS" "$BREAKDOWN_WARMUP"
+  echo
+  fi
+
+  if step encodings; then
+  mkdir -p "$OUT/encodings"
+  echo "=== encodings: rules and enabled rules per encoding (static)"
+  $RUN -cp "$CP" $PKG.EncodingComparison "$OUT/encodings/encodings-static.csv"
+  for c in ${ENCODING_CHAINS//,/ }; do
+    for e in ${ENCODING_ENABLING//,/ }; do
+      PROPS="-Dpopp.chains=$c -Dpopp.enabling=$e"
+      # rounds does not use the enabling analysis: once per chain encoding
+      SCH="$ENCODING_SCHEDULES"; [ "$e" = "${ENCODING_ENABLING##*,}" ] && SCH="rounds,$SCH"
+      echo "=== encodings: chains=$c enabling=$e: check, workset precision, JMH inspectRoot of $SCH, incremental breakdown"
+      $RUN $PROPS -cp "$CP" $PKG.CoverageBenchmarkCheck 1 "$SCH,$ENCODING_INCREMENTALS"
+      $RUN $PROPS -cp "$CP" $PKG.WorksetPrecision "$OUT/encodings/precision-$c-$e" "$ENCODING_DEPTHS" true,false
+      $JMH 'CoverageBenchmark\.inspectRoot' $ENCODING_JMH -rf json -rff "$OUT/encodings/$c-$e.json" \
+        -p analyzer="$SCH" -p depth="$ENCODING_DEPTHS" -p complete=true -jvmArgsAppend "-Dvariant=$VARIANT $PROPS"
+      $RUN $PROPS -cp "$CP" $PKG.EditChainBreakdown "$OUT/encodings/breakdown-$c-$e.csv" "$ENCODING_INCREMENTALS" \
+        "$EDIT_DEPTHS" MIXED "$BREAKDOWN_STEPS" "$BREAKDOWN_WARMUP"
+    done
+  done
   echo
   fi
 
   if step trace; then
   echo "=== trace: one traced session per schedule and the oracle, depth $TRACE_DEPTHS"
-  $RUN -cp "$CP" org.eclipse.glsp.example.bigraph.extension.popp.coverage.RewritingTraceReport \
-    "$OUT/trace" "$TRACE_DEPTHS" VERIFY "$SCHEDULES,oracle"
+  $RUN -cp "$CP" $PKG.RewritingTraceReport "$OUT/trace" "$TRACE_DEPTHS" VERIFY "$SCHEDULES,$ORACLES"
   echo
   fi
 
   if step plot; then
   echo "=== plot"
   if python3 -c "import matplotlib" 2>/dev/null; then
-    if ls "$OUT"/*.json >/dev/null 2>&1; then python3 benchmark-plots/plot_benchmarks.py "$OUT" "$OUT/figures"; fi
-    if [ -f "$OUT/trace/rounds.csv" ]; then python3 benchmark-plots/plot_traces.py "$OUT/trace" "$OUT/figures"; fi
+    if ls "$OUT"/*.json >/dev/null 2>&1; then
+      python3 benchmark-plots/plot_benchmarks.py "$OUT" "$OUT/figures" || echo "plot_benchmarks.py failed; the data is complete"
+    fi
+    if ls "$OUT"/breakdown-*.csv >/dev/null 2>&1; then
+      python3 benchmark-plots/plot_breakdown.py "$OUT" "$OUT/figures" || echo "plot_breakdown.py failed; the data is complete"
+    fi
+    if [ -d "$OUT/encodings" ]; then
+      python3 benchmark-plots/plot_encodings.py "$OUT/encodings" "$OUT/figures" || echo "plot_encodings.py failed; the data is complete"
+    fi
+    if [ -f "$OUT/trace/rounds.csv" ]; then
+      python3 benchmark-plots/plot_traces.py "$OUT/trace" "$OUT/figures" || echo "plot_traces.py failed; the data is complete"
+    fi
   else
-    echo "python3 with matplotlib not found; plot later with benchmark-plots/plot_benchmarks.py and plot_traces.py"
+    echo "python3 with matplotlib not found; plot later with benchmark-plots/plot_*.py"
   fi
   echo
   fi
@@ -158,4 +257,4 @@ EDITORS="workset-prefilter-seeded,incremental"
 } 2>&1 | tee "$OUT/run.log"
 
 echo "Log:     $OUT/run.log"
-echo "Results: $OUT/*.json, $OUT/trace/, $OUT/figures/"
+echo "Results: $OUT/*.json, $OUT/*.csv, $OUT/encodings/, $OUT/trace/, $OUT/figures/"

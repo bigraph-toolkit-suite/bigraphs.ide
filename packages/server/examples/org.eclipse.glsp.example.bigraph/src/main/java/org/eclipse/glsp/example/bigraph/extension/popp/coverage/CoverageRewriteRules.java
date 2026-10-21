@@ -93,8 +93,19 @@ public final class CoverageRewriteRules {
      * </ul>
      */
     static List<RuleSpecification> specs() {
+        return specs(THRESHOLD_CHAINS);
+    }
+
+    /**
+     * Chain rules as thresholds ({@link #thresholdChainRules}) or with every combination of slot states
+     * ({@link #chainRules}); both give the same fixpoint.
+     */
+    static final boolean THRESHOLD_CHAINS = !"enumerated".equals(System.getProperty("popp.chains", "threshold"));
+
+    static List<RuleSpecification> specs(boolean thresholdChains) {
         List<RuleSpecification> out = new ArrayList<>();
-        chainRules(out);
+        if (thresholdChains) thresholdChainRules(out);
+        else chainRules(out);
         liftRules(out);
         linkRules(out);
         return out;
@@ -141,6 +152,61 @@ public final class CoverageRewriteRules {
                 }
             }
         }
+    }
+
+    /**
+     * The chain rules as thresholds. The aggregation is monotone, so a chain node can be upgraded as soon as enough of
+     * its slots are: OR is COVERED once one slot is, PARTIAL once one slot is PARTIAL (or better); AND is PARTIAL once
+     * one slot is PARTIAL or COVERED. Those rules name the one slot and leave the rest of the chain node to a site,
+     * instead of one rule per combination of all slot states. Only AND to COVERED needs every slot and keeps the exact
+     * shapes (one K slot, two K slots, a K slot and the next chain node). Same fixpoint as {@link #chainRules}; fewer
+     * rules, and a slot that changes state enables only the thresholds of its new state.
+     */
+    private static void thresholdChainRules(List<RuleSpecification> out) {
+        for (NodeKind nk : NodeKind.values()) {
+            String k = kind(nk);
+            for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR)) {
+                String g = gate(type, nk);
+                for (String slot : List.of(k, g)) {
+                    if (type == DecompositionType.OR) {
+                        for (Coverage cur : UPGRADABLE) addThreshold(out, type, cur, nk, slot, Coverage.COVERED, Coverage.COVERED);
+                        addThreshold(out, type, Coverage.UNCOVERED, nk, slot, Coverage.PARTIAL, Coverage.PARTIAL);
+                    } else {
+                        addThreshold(out, type, Coverage.UNCOVERED, nk, slot, Coverage.PARTIAL, Coverage.PARTIAL);
+                        addThreshold(out, type, Coverage.UNCOVERED, nk, slot, Coverage.COVERED, Coverage.PARTIAL);
+                    }
+                }
+                if (type == DecompositionType.AND) {
+                    for (Coverage cur : UPGRADABLE) {
+                        addChain(out, type, cur, nk, List.of(new Slot(k, Coverage.COVERED)));
+                        addChain(out, type, cur, nk, List.of(new Slot(k, Coverage.COVERED), new Slot(k, Coverage.COVERED)));
+                        addChain(out, type, cur, nk, List.of(new Slot(k, Coverage.COVERED), new Slot(g, Coverage.COVERED)));
+                    }
+                }
+            }
+        }
+    }
+
+    /** Upgrades a chain node in {@code cur} to {@code target} because one slot ({@code slot}) is in {@code slotState}. */
+    private static void addThreshold(List<RuleSpecification> out, DecompositionType type, Coverage cur, NodeKind nk,
+                                     String slot, Coverage slotState, Coverage target) {
+        Term slotPattern = Term.node(slot, state(slotState), Term.SITE);
+        List<Term> kept = new ArrayList<>();
+        if (cur == Coverage.PARTIAL) kept.add(Term.node(CoverageMarker.PART_DECOMP.controlName()));
+        List<Term> redexKids = new ArrayList<>(List.of(state(cur)));
+        redexKids.addAll(kept);
+        redexKids.add(slotPattern);
+        redexKids.add(Term.SITE);
+        List<Term> reactumKids = new ArrayList<>(List.of(state(target)));
+        reactumKids.addAll(kept);
+        reactumKids.add(why(target, false));
+        reactumKids.add(slotPattern);
+        reactumKids.add(Term.SITE);
+        Term redexNode = Term.node(gate(type, nk), redexKids.toArray(Term[]::new));
+        Term reactumNode = Term.node(gate(type, nk), reactumKids.toArray(Term[]::new));
+        String name = "chain-" + type + "-" + nk + "-" + cur + "-" + target + "-if-" + slot + "_" + slotState;
+        out.add(new RuleSpecification(name, List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
+                new Effect(redexNode, null, target, whyMarker(target, false))));
     }
 
     private static void addChain(List<RuleSpecification> out, DecompositionType type, Coverage cur, NodeKind nk, List<Slot> slots) {
@@ -255,6 +321,90 @@ public final class CoverageRewriteRules {
                 }
             }
         }
+    }
+
+    /**
+     * Which rule can give which rule a new match, decided by overlapping the rules themselves (a produce-use dependency
+     * as in the critical pair analysis of graph transformation): {@code r} enables {@code s} if {@code r}'s receiver as
+     * {@code r} leaves it (its reactum term, with the new state and reason marker) can be glued onto some node {@code b}
+     * of {@code s}'s redex such that {@code b} needs something {@code r} created. Gluing ({@link #overlaps}) compares
+     * controls and children recursively: a term without a site has exactly its children, one with a site may have more,
+     * and a node has exactly one state marker, so two different states never glue. Links are not compared (a sound
+     * over-approximation). Sound for these rules because a rule only changes its receiver's children, and every redex
+     * node that a new match could use through that change lists the node's state, which the change replaced. Indices
+     * follow {@link #compile()}.
+     */
+    static boolean[][] enablingByOverlap() {
+        return enablingByOverlap(specs());
+    }
+
+    static boolean[][] enablingByOverlap(List<RuleSpecification> specs) {
+        int n = specs.size();
+        boolean[][] out = new boolean[n][n];
+        for (int i = 0; i < n; i++) {
+            RuleSpecification r = specs.get(i);
+            Term before = r.effect().receiver(), after = r.pairs().get(before);
+            Map<String, Integer> created = new HashMap<>();
+            for (Term k : after.kids()) if (!k.isSite()) created.merge(k.control(), 1, Integer::sum);
+            for (Term k : before.kids()) if (!k.isSite()) created.computeIfPresent(k.control(), (c, v) -> v > 1 ? v - 1 : null);
+            for (int j = 0; j < n; j++) {
+                List<Term> nodes = new ArrayList<>();
+                for (Term root : specs.get(j).redex()) allNodes(root, nodes);
+                for (Term b : nodes) {
+                    boolean needsNew = b.kids().stream().anyMatch(k -> !k.isSite() && created.containsKey(k.control()));
+                    if (needsNew && overlaps(after, b)) {
+                        out[i][j] = true;
+                        break;
+                    }
+                }
+            }
+        }
+        return out;
+    }
+
+    private static final Set<String> STATES = Set.of(CoverageMarker.UNC.controlName(), CoverageMarker.PART.controlName(),
+            CoverageMarker.COV.controlName());
+
+    private static void allNodes(Term t, List<Term> out) {
+        if (t.isSite()) return;
+        out.add(t);
+        for (Term k : t.kids()) allNodes(k, out);
+    }
+
+    /** Whether two node terms can denote the same node of some agent (see {@link #enablingByOverlap()}). */
+    static boolean overlaps(Term a, Term b) {
+        if (!a.control().equals(b.control())) return false;
+        List<Term> as = new ArrayList<>(), bs = new ArrayList<>();
+        boolean siteA = false, siteB = false;
+        for (Term k : a.kids()) if (k.isSite()) siteA = true; else as.add(k);
+        for (Term k : b.kids()) if (k.isSite()) siteB = true; else bs.add(k);
+        // one state per node: if both name it, it is the same child
+        Term sa = as.stream().filter(k -> STATES.contains(k.control())).findFirst().orElse(null);
+        Term sb = bs.stream().filter(k -> STATES.contains(k.control())).findFirst().orElse(null);
+        if (sa != null && sb != null) {
+            if (!sa.control().equals(sb.control())) return false;
+            as.remove(sa);
+            bs.remove(sb);
+        } else if (sa != null && !siteB || sb != null && !siteA) {
+            return false;       // the exact side has no state, the other names one
+        }
+        return glue(as, 0, bs, new boolean[bs.size()], siteA, siteB);
+    }
+
+    /** Matches the children {@code as[i..]} into {@code bs} injectively; unmatched ones need a site on the other side. */
+    private static boolean glue(List<Term> as, int i, List<Term> bs, boolean[] used, boolean siteA, boolean siteB) {
+        if (i == as.size()) {
+            if (siteA) return true;
+            for (boolean u : used) if (!u) return false;   // b has a child a cannot have
+            return true;
+        }
+        for (int j = 0; j < bs.size(); j++) {
+            if (used[j] || !overlaps(as.get(i), bs.get(j))) continue;
+            used[j] = true;
+            if (glue(as, i + 1, bs, used, siteA, siteB)) return true;
+            used[j] = false;
+        }
+        return siteB && glue(as, i + 1, bs, used, siteA, siteB);   // a's child lies in b's site
     }
 
     /** The coverage rules, each with where to find receiver and giver in a match; used by both rewriting analyzers. */

@@ -87,7 +87,9 @@ public class CoverageBenchmark {
 
     /**
      * Remove a validates relation, inspect, put it back: what a user action costs end to end (the undo is part of the
-     * sample). The coverage share is {@code editThenInspect - editOnly}, at the same depth.
+     * sample). The coverage share is {@code editThenInspect - editOnly}, at the same depth. Not meaningful for the
+     * incremental analyzer: the undo and the next sample's edit cancel out, so it would only sync two operations onto an
+     * unchanged fixpoint; its edit costs are measured by {@link EditChainBenchmark}.
      */
     @Benchmark
     public Coverage editThenInspect() {

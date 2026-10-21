@@ -35,19 +35,22 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * with none of them every rule is matched in every round.
  * <p>
  * <b>Rule workset</b> ({@code workset}). A static analysis of the rules computes which rules a rule <i>enables</i>:
- * {@code r} enables {@code s} if {@code r}'s reactum adds place-graph structure that {@code s}'s redex contains, or
- * removes structure below a node that {@code s}'s redex matches exactly (without a site; plain rules have no negative
- * conditions, but a site-less node matches its children exactly). Structure is compared as parent&gt;child control
- * pairs and as the controls on a link. Chain controls are per kind ({@code GoalAnd}, ...), so the structure alone
- * says which tree a rule works on. Evaluation runs in waves: a wave takes the queued rules in turn and rewrites with
- * each until it has no match; a rule that rewrote something queues every rule it enables for the next wave, each at
- * most once; a rule without a match is dropped, since only an enabling rule can give it one. Without {@code workset}
+ * {@code r} enables {@code s} if {@code r}'s receiver as {@code r} leaves it (new state and reason marker) can be glued
+ * onto a node of {@code s}'s redex that needs something {@code r} created ({@link CoverageRewriteRules#enablingByOverlap()},
+ * a produce-use dependency as in critical pair analysis; a node without a site has exactly its children, and a node has
+ * one state). The coarser analysis by parent&gt;child control pairs ({@code -Dpopp.enabling=controls}) is kept for the
+ * comparison. How much the workset can prune depends on the rule set: with threshold chain rules
+ * ({@link CoverageRewriteRules#THRESHOLD_CHAINS}) a slot that changes state enables only the thresholds of its new
+ * state, not every combination of sibling states. Evaluation runs in waves: a wave takes the queued rules in turn and
+ * rewrites with each until it has no match; a rule that rewrote something queues every rule it enables for the next
+ * wave, each at most once; a rule without a match is dropped, since only an enabling rule can give it one. Without
+ * {@code workset}
  * every wave tries every rule (rounds).
  * <p>
  * <b>Guard patterns</b> ({@code guards}). Each rule has a guard: its receiver node with its marker children and a
  * site, e.g. {@code Goal[Unc | -]} ("some goal is still uncovered") or {@code GoalAnd[Part | -]}. The guard embeds
  * into the rule's redex, and embeddings compose, so if the guard has no match in the agent, the rule has none either.
- * Rules share guards (36 guards for 303 rules), and a guard is matched at most once per wave, so one matcher call can
+ * Rules share guards (36 guards for 147 rules), and a guard is matched at most once per wave, so one matcher call can
  * rule out a whole group.
  * <p>
  * <b>Seed</b> ({@code seed}). The rules queued at the start; the developer's knowledge of the start state. For
@@ -106,6 +109,8 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
         /** For coverage: only link rules can match on a freshly built coverage bigraph (see the class comment). */
         public static final Predicate<CompiledRule> LINK_RULES = CompiledRule::isLinkRule;
 
+        /** None of the optimisations: every rule every round until a round changes nothing (the baseline). */
+        public static final Options ROUNDS = new Options(false, false, ALL_RULES);
         /** Only the workset: every rule queued at the start. */
         public static final Options WORKSET = new Options(true, false, ALL_RULES);
         public static final Options WORKSET_SEEDED = new Options(true, false, LINK_RULES);
@@ -221,6 +226,17 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
         for (int i = 0; i < 20; i++) {
             for (CoverageMode mode : CoverageMode.presets()) analyzer.session(mode).coverage(root);
         }
+    }
+
+    /** The static enabling relation (rule name to the names of the rules it enables), for analysis tools. */
+    public static Map<String, List<String>> enablingGraph() {
+        Map<String, List<String>> out = new LinkedHashMap<>();
+        for (Scheduled s : ANALYSIS.rules) {
+            List<String> to = new ArrayList<>(s.enables().length);
+            for (int i : s.enables()) to.add(ANALYSIS.rules.get(i).rule().name());
+            out.put(s.rule().name(), to);
+        }
+        return out;
     }
 
     /** Average number of rules a rule enables, and the number of distinct guards (for the thesis). */
@@ -432,6 +448,8 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
     // ------------------------------------------------------------------------------------------------------------
     // Static analysis of the rule set (once per JVM)
 
+    /** Enabling by overlapping the rules ({@link CoverageRewriteRules#enablingByOverlap()}) or by control pairs. */
+    static final boolean ENABLING_BY_OVERLAP = !"controls".equals(System.getProperty("popp.enabling", "overlap"));
     private static final Analysis ANALYSIS = new Analysis(RULES);
 
     private static final class Analysis {
@@ -461,11 +479,13 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
             }
             Map<String, Guard> guardsByKey = new LinkedHashMap<>(), nestedByKey = new LinkedHashMap<>();
             List<Scheduled> out = new ArrayList<>(n);
+            boolean[][] overlap = ENABLING_BY_OVERLAP ? CoverageRewriteRules.enablingByOverlap() : null;
             for (int i = 0; i < n; i++) {
                 List<Integer> en = new ArrayList<>();
                 for (int j = 0; j < n; j++) {
                     final int jj = j;
-                    boolean enables = added.get(i).stream().anyMatch(f -> needs.get(jj).containsKey(f))
+                    boolean enables = overlap != null ? overlap[i][j]
+                            : added.get(i).stream().anyMatch(f -> needs.get(jj).containsKey(f))
                             || removed.get(i).stream().anyMatch(f -> exact.get(jj).contains(parentOf(f)));
                     if (enables) en.add(j);
                 }

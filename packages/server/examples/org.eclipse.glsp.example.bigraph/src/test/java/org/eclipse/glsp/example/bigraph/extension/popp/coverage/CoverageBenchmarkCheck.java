@@ -11,7 +11,8 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
  * <p>
  * Usage: {@code CoverageBenchmarkCheck <maxDepth> <analyzer,...>}; never throws on a mismatch, it only reports, and
  * exits with status 1 if anything differed. {@code CoverageBenchmarkCheck --capabilities} only prints which framework
- * fixes are on the classpath ({@code firstMatch=... rewrite=...}), for the benchmark script.
+ * fixes are on the classpath ({@code firstMatch=... rewrite=...}), for the benchmark script; {@code --rules} which rule
+ * set and enabling analysis are in effect ({@code -Dpopp.chains}, {@code -Dpopp.enabling}).
  * {@code CoverageBenchmarkCheck --edits <analyzer,...>} checks incremental analyzers instead: random edit sequences
  * ({@link EditScript}) on the benchmark models, compared with the domain analyzer after every edit.
  */
@@ -32,6 +33,12 @@ public final class CoverageBenchmarkCheck {
             }
             System.out.println(bad == 0 ? "[check] OK" : "[check] " + bad + " analyzer(s) DIFFER");
             if (bad > 0) System.exit(1);
+            return;
+        }
+        if (args.length > 0 && args[0].equals("--rules")) {
+            System.out.println("chains=" + (CoverageRewriteRules.THRESHOLD_CHAINS ? "threshold" : "enumerated")
+                    + " enabling=" + (ScheduledRewritingCoverageAnalyzer.ENABLING_BY_OVERLAP ? "overlap" : "controls")
+                    + ": " + ScheduledRewritingCoverageAnalyzer.analysisSummary());
             return;
         }
         if (args.length > 0 && args[0].equals("--capabilities")) {

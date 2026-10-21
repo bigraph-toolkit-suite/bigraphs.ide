@@ -21,7 +21,7 @@ from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter, NullLoca
 
 NODES = {0: 6, 1: 18, 2: 42, 3: 90}
 
-from bench_style import SCHEDULES, style, INK, INK2, GRID, ms_label, save, setup as setup_style
+from bench_style import SCHEDULES, style, INK, INK2, GRID, ms_label, save, nfr, NFR_NODES, setup as setup_style
 
 BENCH_TITLE = {
     "inspectRoot": "Inspect problem root (warm)",
@@ -85,6 +85,8 @@ def line(ax, series, analyzer, dashed=False, label=""):
     xs = sorted(series)
     ys = [series[x][0] for x in xs]
     es = [series[x][1] for x in xs]
+    # on a log axis an error bar below zero is meaningless: clip the lower half at 90 % of the value
+    es = [[min(e, 0.9 * y) for e, y in zip(es, ys)], es]
     ax.errorbar(xs, ys, yerr=es, color=colour, marker=marker, linestyle="--" if dashed else ls,
                 label=label, capsize=0, elinewidth=0.8, markeredgewidth=1.0,
                 markerfacecolor=colour if not dashed else "white")
@@ -93,7 +95,7 @@ def line(ax, series, analyzer, dashed=False, label=""):
 
 def fig_overview(data, out, bench="inspectRoot", name="01-overview-inspect-root"):
     """All analyzers on the complete model: the headline scaling figure."""
-    order = SCHEDULES + ["oracle", "domain"]
+    order = SCHEDULES + ["oracle"]
     if not any(data.get((bench, a, True)) for a in order):
         return
     fig, ax = plt.subplots(figsize=(6.2, 4.0))
@@ -107,6 +109,7 @@ def fig_overview(data, out, bench="inspectRoot", name="01-overview-inspect-root"
         ax.annotate(ms_label(ys[-1]), (xs[-1], ys[-1]), xytext=(4, 0), textcoords="offset points",
                     va="center", fontsize=7, color=INK2)
     log_axes(ax, sorted(xs_all))
+    nfr(ax)
     y_ticks(ax)
     ax.set_title(BENCH_TITLE[bench] + ", coverage mode VERIFY")
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16), frameon=False, ncol=2)
@@ -145,6 +148,8 @@ def fig_whole_agent(data, out):
                         fontsize=6.5, color=INK2)
         ax.set_xlim(1, 2e5)
         ax.set_ylim(len(vals) - 0.5, -0.5)
+        if n == NFR_NODES:
+            nfr(ax, horizontal=False)
     fig.suptitle("Schedules, inspect problem root (warm), VERIFY", fontsize=9.5, y=1.02)
     fig.tight_layout()
     save(fig, out, "02-schedules")
@@ -192,12 +197,12 @@ def fig_gap_to_oracle(data, out):
 
 
 def fig_cold(data, out):
-    order = SCHEDULES + ["domain"]
+    order = SCHEDULES
     if not any(data.get(("coldFirstSession", a, True)) for a in order):
         return
     fig, ax = plt.subplots(figsize=(6.2, 4.0))
     xs_all = set()
-    labelled = {"workset", "guards-first", "workset-prefilter-seeded", "domain"}
+    labelled = {"rounds", "workset", "guards-first", "workset-prefilter-seeded"}
     for a in order:
         s = data.get(("coldFirstSession", a, True))
         if s:
@@ -207,22 +212,26 @@ def fig_cold(data, out):
                 ax.annotate(ms_label(ys[-1]), (xs[-1], ys[-1]), xytext=(5, 0), textcoords="offset points",
                             va="center", fontsize=7, color=INK2)
     log_axes(ax, sorted(xs_all))
+    nfr(ax)
     y_ticks(ax)
     ax.set_ylabel("Time of the first session")
-    ax.set_title(BENCH_TITLE["coldFirstSession"] + " (20 forks), VERIFY")
+    ax.set_title(BENCH_TITLE["coldFirstSession"] + ", VERIFY")
     ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16), frameon=False, ncol=2)
     save(fig, out, "04-cold-first-session")
 
 
 def fig_fast(data, out):
-    """The default analyzer and the domain analyzer on every benchmark; solid = complete, dashed = partial model."""
+    """The extension's analyzer (incremental) and the default schedule from scratch on every benchmark, with the
+    hits-only oracle as the reference where it is measured (inspectRoot); solid = complete, dashed = partial model.
+    The domain analyzer (a different algorithm, no rewriting) is only in summary.csv."""
+    shown = ["incremental", "workset-prefilter-seeded", "oracle"]
     benches = ["inspectRoot", "inspectAllNodes", "editThenInspect", "editOnly"]
-    if not any(data.get((b, a, c)) for b in benches for a in ["workset-prefilter-seeded", "domain"] for c in (True, False)):
+    if not any(data.get((b, a, c)) for b in benches for a in shown for c in (True, False)):
         return
     fig, axes = plt.subplots(2, 2, figsize=(6.4, 5.2), sharex=True)
     for ax, b in zip(axes.flat, benches):
         xs_all = set()
-        for a in ["workset-prefilter-seeded", "domain"]:
+        for a in shown:
             for complete in (True, False):
                 s = data.get((b, a, complete))
                 if s:
@@ -230,6 +239,8 @@ def fig_fast(data, out):
                                  label=style(a)[0] if complete else None)
                     xs_all |= set(xs)
         log_axes(ax, sorted(xs_all))
+        if b != "editOnly":     # the edit alone takes microseconds; the NFR is about the coverage answer
+            nfr(ax, label=ax is axes[0][0])
         y_ticks(ax)
         ax.set_title(BENCH_TITLE[b])
         if ax not in axes[1]:
@@ -251,7 +262,7 @@ def fig_edit_chains(out):
         return
     actions = [a for a in ["LINK", "TYPE", "MOVE", "NODE", "MIXED"] if any(k[0] == a for k in EDITS)]
     lengths = sorted({k[1] for k in EDITS})
-    order = ["workset-prefilter-seeded", "incremental"]
+    order = ["workset-prefilter-seeded", "incremental", "incremental-rounds"]
     analyzers = [a for a in order if any(k[2] == a for k in EDITS)] + sorted({k[2] for k in EDITS} - set(order))
     fig, axes = plt.subplots(len(lengths), len(actions), figsize=(1.75 * len(actions) + 0.8, 2.1 * len(lengths) + 0.9),
                              sharex=True, sharey=True, squeeze=False)
@@ -265,6 +276,7 @@ def fig_edit_chains(out):
                     xs, _ = line(ax, s, an)
                     xs_all |= set(xs)
             log_axes(ax, sorted(xs_all))
+            nfr(ax, label=(row == 0 and col == 0))
             ax.set_xlabel("POPP nodes" if row == len(lengths) - 1 else "")
             ax.set_ylabel(f"ms per step, chains of {n}" if col == 0 else "")
             if row == 0:
@@ -274,10 +286,14 @@ def fig_edit_chains(out):
     for row in range(len(lengths)):
         for col in range(len(actions)):
             axes[row][col].set_ylabel(f"ms per step\n(chains of {lengths[row]})" if col == 0 else "")
-    handles, labels = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=3, frameon=False, bbox_to_anchor=(0.5, -0.02))
+    legend = {}
+    for ax in axes.flat:
+        for h, l in zip(*ax.get_legend_handles_labels()):
+            legend.setdefault(l, h)
+    fig.legend(list(legend.values()), list(legend.keys()), loc="lower center", ncol=3, frameon=False,
+               bbox_to_anchor=(0.5, -0.02), fontsize=7.5)
     fig.suptitle("Edit, then inspect the problem root: time per step, VERIFY", fontsize=9.5)
-    fig.tight_layout(rect=(0, 0.07, 1, 0.97))
+    fig.tight_layout(rect=(0, 0.04 + 0.025 * ((len(legend) + 2) // 3), 1, 0.97))
     save(fig, out, "06-edit-chains")
 
 

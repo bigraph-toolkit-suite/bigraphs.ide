@@ -6,9 +6,12 @@ import matplotlib.pyplot as plt
 INK, INK2, GRID = "#0b0b0b", "#52514e", "#e4e3df"
 BLUE, ORANGE, AQUA, GREEN, VIOLET, MAGENTA, GREY = "#2a78d6", "#eb6834", "#1baf7a", "#008300", "#6250d6", "#e87ba4", "#52514e"
 
+BROWN = "#8a5a2b"
+
 # analyzer -> (label, colour, marker, linestyle). Colour = the lever that prunes (none, guards, prefilter, both);
 # solid = with workset and seed, dashed = without (every rule every round, or the workset without seed).
 STYLE = {
+    "rounds":                                ("Rounds (no optimisation, baseline)",        BROWN,   "v", "--"),
     "workset":                               ("Workset",                                   BLUE,    "o", "--"),
     "workset-seeded":                        ("Workset + seed",                            BLUE,    "s", "-"),
     "guards-first":                          ("Guards (matchFirst)",                       ORANGE,  "o", "--"),
@@ -16,14 +19,47 @@ STYLE = {
     "prefilter":                             ("Prefilter",                                 AQUA,    "o", "--"),
     "workset-prefilter-seeded":              ("Workset + seed + prefilter (default)",      AQUA,    "s", "-"),
     "workset-guards-seeded-first-prefilter": ("Workset + seed + guards (matchFirst) + prefilter", VIOLET, "D", "-"),
-    "incremental":                           ("Incremental (one coverage bigraph, edited in place)", MAGENTA, "P", "-"),
+    "incremental":                           ("Incremental: Workset + seed + prefilter (default, the extension)", MAGENTA, "P", "-"),
     "oracle":                                ("Hits only (perfect pruning)",               GREY,    "x", "-"),
     "domain":                                ("Domain analyzer",                           INK,     ".", "-"),
 }
 
+# per schedule: its hits-only oracle (grey family, the schedule's marker) and the incremental analyzer with it
+# (the schedule's colour, dotted); incremental-workset-prefilter-seeded is the extension's analyzer, "incremental"
+for _name, (_label, _colour, _marker, _ls) in list(STYLE.items()):
+    if _name in ("incremental", "oracle", "domain"):
+        continue
+    STYLE["oracle-" + _name] = ("Hits only: " + _label, GREY, _marker, ":")
+    STYLE["incremental-" + _name] = ("Incremental: " + _label, _colour, _marker, ":")
+STYLE["oracle-workset-prefilter-seeded"] = STYLE["oracle"]
+STYLE["incremental-workset-prefilter-seeded"] = STYLE["incremental"]
+
 # the schedules in a fixed order (legends, dot plots)
-SCHEDULES = ["workset", "workset-seeded", "guards-first", "workset-guards-seeded-first", "prefilter",
+SCHEDULES = ["rounds", "workset", "workset-seeded", "workset-guards-seeded-first", "prefilter",
              "workset-prefilter-seeded", "workset-guards-seeded-first-prefilter"]
+
+
+# The non-functional requirement: a coverage answer within 500 ms on a model of 42 POPP nodes.
+NFR_MS, NFR_NODES = 500.0, 42
+NFR_COLOUR = "#c0392b"
+
+
+def nfr(ax, horizontal=True, label=True):
+    """Marks the NFR on a time-vs-nodes axes (horizontal=True: time on y, nodes on x) or on a time axis alone
+    (horizontal=False: a vertical line at 500 ms, for panels of one model size). Below/left of it = met."""
+    kw = dict(color=NFR_COLOUR, lw=1.0, zorder=0.5)
+    if horizontal:
+        ax.axhline(NFR_MS, ls=(0, (5, 3)), **kw)
+        ax.axvline(NFR_NODES, ls=":", **kw)
+        if label:
+            ax.annotate(f"NFR: < 500 ms\nat {NFR_NODES} nodes", (NFR_NODES, NFR_MS), xytext=(3, 3),
+                        textcoords="offset points", ha="left", va="bottom", fontsize=6.5, color=NFR_COLOUR,
+                        linespacing=0.95)
+    else:
+        ax.axvline(NFR_MS, ls=(0, (5, 3)), **kw)
+        if label:
+            ax.annotate("NFR 500 ms", (NFR_MS, 0), xycoords=("data", "axes fraction"), xytext=(3, 3),
+                        textcoords="offset points", fontsize=6.5, color=NFR_COLOUR)
 
 
 def style(analyzer):

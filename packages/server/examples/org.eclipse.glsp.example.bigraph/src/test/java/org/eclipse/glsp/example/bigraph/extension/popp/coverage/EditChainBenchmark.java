@@ -11,14 +11,18 @@ import java.util.concurrent.TimeUnit;
 /**
  * Chains of edits, each followed by an inspection, as an editing user produces them: one operation is {@link #length}
  * steps of "edit ({@link #action}), then the coverage of the problem root". Compares recomputing every session from
- * scratch ({@code workset-prefilter-seeded}, the default analyzer) with continuing from the last fixpoint
- * ({@code incremental}: one coverage bigraph per mode, edited in place; see {@link IncrementalCoverageAnalyzer}).
+ * scratch (a schedule, e.g. {@code workset-prefilter-seeded}) with continuing from the last fixpoint
+ * ({@code incremental[-<schedule>]}: one coverage bigraph per mode, edited in place; see
+ * {@link IncrementalCoverageAnalyzer}).
  * <p>
- * Fair by construction: every analyzer starts from the same model with the same edit script (same seed), every step
- * includes the model edit, its events and the synced bigraph, and the inspection asks for a fresh session. The edits
- * are toggles ({@link EditScript}), so the model stays near the benchmark model however many operations JMH runs.
- * The incremental analyzer's first session (from scratch) is in the untimed setup. Score = time per operation, i.e.
- * per chain; divide by {@link #length} for one step.
+ * Fair by construction: every operation starts from the benchmark model. Before each operation (untimed,
+ * {@link Level#Invocation}) the script undoes the previous chain and the incremental analyzer resyncs to the start
+ * state; operation {@code k} then runs the edits of seed {@code 4711 + k}. So every analyzer sees the same
+ * distribution of states, however many operations JMH fits into an iteration (a chain that just continued would drift
+ * towards half of the relations removed and half of the children detached, and a fast analyzer would be measured on
+ * a different, less covered model than a slow one). Every step includes the model edit, its events and the synced
+ * bigraph, and the inspection asks for a fresh session. The incremental analyzer's first session (from scratch) is in
+ * the untimed trial setup. Score = time per operation, i.e. per chain; divide by {@link #length} for one step.
  */
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
@@ -52,6 +56,9 @@ public class EditChainBenchmark {
     private EditScript.Action edit;
     private CoverageMode coverageMode;
     private TreeNode<?> root;
+    private boolean stateful;
+    private int operation;
+    private static final long SEED = 4711;
 
     @Setup(Level.Trial)
     public void setup() {
@@ -61,11 +68,21 @@ public class EditChainBenchmark {
         coverageMode = CoverageMode.valueOf(mode);
         edit = EditScript.Action.valueOf(action);
         coverage = CoverageTestModels.analyzer(analyzer, popp);
+        stateful = coverage instanceof IncrementalCoverageAnalyzer;
         coverage.session(coverageMode).coverage(root); // the incremental analyzer's first fixpoint, untimed
-        script = new EditScript(popp.model, 4711);
+        script = new EditScript(popp.model, SEED);
+        operation = 0;
         System.out.printf("[edit-chain] variant=%s analyzer=%s mode=%s depth=%d action=%s length=%d popp nodes=%d rewriteKeepsLinks=%b%n",
                 variant, analyzer, mode, depth, action, length, popp.model.getAllNodes().size(),
                 ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS);
+    }
+
+    /** Back to the benchmark model, and the next seed (untimed). */
+    @Setup(Level.Invocation)
+    public void reset() {
+        script.undo();
+        if (stateful) coverage.session(coverageMode).coverage(root); // resync to the start state
+        script.reseed(SEED + operation++);
     }
 
     @Benchmark
@@ -74,5 +91,11 @@ public class EditChainBenchmark {
             script.step(edit);
             bh.consume(coverage.session(coverageMode).coverage(root));
         }
+    }
+
+    @TearDown(Level.Trial)
+    public void report() {
+        System.out.printf("[edit-chain] analyzer=%s depth=%d action=%s length=%d: %d operations (seeds %d..%d)%n",
+                analyzer, depth, action, length, operation, SEED, SEED + operation - 1);
     }
 }

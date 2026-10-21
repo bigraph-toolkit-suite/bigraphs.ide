@@ -16,7 +16,7 @@ class ScheduledRewritingCoverageAnalyzerTest {
     void theStaticAnalysisFindsFewGuardsAndSparseDependencies() {
         String summary = ScheduledRewritingCoverageAnalyzer.analysisSummary();
         assertTrue(summary.contains(" 36 guards"), summary); // per kind and state, chain controls included
-        assertTrue(summary.contains("enables 23.1 rules"), summary);
+        assertTrue(summary.contains("enables 5.8 rules"), summary);
     }
 
     @Test

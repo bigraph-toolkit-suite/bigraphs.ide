@@ -92,7 +92,7 @@ def fig_rounds(rounds, out):
     fig.legend(handles, labels, loc="lower center", ncol=2, frameon=False, bbox_to_anchor=(0.5, -0.06))
     fig.suptitle("Per round, VERIFY, complete balanced model. Matcher calls = guard + rule calls; wasted = rule calls "
                  "without an upgrade + failing guards;\nhits = rule calls that upgraded a node; active = rules queued "
-                 "(without workset: all 303)", fontsize=8.5)
+                 "(without workset: all rules)", fontsize=8.5)
     fig.tight_layout(rect=(0, 0.06, 1, 0.98))
     save(fig, out, "trace-rounds")
 

@@ -88,8 +88,11 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
     private final Map<CoverageMode, Synced> synced = new HashMap<>();
     private volatile Stats lastStats;
 
-    /** What the last session did: from scratch or incremental, operations replayed, states reset, rules seeded. */
-    public record Stats(boolean incremental, int operations, int reset, int seeded) {}
+    /**
+     * What the last session did: from scratch or incremental, operations replayed, states reset, rules seeded, and the
+     * time to replay the operations and reset (the rewriting is in {@link #lastEngineStats()}).
+     */
+    public record Stats(boolean incremental, int operations, int reset, int seeded, long syncNanos) {}
 
     /** {@code options}: the engine's schedule. */
     public IncrementalCoverageAnalyzer(CoverageInput input, ScheduledRewritingCoverageAnalyzer.Options options) {
@@ -107,6 +110,12 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
     /** The engine's counters of the last session. */
     public RewritingStats lastEngineStats() { return engine.lastStats(); }
 
+    /** Record a {@link RewritingTrace} of the engine in every following session (slower; not for benchmarks). */
+    public void setTracing(boolean on) { engine.setTracing(on); }
+
+    /** The engine's trace of the most recent session that evaluated something, if tracing was on. */
+    public RewritingTrace lastTrace() { return engine.lastTrace(); }
+
     /** The coverage bigraph of {@code mode} at its last fixpoint (for inspection and tests). */
     public synchronized Optional<PureBigraph> coverageBigraph(CoverageMode mode) {
         return Optional.ofNullable(synced.get(mode)).map(Synced::coverage);
@@ -122,18 +131,24 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
         if (previous == null || previous.source() != source || previous.model() != input.model()
                 || previous.cursor() < logOffset) {
             next = engine.rewriteToFixpoint(mode, CoverageBigraph.build(source, mode), engine.options().seed());
-            lastStats = new Stats(false, 0, 0, -1);
+            lastStats = new Stats(false, 0, 0, -1, 0);
         } else if (previous.cursor() == head) {
-            lastStats = new Stats(true, 0, 0, 0);
+            lastStats = new Stats(true, 0, 0, 0, 0);
             return previous.session();
         } else {
             List<Op> ops = log.subList(previous.cursor() - logOffset, log.size());
+            long t0 = System.nanoTime();
             Mirror mirror = new Mirror(previous.coverage(), mode);
             for (Op op : ops) mirror.apply(op);
-            Predicate<CompiledRule> seed = mirror::seeds;
+            PureBigraph synced = mirror.forMatching();
+            long syncNanos = System.nanoTime() - t0;
+            // a seeded schedule starts from the rules the edit can have enabled; an unseeded one queues every rule,
+            // as from scratch (for comparing the seed; without a workset every round tries every rule anyway)
+            Predicate<CompiledRule> seed = engine.options().seed() == ScheduledRewritingCoverageAnalyzer.Options.ALL_RULES
+                    ? ScheduledRewritingCoverageAnalyzer.Options.ALL_RULES : mirror::seeds;
             int seeded = (int) ScheduledRewritingCoverageAnalyzer.rules().stream().filter(seed).count();
-            lastStats = new Stats(true, ops.size(), mirror.reset, seeded);
-            next = engine.rewriteToFixpoint(mode, mirror.forMatching(), seed);
+            lastStats = new Stats(true, ops.size(), mirror.reset, seeded, syncNanos);
+            next = engine.rewriteToFixpoint(mode, synced, seed);
         }
         synced.put(mode, new Synced(input.model(), source, head, next.bigraph(), next.session()));
         trimLog();
