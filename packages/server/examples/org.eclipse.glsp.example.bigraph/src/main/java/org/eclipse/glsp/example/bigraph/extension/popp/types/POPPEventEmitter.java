@@ -1,4 +1,4 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.event;
+package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;

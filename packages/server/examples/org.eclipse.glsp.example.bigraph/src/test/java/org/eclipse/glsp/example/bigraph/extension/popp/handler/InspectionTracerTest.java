@@ -1,5 +1,10 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
+package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageInput;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.DomainCoverageAnalyzer;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.InspectionResult;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;

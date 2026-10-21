@@ -13,10 +13,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.StructuralPrefilter;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageBigraph;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageMarker;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageRewriteRules;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageRewriteRules.CompiledRule;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageRewriteRules.CompiledRule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

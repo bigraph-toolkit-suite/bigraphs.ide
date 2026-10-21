@@ -5,12 +5,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CachingCoverageAnalyzer;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.DomainCoverageAnalyzer;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventEmitter;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
 
 /**
  * Represents the POPP model edited in the editor.
@@ -20,8 +14,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
  * subscribers about the changes. Many other operations can still be done directly on the {@link TreeNode}s
  * due to events being forwarded to the subscribers of the {@link POPPModel}.
  * The emitted events keep the GModel and the bigraph in sync through the subscribers
- * {@link org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer} and
- * {@link org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchronizer}.
+ * {@code POPPGModelSynchronizer} and {@code POPPBigraphSynchronizer} (package {@code integration}).
  */
 public class POPPModel extends POPPEventEmitter implements POPPEventListener {
     private final Map<String, TreeNode<?>> nodeRegistry = new HashMap<>();

@@ -1,5 +1,6 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
+package org.eclipse.glsp.example.bigraph.extension.popp.sync;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphObserver;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.eclipse.glsp.example.bigraph.views.BigraphView;
@@ -16,7 +17,7 @@ import java.util.function.Supplier;
 /**
  * Keeps the core "bigraph" variant's {@link BigraphView} mirrored. That view only updates through
  * its public {@code on*} callbacks and has no idea POPP exists, so every structural change
- * {@link POPPBigraph} reports is translated into the matching callback here.
+ * {@link org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph} reports is translated into the matching callback here.
  *
  * <p>The view is looked up lazily on every event since it can come and go (variant switches).</p>
  */

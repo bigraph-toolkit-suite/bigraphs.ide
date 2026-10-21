@@ -1,22 +1,26 @@
 package org.eclipse.glsp.example.bigraph.extension.popp;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelTypes;
+import org.eclipse.glsp.example.bigraph.extension.popp.io.POPPExtensionMeta;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionState;
 import com.google.inject.Binder;
 import com.google.inject.Injector;
 import com.google.inject.Singleton;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphLoader;
+import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPBigraphLoader;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchronizer;
+import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPBigraphSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.ScheduledRewritingCoverageAnalyzer;
-import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPEdgeCreationChecker;
+import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPEdgeCreationChecker;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
-import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
+import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPTypeHints;
 import org.eclipse.glsp.example.bigraph.extension.popp.handler.*;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.Relation;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
-import org.eclipse.glsp.example.bigraph.extension.popp.validation.POPPValidationService;
+import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPValidationService;
 import org.eclipse.glsp.example.bigraph.extensions.ExtensionStateKey;
 import org.eclipse.glsp.example.bigraph.extensions.IdeExtension;
 import org.eclipse.glsp.example.bigraph.meta.BigraphMetaInformation;
@@ -45,11 +49,10 @@ import java.util.function.Function;
  * onto the domain model.
  */
 public class POPPExtension implements IdeExtension {
-    public static final ExtensionStateKey<POPPExtensionState> STATE_KEY =
-            ExtensionStateKey.of("popp", POPPExtensionState.class);
+    public static final ExtensionStateKey<POPPExtensionState> STATE_KEY = POPPExtensionContext.STATE_KEY;
 
     /** Variant id used as the {@code modelType} discriminator in the meta file. */
-    public static final String POPP_VARIANT_ID = "popp";
+    public static final String POPP_VARIANT_ID = POPPGModelTypes.VARIANT;
 
     private static final ModelVariant POPP_VARIANT = ModelVariant.builder()
             .id(POPP_VARIANT_ID)
@@ -127,6 +130,8 @@ public class POPPExtension implements IdeExtension {
     @Override
     public void onModelLoaded(final IBigraphModelState state, final Injector injector) {
         injector.getInstance(POPPBigraphLoader.class).loadModelFromBigraph(state.getMutableBigraph());
+        injector.getInstance(POPPValidationService.class)
+                .follow(injector.getInstance(POPPExtensionContext.class).getOwnState().getPoppModel());
         if (WARMED_UP.compareAndSet(false, true)) {
             Thread warmUp = new Thread(ScheduledRewritingCoverageAnalyzer::warmUp, "popp-warmup");
             warmUp.setDaemon(true);

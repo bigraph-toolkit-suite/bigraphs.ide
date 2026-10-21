@@ -1,28 +1,24 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtension;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionState;
-import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
 import org.eclipse.glsp.graph.GModelRoot;
 import org.eclipse.glsp.graph.GNode;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /** GModelRoot wrapper with a domain id to gmodel lookup table. */
 public class POPPGModel {
-    private final POPPExtensionState state;
+    private final Supplier<GModelRoot> root;
     private final Map<String, GNode> treeNodes = new HashMap<>();
 
-    public POPPGModel(final POPPExtensionState state) {
-        this.state = state;
+    /** {@code root}: the POPP variant's root in the diagram's model state, read on every access. */
+    public POPPGModel(final Supplier<GModelRoot> root) {
+        this.root = root;
     }
 
     public GModelRoot getRoot() {
-        if (state.getBigraphModelState() instanceof BigraphModelState bigraphModelState) {
-            return bigraphModelState.getVariantRoot(POPPExtension.POPP_VARIANT_ID);
-        }
-        return null;
+        return root.get();
     }
 
 

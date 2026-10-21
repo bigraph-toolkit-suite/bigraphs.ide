@@ -1,4 +1,4 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage;
+package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
 
 import org.bigraphs.framework.core.exceptions.InvalidConnectionException;
@@ -10,8 +10,6 @@ import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.bigraphs.framework.core.reactivesystem.ParametricReactionRule;
 import org.bigraphs.framework.core.reactivesystem.TrackingMap;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.AbstractCoverageSession;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.Coverage;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;

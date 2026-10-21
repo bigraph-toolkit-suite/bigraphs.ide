@@ -1,8 +1,10 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
+package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelTypes;
 import com.google.inject.Singleton;
 import com.google.inject.Inject;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationGraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;

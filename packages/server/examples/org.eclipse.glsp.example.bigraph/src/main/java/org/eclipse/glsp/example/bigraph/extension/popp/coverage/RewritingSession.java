@@ -1,6 +1,5 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageMarker;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 /**

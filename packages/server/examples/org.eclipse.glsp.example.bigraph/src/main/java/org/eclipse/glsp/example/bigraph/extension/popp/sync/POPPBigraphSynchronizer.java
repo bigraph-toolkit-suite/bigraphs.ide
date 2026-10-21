@@ -1,15 +1,16 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
+package org.eclipse.glsp.example.bigraph.extension.popp.sync;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionState;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionState;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPEvent;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPSpecificEventListener;
 import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
 
 import java.util.Optional;

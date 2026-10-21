@@ -2,7 +2,6 @@ package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
 import com.google.inject.Inject;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.ValidateModelAction;
-import org.eclipse.glsp.example.bigraph.extension.popp.validation.POPPValidationService;
 import org.eclipse.glsp.server.actions.AbstractActionHandler;
 import org.eclipse.glsp.server.actions.Action;
 

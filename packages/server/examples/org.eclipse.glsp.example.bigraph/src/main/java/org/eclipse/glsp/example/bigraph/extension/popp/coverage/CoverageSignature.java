@@ -1,4 +1,4 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage;
+package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
 import org.bigraphs.framework.core.datatypes.FiniteOrdinal;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
