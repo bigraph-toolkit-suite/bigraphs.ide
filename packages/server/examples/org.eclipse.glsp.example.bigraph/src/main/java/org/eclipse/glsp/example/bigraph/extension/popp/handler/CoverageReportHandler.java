@@ -1,7 +1,7 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
 import com.google.inject.Inject;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.RequestCoverageReportAction;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.CoverageReportAction;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;

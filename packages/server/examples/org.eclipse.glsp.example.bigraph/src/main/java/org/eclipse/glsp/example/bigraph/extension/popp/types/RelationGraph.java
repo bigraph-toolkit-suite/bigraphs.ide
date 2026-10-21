@@ -1,7 +1,5 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventEmitter;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;

@@ -1,5 +1,7 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
+package org.eclipse.glsp.example.bigraph.extension.popp.sync;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelTypes;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;

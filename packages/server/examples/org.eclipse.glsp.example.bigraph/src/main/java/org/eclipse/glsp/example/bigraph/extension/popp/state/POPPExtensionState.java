@@ -1,8 +1,11 @@
-package org.eclipse.glsp.example.bigraph.extension.popp;
+package org.eclipse.glsp.example.bigraph.extension.popp.state;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.io.POPPExtensionMeta;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.*;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModel;
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelTypes;
+import org.eclipse.glsp.example.bigraph.model.BigraphModelState;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.model.IBigraphModelState;
 
@@ -24,7 +27,8 @@ public class POPPExtensionState {
 
     public POPPExtensionState(final IBigraphModelState bigraphModelState) {
         this.bigraphModelState = bigraphModelState;
-        this.gModel = new POPPGModel(this);
+        this.gModel = new POPPGModel(() -> bigraphModelState instanceof BigraphModelState s
+                ? s.getVariantRoot(POPPGModelTypes.VARIANT) : null);
         CoverageInput input = CoverageInput.lazy(this::getPoppModel, this::getPoppBigraph);
         this.analyzer = new IncrementalCoverageAnalyzer(input);
     }

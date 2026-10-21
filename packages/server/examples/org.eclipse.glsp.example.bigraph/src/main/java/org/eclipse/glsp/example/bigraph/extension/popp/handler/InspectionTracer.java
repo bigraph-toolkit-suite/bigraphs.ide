@@ -1,5 +1,9 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
+package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageAnalyzer;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReason;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.InspectionResult;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 

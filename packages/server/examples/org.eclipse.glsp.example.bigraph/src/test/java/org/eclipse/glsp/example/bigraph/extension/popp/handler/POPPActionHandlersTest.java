@@ -11,7 +11,6 @@ import java.util.Set;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPTestSession;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.*;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.InspectionResult;
-import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPEdgeCreationChecker;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelTypes;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;

@@ -1,4 +1,4 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
+package org.eclipse.glsp.example.bigraph.extension.popp.sync;
 
 import static org.junit.jupiter.api.Assertions.*;
 

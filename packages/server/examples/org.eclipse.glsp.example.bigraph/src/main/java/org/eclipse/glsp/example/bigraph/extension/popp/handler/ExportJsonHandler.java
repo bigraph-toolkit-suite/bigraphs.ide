@@ -2,8 +2,8 @@ package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
 import com.google.inject.Inject;
 import org.eclipse.glsp.example.bigraph.extensions.VariantGate;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtension;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelTypes;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.JsonExportAction;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.RequestJsonExportAction;
 import org.eclipse.glsp.example.bigraph.extension.popp.io.POPPJson;
@@ -31,7 +31,7 @@ public class ExportJsonHandler extends AbstractActionHandler<RequestJsonExportAc
     @Override
     protected List<Action> executeAction(final RequestJsonExportAction action) {
         POPPModel model = context.getOwnState().getPoppModel();
-        if (!variantGate.isActive(POPPExtension.POPP_VARIANT_ID) || model == null) {
+        if (!variantGate.isActive(POPPGModelTypes.VARIANT) || model == null) {
             BigraphNotifications.notifyError(actionDispatcher, "POPP JSON export needs an open POPP model.");
             return List.of();
         }

@@ -1,5 +1,7 @@
 package org.eclipse.glsp.example.bigraph.extension.popp;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionState;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -10,12 +12,12 @@ import java.util.function.Predicate;
 
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphLoader;
+import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPBigraphLoader;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchronizer;
-import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
+import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPBigraphSynchronizer;
+import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPGModelSynchronizer;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
-import org.eclipse.glsp.example.bigraph.extension.popp.validation.POPPValidationService;
+import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPValidationService;
 import org.eclipse.glsp.example.bigraph.extensions.ExtensionStateRepository;
 import org.eclipse.glsp.example.bigraph.extensions.VariantGate;
 import org.eclipse.glsp.example.bigraph.meta.BigraphMetaInformation;
@@ -56,8 +58,8 @@ public final class POPPTestSession {
         this.validationService = new POPPValidationService(context, () -> bigraphSynchronizer, () -> dispatcher);
         if (load) {
             state().setInitialLoadedMeta(Map.of()); // readExtensionMeta runs before loading
-            new POPPBigraphLoader(context, gmodelSynchronizer, bigraphSynchronizer, validationService)
-                    .loadModelFromBigraph(bigraph);
+            new POPPBigraphLoader(context, gmodelSynchronizer, bigraphSynchronizer).loadModelFromBigraph(bigraph);
+            validationService.follow(context.getOwnState().getPoppModel());
         }
     }
 

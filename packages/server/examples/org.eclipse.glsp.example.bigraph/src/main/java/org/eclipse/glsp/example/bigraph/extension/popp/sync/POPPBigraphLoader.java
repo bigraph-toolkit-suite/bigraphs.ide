@@ -1,15 +1,14 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.bigraph;
+package org.eclipse.glsp.example.bigraph.extension.popp.sync;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import com.google.inject.Inject;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionMeta;
-import org.eclipse.glsp.example.bigraph.extension.popp.validation.POPPValidationService;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.io.POPPExtensionMeta;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionResult;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionState;
-import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelSynchronizer;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionState;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
@@ -31,25 +30,23 @@ public final class POPPBigraphLoader {
     private final POPPExtensionContext context;
     private final POPPGModelSynchronizer gModelSynchronizer;
     private final POPPBigraphSynchronizer bigraphSynchronizer;
-    private final POPPValidationService validationService;
 
 
     @Inject
     public POPPBigraphLoader(final POPPExtensionContext context,
                              final POPPGModelSynchronizer gModelSynchronizer,
-                             final POPPBigraphSynchronizer bigraphSynchronizer,
-                             final POPPValidationService validationService) {
+                             final POPPBigraphSynchronizer bigraphSynchronizer) {
         this.context = context;
         this.gModelSynchronizer = gModelSynchronizer;
         this.bigraphSynchronizer = bigraphSynchronizer;
-        this.validationService = validationService;
     }
 
     /**
      * Replaces the state's model with one decoded from {@code bigraph}. The listener order matters: the GModel
-     * synchronizer listens during loading (it builds the diagram), the bigraph synchronizer and the validation service
-     * only afterwards, so loading never writes back into the bigraph it reads. Node data from the meta file is applied
-     * last, through the attached listeners.
+     * synchronizer listens during loading (it builds the diagram), the bigraph synchronizer only afterwards, so loading
+     * never writes back into the bigraph it reads. Node data from the meta file is applied last, through the attached
+     * listeners. Other listeners (the validation service) subscribe once loading is done, see
+     * {@code POPPExtension#onModelLoaded}.
      */
     public void loadModelFromBigraph(final PureBigraphMutable bigraph) {
         if (bigraph == null || bigraph.getRoots().isEmpty()) {
@@ -62,7 +59,6 @@ public final class POPPBigraphLoader {
         if (poppExtensionState.getPoppModel() != null) {
             poppExtensionState.getPoppModel().removeListener(bigraphSynchronizer);
             poppExtensionState.getPoppModel().removeListener(gModelSynchronizer);
-            poppExtensionState.getPoppModel().removeListener(validationService);
         }
         poppExtensionState.setPoppModel(model);
 
@@ -70,8 +66,6 @@ public final class POPPBigraphLoader {
         load(bigraph, model);
 
         model.addListener(bigraphSynchronizer);
-        model.addListener(validationService);
-        validationService.schedule(); // the loaded file may already be broken
 
         applyMetaData(context.getOwnState().getInitialLoadedMeta(), model);
         context.getOwnState().setInitialLoadedMeta(null);

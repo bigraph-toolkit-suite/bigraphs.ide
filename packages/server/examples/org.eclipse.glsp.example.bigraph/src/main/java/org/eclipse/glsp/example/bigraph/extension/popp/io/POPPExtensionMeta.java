@@ -1,4 +1,4 @@
-package org.eclipse.glsp.example.bigraph.extension.popp;
+package org.eclipse.glsp.example.bigraph.extension.popp.io;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

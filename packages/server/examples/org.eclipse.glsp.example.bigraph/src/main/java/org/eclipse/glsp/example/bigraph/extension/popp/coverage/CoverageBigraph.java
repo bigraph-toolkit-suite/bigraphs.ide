@@ -1,4 +1,4 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage;
+package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
@@ -6,7 +6,6 @@ import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
 
 import java.util.HashMap;
 import java.util.Map;

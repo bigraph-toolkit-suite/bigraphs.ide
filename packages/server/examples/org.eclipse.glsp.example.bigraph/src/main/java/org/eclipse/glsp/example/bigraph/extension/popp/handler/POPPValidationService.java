@@ -1,14 +1,16 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.validation;
+package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPBigraphSynchronizer;
+import org.eclipse.glsp.example.bigraph.extension.popp.validation.POPPModelValidator;
+import org.eclipse.glsp.example.bigraph.extension.popp.validation.ValidationReport;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.ValidateModelAction;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.ValidationResultAction;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchronizer;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEventListener;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPEvent;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPEventListener;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.server.actions.ActionDispatcher;
 import org.slf4j.Logger;
@@ -52,6 +54,7 @@ public class POPPValidationService implements POPPEventListener {
     private final POPPModelValidator validator = new POPPModelValidator();
     private final AtomicLong generation = new AtomicLong();
     private ScheduledFuture<?> pending;
+    private POPPModel followed;
 
     @Inject
     public POPPValidationService(final POPPExtensionContext context,
@@ -68,6 +71,19 @@ public class POPPValidationService implements POPPEventListener {
             return; // neither changes the structure
         }
         schedule();
+    }
+
+    /**
+     * Validates {@code model} from now on: moves the subscription from the previously followed model to it and
+     * schedules a first run (a loaded file may already be broken). Called after a model was loaded.
+     */
+    public synchronized void follow(final POPPModel model) {
+        if (followed != model) {
+            if (followed != null) followed.removeListener(this);
+            followed = model;
+            if (model != null) model.addListener(this);
+        }
+        if (model != null) schedule();
     }
 
     /** (Re)starts the debounce timer. */

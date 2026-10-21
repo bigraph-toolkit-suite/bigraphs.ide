@@ -4,9 +4,7 @@ import org.bigraphs.framework.core.impl.pure.PureBigraph;
 import org.bigraphs.framework.simulation.matching.pure.PureBigraphMatch;
 import org.bigraphs.framework.simulation.matching.pure.PureBigraphMatcher;
 import org.bigraphs.framework.simulation.matching.pure.PureReactiveSystem;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageBigraph;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageRewriteRules;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageRewriteRules.CompiledRule;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageRewriteRules.CompiledRule;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 import java.util.*;

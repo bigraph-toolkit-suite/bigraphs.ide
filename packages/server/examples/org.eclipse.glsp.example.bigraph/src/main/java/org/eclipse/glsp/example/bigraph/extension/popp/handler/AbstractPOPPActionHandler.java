@@ -3,9 +3,9 @@ package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 import com.google.inject.Inject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtension;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionState;
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelTypes;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionState;
 import org.eclipse.glsp.example.bigraph.extensions.VariantGate;
 import org.eclipse.glsp.example.bigraph.handler.support.BigraphNotifications;
 import org.eclipse.glsp.server.actions.AbstractActionHandler;
@@ -40,7 +40,7 @@ public abstract class AbstractPOPPActionHandler<A extends Action> extends Abstra
 
     @Override
     protected final List<Action> executeAction(A action) {
-        if (!variantGate.isActive(POPPExtension.POPP_VARIANT_ID)) {
+        if (!variantGate.isActive(POPPGModelTypes.VARIANT)) {
             logger.debug("POPP handler {} ignored: active variant is '{}'.",
                     getClass().getSimpleName(), variantGate.activeVariantId());
             BigraphNotifications.notifyError(actionDispatcher,

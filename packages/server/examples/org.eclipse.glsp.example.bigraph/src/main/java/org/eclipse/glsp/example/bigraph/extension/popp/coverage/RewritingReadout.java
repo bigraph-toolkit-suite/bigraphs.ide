@@ -3,7 +3,6 @@ package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.coverage.CoverageMarker;
 
 import java.util.*;
 

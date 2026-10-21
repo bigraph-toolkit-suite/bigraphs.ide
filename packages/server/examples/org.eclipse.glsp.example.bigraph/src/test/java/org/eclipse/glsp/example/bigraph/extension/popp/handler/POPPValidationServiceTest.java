@@ -1,10 +1,10 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.validation;
+package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPBigraphSynchronizer;
 import com.google.inject.AbstractModule;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSynchronizer;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
 import org.eclipse.glsp.server.actions.ActionDispatcher;
 import org.eclipse.glsp.example.bigraph.extension.popp.POPPTestSession;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.ValidateModelAction;

@@ -1,10 +1,12 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
+package org.eclipse.glsp.example.bigraph.extension.popp.sync;
 
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModel;
+import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPEvent;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPSpecificEventListener;
 import org.eclipse.glsp.graph.*;
 
 /** Keeps the GModel the user interacts with in sync with the domain model, by applying its events. */

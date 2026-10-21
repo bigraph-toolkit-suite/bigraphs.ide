@@ -1,6 +1,5 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtension;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 import org.eclipse.glsp.server.types.EdgeTypeHint;
@@ -72,7 +71,7 @@ public class POPPTypeHints {
         nodeDescriptionHint.setDeletable(false);
         hints.add(nodeDescriptionHint);
 
-        ShapeTypeHint variantRoot = hintFactory.apply(POPPExtension.POPP_VARIANT_ID + "-root");
+        ShapeTypeHint variantRoot = hintFactory.apply(POPPGModelTypes.VARIANT + "-root");
         variantRoot.setRepositionable(false);
         variantRoot.setResizable(false);
         variantRoot.setReparentable(false);

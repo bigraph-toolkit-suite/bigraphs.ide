@@ -1,6 +1,5 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.event;
+package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 /**
  * A domain-model change, emitted while it is applied. The event's fields are authoritative: a listener should read

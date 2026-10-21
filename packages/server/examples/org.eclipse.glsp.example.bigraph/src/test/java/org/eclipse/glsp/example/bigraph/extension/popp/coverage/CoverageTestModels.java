@@ -4,8 +4,8 @@ import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPEvent;
-import org.eclipse.glsp.example.bigraph.extension.popp.event.POPPSpecificEventListener;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPEvent;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPSpecificEventListener;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 import java.util.ArrayList;

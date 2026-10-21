@@ -1,13 +1,12 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.handler;
 
 import com.google.inject.Inject;
-import org.eclipse.glsp.example.bigraph.extension.popp.POPPExtensionContext;
+import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.InspectionResultAction;
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.RequestInspectionAction;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.InspectionResult;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.InspectionTracer;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.server.actions.AbstractActionHandler;

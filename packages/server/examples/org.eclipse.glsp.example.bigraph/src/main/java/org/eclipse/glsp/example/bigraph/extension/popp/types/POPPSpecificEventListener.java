@@ -1,4 +1,4 @@
-package org.eclipse.glsp.example.bigraph.extension.popp.event;
+package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 /**
  * Dispatches each event type to its own method; all are no-ops by default, so a subclass overrides only the event
