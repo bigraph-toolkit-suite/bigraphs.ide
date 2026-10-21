@@ -10,18 +10,19 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.Relation;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 
 import java.util.EnumSet;
+import java.util.Optional;
 import java.util.Set;
 
-import static org.bigraphs.framework.core.factory.BigraphFactory.kindBuilder;
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureSignatureBuilder;
 
 /**
  * The POPP-specific {@link DynamicSignature}, expressed as an enum of controls.
  *
  * <p>Every domain node is a node whose control is its kind ({@code Problem}, {@code Goal}, ...). The place graph
- * carries the hierarchies and decompositions: an n-ary AND/OR decomposition becomes a chain of binary
- * {@code AndDecomp}/{@code OrDecomp} nodes under the decomposed node. The first chain node is the one directly under
- * a domain node; every further chain node is under a chain node. Cross-tree relations are a pair of arity-1 stub
+ * carries the hierarchies and decompositions: an n-ary AND/OR decomposition becomes a chain of binary chain nodes
+ * under the decomposed node, with one chain control per kind and type ({@code GoalAnd}, {@code ProblemOr}, ...), so
+ * a chain node says which tree it belongs to. The first chain node is the one directly under a domain node; every
+ * further chain node is under a chain node. Cross-tree relations are a pair of arity-1 stub
  * nodes (one per relation type and direction) under their endpoints, connected by an edge.
  *
  * <p>Coverage state is not part of this signature: the coverage analysis adds its marker controls on a derived copy
@@ -39,9 +40,19 @@ public enum POPPBigraphSignature {
     SUCCESS_CRITERIA("SuccessCriteria", 0),
     SUCCESS_PROOF("SuccessProof", 0),
 
-    // Decomposition chain nodes
-    AND_DECOMP("AndDecomp", 0),
-    OR_DECOMP("OrDecomp", 0),
+    // Decomposition chain nodes: one control per kind and decomposition type
+    PROBLEM_AND("ProblemAnd", NodeKind.PROBLEM, DecompositionType.AND),
+    PROBLEM_OR("ProblemOr", NodeKind.PROBLEM, DecompositionType.OR),
+    GOAL_AND("GoalAnd", NodeKind.GOAL, DecompositionType.AND),
+    GOAL_OR("GoalOr", NodeKind.GOAL, DecompositionType.OR),
+    CONSEQUENCE_AND("ConsequenceAnd", NodeKind.CONSEQUENCE, DecompositionType.AND),
+    CONSEQUENCE_OR("ConsequenceOr", NodeKind.CONSEQUENCE, DecompositionType.OR),
+    SOLUTION_AND("SolutionAnd", NodeKind.SOLUTION, DecompositionType.AND),
+    SOLUTION_OR("SolutionOr", NodeKind.SOLUTION, DecompositionType.OR),
+    SUCCESS_CRITERIA_AND("SuccessCriteriaAnd", NodeKind.SUCCESS_CRITERIA, DecompositionType.AND),
+    SUCCESS_CRITERIA_OR("SuccessCriteriaOr", NodeKind.SUCCESS_CRITERIA, DecompositionType.OR),
+    SUCCESS_PROOF_AND("SuccessProofAnd", NodeKind.SUCCESS_PROOF, DecompositionType.AND),
+    SUCCESS_PROOF_OR("SuccessProofOr", NodeKind.SUCCESS_PROOF, DecompositionType.OR),
 
     // Relation stubs: one per relation type and direction
 
@@ -58,10 +69,23 @@ public enum POPPBigraphSignature {
 
     private final String controlName;
     private final int arity;
+    /** For chain controls: the kind of the decomposed node and the type; {@code null} for every other control. */
+    private final NodeKind chainKind;
+    private final DecompositionType chainType;
 
     POPPBigraphSignature(String controlName, int arity) {
+        this(controlName, arity, null, null);
+    }
+
+    POPPBigraphSignature(String controlName, NodeKind chainKind, DecompositionType chainType) {
+        this(controlName, 0, chainKind, chainType);
+    }
+
+    POPPBigraphSignature(String controlName, int arity, NodeKind chainKind, DecompositionType chainType) {
         this.controlName = controlName;
         this.arity = arity;
+        this.chainKind = chainKind;
+        this.chainType = chainType;
     }
 
     public String controlName() {
@@ -91,8 +115,29 @@ public enum POPPBigraphSignature {
         return null;
     }
 
+    /** The control with this name; {@code null} if it is not in this signature. */
+    public static POPPBigraphSignature valueOfControl(String controlName) {
+        for (POPPBigraphSignature c : values()) if (c.controlName.equals(controlName)) return c;
+        return null;
+    }
+
+    /** A decomposition chain node ({@code GoalAnd}, {@code ProblemOr}, ...). */
     public static boolean isDecompControl(POPPBigraphSignature control) {
-        return control == AND_DECOMP || control == OR_DECOMP;
+        return control != null && control.chainType != null;
+    }
+
+    /** The kind of the tree a chain control belongs to; empty for every other control. */
+    public static Optional<NodeKind> chainKindOf(POPPBigraphSignature control) {
+        return control == null ? Optional.empty() : Optional.ofNullable(control.chainKind);
+    }
+
+    /** The chain control for a decomposition of a node of {@code kind}; {@code null} for {@code NONE}. */
+    public static POPPBigraphSignature getChainControl(NodeKind kind, DecompositionType type) {
+        if (type == DecompositionType.NONE) return null;
+        for (POPPBigraphSignature c : values()) {
+            if (c.chainKind == kind && c.chainType == type) return c;
+        }
+        throw new IllegalArgumentException("No chain control for " + kind + " " + type);
     }
 
     private static final Set<POPPBigraphSignature> KIND_CONTROLS = EnumSet.of(
@@ -132,20 +177,9 @@ public enum POPPBigraphSignature {
         };
     }
 
-    /** The chain-node control for AND or OR; {@code null} for {@code NONE}, which has no chain. */
-    public static POPPBigraphSignature getByDecompositionType(final DecompositionType decompositionType) {
-        switch (decompositionType) {
-            case OR -> { return OR_DECOMP; }
-            case AND -> { return AND_DECOMP; }
-            default -> { return null; }
-        }
-    }
-
     /** The decomposition type of a chain-node control; {@code NONE} for every other control. */
     public static DecompositionType decompositionTypeOf(POPPBigraphSignature control) {
-        if (control == AND_DECOMP) return DecompositionType.AND;
-        if (control == OR_DECOMP) return DecompositionType.OR;
-        return DecompositionType.NONE;
+        return control == null || control.chainType == null ? DecompositionType.NONE : control.chainType;
     }
 
     /**

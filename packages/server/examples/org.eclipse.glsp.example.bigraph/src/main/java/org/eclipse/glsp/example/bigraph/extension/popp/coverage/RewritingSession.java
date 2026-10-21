@@ -5,12 +5,12 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 /**
  * Session over the result of a rewriting analysis: the coverage state and the derivation (reason marker and giver)
- * of every node, as recorded by {@link RewritingCoverageAnalyzer} or {@link FragmentRewritingCoverageAnalyzer}.
+ * of every node, as recorded by {@link ScheduledRewritingCoverageAnalyzer}.
  */
 final class RewritingSession extends AbstractCoverageSession {
-    private final RewritingCoverageAnalyzer.Readout readout;
+    private final RewritingReadout readout;
 
-    RewritingSession(CoverageMode mode, RelationGraph relations, RewritingCoverageAnalyzer.Readout readout) {
+    RewritingSession(CoverageMode mode, RelationGraph relations, RewritingReadout readout) {
         super(mode, relations);
         this.readout = readout;
     }
@@ -25,7 +25,7 @@ final class RewritingSession extends AbstractCoverageSession {
     @Override
     public CoverageReason explain(TreeNode<?> node) {
         Coverage state = coverage(node);
-        RewritingCoverageAnalyzer.Derivation d = readout.derivation().get(node.getId());
+        RewritingReadout.Derivation d = readout.derivation().get(node.getId());
 
         if (d != null) {
             return switch (d.marker()) {

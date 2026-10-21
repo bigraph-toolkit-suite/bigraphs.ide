@@ -85,6 +85,6 @@ class CoverageModeTest {
     @Test
     void theRewritingAnalyzerAgreesWithTheDomainAnalyzerInEveryPreset() {
         StringBuilder report = new StringBuilder();
-        assertEquals(0, CoverageRandomModels.mismatches("fragment", 100, 25, 9100, report), report.toString());
+        assertEquals(0, CoverageRandomModels.mismatches("default", 100, 25, 9100, report), report.toString());
     }
 }

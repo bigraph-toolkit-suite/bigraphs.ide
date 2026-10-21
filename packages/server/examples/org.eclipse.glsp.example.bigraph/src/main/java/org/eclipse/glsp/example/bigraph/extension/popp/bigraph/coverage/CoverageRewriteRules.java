@@ -42,7 +42,7 @@ public final class CoverageRewriteRules {
      * What a rule does, stated once and explicitly: the redex node whose state cell is upgraded
      * ({@code receiver}), the redex node it takes the coverage from over a link ({@code giver}, only link rules),
      * the state it is upgraded to and the reason marker that justifies it.
-     * The matcher-only session applies this instead of building the reactum.
+     * The schedule uses it (receiver kind, link rule or not); the reactum does the same by rewriting.
      */
     record Effect(Term receiver, Term giver, Coverage target, CoverageMarker reason,
                   RelationType relation, Coverage giverState, Coverage receiverState) {
@@ -106,8 +106,8 @@ public final class CoverageRewriteRules {
 
     private static String kind(NodeKind k) { return POPPBigraphSignature.getByNodeKind(k).controlName(); }
 
-    private static String gate(DecompositionType t) {
-        return POPPBigraphSignature.getByDecompositionType(t).controlName();
+    private static String gate(DecompositionType t, NodeKind k) {
+        return POPPBigraphSignature.getChainControl(k, t).controlName();
     }
 
     private static CoverageMarker whyMarker(Coverage target, boolean link) {
@@ -126,10 +126,10 @@ public final class CoverageRewriteRules {
 
     private static void chainRules(List<RuleSpecification> out) {
         for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR)) {
-            String g = gate(type);
             for (Coverage cur : UPGRADABLE) {
                 for (NodeKind nk : NodeKind.values()) {
                     String k = kind(nk);
+                    String g = gate(type, nk);
                     // one child
                     for (Coverage s : ALL) addChain(out, type, cur, nk, List.of(new Slot(k, s)));
                     // two domain children
@@ -161,8 +161,8 @@ public final class CoverageRewriteRules {
         reactumKids.add(why(target, false));
         reactumKids.addAll(List.of(slotPatterns));
 
-        Term redexNode = Term.node(gate(type), redexKids.toArray(Term[]::new));
-        Term reactumNode = Term.node(gate(type), reactumKids.toArray(Term[]::new));
+        Term redexNode = Term.node(gate(type, nk), redexKids.toArray(Term[]::new));
+        Term reactumNode = Term.node(gate(type, nk), reactumKids.toArray(Term[]::new));
         String name = "chain-" + type + "-" + nk + "-" + cur + "-"
                 + slots.stream().map(s -> s.control() + "_" + s.state()).collect(Collectors.joining("+"));
         out.add(new RuleSpecification(name, List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
@@ -217,7 +217,7 @@ public final class CoverageRewriteRules {
                 for (Coverage s : PARTIAL_OR_COVERED) {
                     for (Coverage c : UPGRADABLE) {
                         if (s.compareTo(c) <= 0) continue;
-                        Term chain = Term.node(gate(type), state(s), Term.SITE); // the chain node directly under a domain node
+                        Term chain = Term.node(gate(type, nk), state(s), Term.SITE); // the chain node directly under a domain node
                         Term redexNode = Term.node(k, state(c), Term.SITE, chain);
                         Term reactumNode = Term.node(k, state(s), why(s, false), Term.SITE, chain);
                         out.add(new RuleSpecification("lift-" + type + "-" + nk + "-" + c + "-" + s,
@@ -268,9 +268,8 @@ public final class CoverageRewriteRules {
             try {
                 PureBigraph redex = side(sig, s.redex()), reactum = side(sig, s.reactum());
                 ParametricReactionRule<PureBigraph> rule = new ParametricReactionRule<>(redex, reactum);
-                // Not needed by the analyzers, which only match; kept so the rules are complete reaction rules, e.g. for
-                // export (toBigrapher) or a cross-check through PureReactiveSystem.buildParametricReaction (which
-                // RewritingCoverageAnalyzer avoids, see there).
+                // buildParametricReaction names the reactum nodes after the agent nodes the tracked redex nodes matched,
+                // so domain nodes keep their ids (the incremental analyzer and the readout rely on it).
                 rule.withTrackingMap(trackingMap(s, redex, reactum));
                 var redexNames = names(redex, s.redex());
                 out.add(new CompiledRule(s.name(), rule,

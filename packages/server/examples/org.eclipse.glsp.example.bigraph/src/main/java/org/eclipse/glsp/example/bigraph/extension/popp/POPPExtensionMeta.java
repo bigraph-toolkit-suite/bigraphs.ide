@@ -14,7 +14,7 @@ public record POPPExtensionMeta(Map<String, NodeData> nodes) {
     /**
      * Persisted state of one node. {@code properties} carries subtype-specific state exactly as
      * {@link TreeNode#exportProperties()} produced it, so adding state to a node kind needs no change here (no kind
-     * has any yet). Files written before {@code properties} existed load with an empty map.
+     * has any yet). A missing {@code properties} loads as an empty map.
      */
     public record NodeData(double x, double y, String description, Map<String, String> properties) {
         public NodeData {

@@ -17,7 +17,7 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * The structural well-formedness conditions of the POPP encoding, each as a pattern whose occurrence is a defect.
  *
  * <p>The patterns rely on two properties of bigraph matching: a redex node without a site only matches an agent node
- * with exactly the redex node's content (so {@code AndDecomp} without children matches only an empty chain node), and a
+ * with exactly the redex node's content (so {@code GoalAnd} without children matches only an empty chain node), and a
  * closed edge of the redex only matches an agent edge with exactly the same points (so a stub on a one-point edge
  * matches only a stub without partner). Siblings of a redex root belong to the context, so a single-node redex
  * matches the node wherever it is; anchoring in the {@code POPP} container restricts a pattern to the top level.</p>
@@ -30,8 +30,9 @@ public final class POPPValidationPatterns {
     private static final List<POPPBigraphSignature> KINDS = List.of(
             POPPBigraphSignature.PROBLEM, POPPBigraphSignature.GOAL, POPPBigraphSignature.CONSEQUENCE,
             POPPBigraphSignature.SOLUTION, POPPBigraphSignature.SUCCESS_CRITERIA, POPPBigraphSignature.SUCCESS_PROOF);
-    private static final List<POPPBigraphSignature> CHAINS = List.of(
-            POPPBigraphSignature.AND_DECOMP, POPPBigraphSignature.OR_DECOMP);
+    /** Every chain control (one per kind and decomposition type). */
+    private static final List<POPPBigraphSignature> CHAINS = Arrays.stream(POPPBigraphSignature.values())
+            .filter(POPPBigraphSignature::isDecompControl).toList();
     private static final List<POPPBigraphSignature> STUBS = Arrays.stream(POPPBigraphSignature.values())
             .filter(POPPBigraphSignature::isStubControl).toList();
 
@@ -79,7 +80,7 @@ public final class POPPValidationPatterns {
 
         // An empty chain node: a decomposition type without decomposed children.
         for (POPPBigraphSignature chain : CHAINS) {
-            String type = chain == POPPBigraphSignature.AND_DECOMP ? "AND" : "OR";
+            String type = POPPBigraphSignature.decompositionTypeOf(chain).name();
             out.add(pattern("empty-" + chain.controlName(), ValidationIssue.Code.EMPTY_DECOMPOSITION,
                     node(chain, "chain"),
                     List.of("chain"),

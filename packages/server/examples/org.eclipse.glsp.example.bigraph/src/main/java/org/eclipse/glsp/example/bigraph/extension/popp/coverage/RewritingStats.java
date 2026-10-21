@@ -1,25 +1,33 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
 /**
- * Counters of one rewriting session, for profiling and for the thesis' cost breakdown.
+ * Counters of one session of {@link ScheduledRewritingCoverageAnalyzer}, for profiling and for the thesis' cost
+ * breakdown.
  *
- * @param rounds          evaluation rounds (full-agent analyzer) or fragment evaluations (fragment analyzer)
- * @param matcherCalls    calls of the framework's {@code PureBigraphMatcher#match} (which runs jLibBig underneath)
- * @param successfulCalls matcher calls that found at least one (usable) match
- * @param agentNodes      full-agent analyzer: nodes of the coverage bigraph; fragment analyzer: nodes of the
- *                        largest fragment
- * @param buildNanos      full-agent analyzer: building the coverage bigraphs (framework bigraphs, so no separate
- *                        encode step); fragment analyzer: the structure snapshot and the per-fragment census
- * @param encodeNanos     fragment analyzer: building each fragment as a framework bigraph; 0 for the full-agent
- *                        analyzer
+ * @param rounds          evaluation rounds (waves)
+ * @param matcherCalls    calls of the framework's {@code PureBigraphMatcher} (rule and guard calls; jLibBig underneath)
+ * @param successfulCalls matcher calls that found at least one match
+ * @param agentNodes      nodes of the coverage bigraph at the start
+ * @param buildNanos      building the coverage bigraphs
+ * @param prefilterNanos  the structural prefilter: compiling the agent and searching the redexes; 0 without it
  * @param matchNanos      time spent in the matcher, including the framework's translation to jLibBig and iterating
  *                        the matches
+ * @param rewriteNanos    with {@code rewrite}: building the rewritten agents ({@code buildParametricReaction}); else 0
+ * @param readoutNanos    with {@code rewrite}: walking the fixpoint bigraph for states and reasons; else 0
  */
 public record RewritingStats(int rounds, int matcherCalls, int successfulCalls, int agentNodes,
-                             long buildNanos, long encodeNanos, long matchNanos) {
+                             long buildNanos, long prefilterNanos, long matchNanos, long rewriteNanos, long readoutNanos) {
+    public RewritingStats(int rounds, int matcherCalls, int successfulCalls, int agentNodes,
+                          long buildNanos, long prefilterNanos, long matchNanos) {
+        this(rounds, matcherCalls, successfulCalls, agentNodes, buildNanos, prefilterNanos, matchNanos, 0, 0);
+    }
+
     @Override
     public String toString() {
-        return String.format("%d rounds, %d matcher calls (%d matched), agent %d nodes, build %.1f ms, encode %.1f ms, match %.1f ms",
-                rounds, matcherCalls, successfulCalls, agentNodes, buildNanos / 1e6, encodeNanos / 1e6, matchNanos / 1e6);
+        String s = String.format("%d rounds, %d matcher calls (%d matched), agent %d nodes, build %.1f ms, prefilter %.1f ms, match %.1f ms",
+                rounds, matcherCalls, successfulCalls, agentNodes, buildNanos / 1e6, prefilterNanos / 1e6, matchNanos / 1e6);
+        if (rewriteNanos > 0 || readoutNanos > 0)
+            s += String.format(", rewrite %.1f ms, readout %.2f ms", rewriteNanos / 1e6, readoutNanos / 1e6);
+        return s;
     }
 }
