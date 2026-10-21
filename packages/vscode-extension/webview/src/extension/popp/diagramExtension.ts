@@ -1,6 +1,8 @@
 import type { IDiagramExtension } from '../extensions';
 import { poppDiagramModule } from './popp-diagram-module';
 import { createPoppPalette } from './palette';
+import { RequestJsonExportAction } from './popp-actions';
+import { acquireVsCodeApi } from '../palette-export';
 import {
     POPP_CONTEXT_MENU_ELEMENT_TYPES,
     getPoppContextMenuItems,
@@ -17,4 +19,16 @@ export const poppDiagramExtension: IDiagramExtension = {
     createPalette: createPoppPalette,
     contextMenuElementTypes: POPP_CONTEXT_MENU_ELEMENT_TYPES,
     getContextMenuItems: getPoppContextMenuItems,
+    getPaletteExports: () => [{
+        id: 'popp-json',
+        label: 'JSON',
+        title: 'Export the POPP model as JSON',
+        run: host => { void host.dispatcher.dispatch(RequestJsonExportAction.create()); }
+    }],
+    getPaletteImports: () => [{
+        id: 'popp-json',
+        label: 'JSON',
+        title: 'Replace this POPP model with one from a JSON file',
+        run: () => acquireVsCodeApi()?.postMessage({ type: 'popp.importJsonRequest' })
+    }],
 };

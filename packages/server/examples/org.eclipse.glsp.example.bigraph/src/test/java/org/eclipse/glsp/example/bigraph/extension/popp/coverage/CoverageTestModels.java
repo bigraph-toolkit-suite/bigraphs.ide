@@ -32,7 +32,7 @@ public final class CoverageTestModels {
      * an observer of the bigraph. Rewriting needs the fixed jLibBig {@code AgentMatcher}, see
      * {@link ScheduledRewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}.
      */
-    static CoverageAnalyzer analyzer(String name, Synced popp) {
+    public static CoverageAnalyzer analyzer(String name, Synced popp) {
         CoverageInput input = CoverageInput.of(popp.model, popp.bigraph);
         return switch (name) {
             case "domain" -> new DomainCoverageAnalyzer(input);

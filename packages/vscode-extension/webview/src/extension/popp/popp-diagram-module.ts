@@ -14,7 +14,8 @@ import {
 import { ContainerModule } from 'inversify';
 import { alignFeature, connectableFeature } from 'sprotty';
 import { InspectionController } from './inspection-controller';
-import { SetInspectionAction, StartDescriptionEditAction, ValidationResultAction } from './popp-actions';
+import { JsonExportAction, SetInspectionAction, StartDescriptionEditAction, ValidationResultAction } from './popp-actions';
+import { PoppJsonTransfer } from './popp-json-transfer';
 import { DescriptionEditStarter } from './description-edit-starter';
 import { PoppAnalysisController } from './popp-analysis-controller';
 import { PoppToolLifecycle } from './palette/popp-tool-lifecycle';
@@ -69,6 +70,10 @@ export const poppDiagramModule = new ContainerModule((bind, unbind, isBound, reb
     // Description editor right after creating a node (requested by the server)
     bind(DescriptionEditStarter).toSelf().inSingletonScope();
     configureActionHandler(context, StartDescriptionEditAction.KIND, DescriptionEditStarter);
+
+    // JSON export (server -> extension's save dialog) and import (extension's open dialog -> server)
+    bind(PoppJsonTransfer).toSelf().inSingletonScope();
+    configureActionHandler(context, JsonExportAction.KIND, PoppJsonTransfer);
 
     // Lets the palette follow creation-tool lifecycle (highlight reset, connect re-arm)
     bind(PoppToolLifecycle).toSelf().inSingletonScope();
