@@ -91,7 +91,9 @@ public class POPPExtension implements IdeExtension {
                 InspectionActionHandler.class,
                 CoverageReportHandler.class,
                 CoverageGapsHandler.class,
-                ValidateModelHandler.class
+                ValidateModelHandler.class,
+                ExportJsonHandler.class,
+                ImportJsonHandler.class
         );
     }
 

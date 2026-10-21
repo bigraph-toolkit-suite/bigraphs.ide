@@ -17,7 +17,8 @@ import { PoppViewState, poppStore } from '../popp-store';
 import { poppToolEvents } from './popp-tool-events';
 import { applyStoredKindColoring, setKindColoring } from './popp-kind-colors';
 import { acquireVsCodeApi, appendPaletteExportSection } from '../../palette-export';
-import { getPaletteExportsForVariant } from '../../extensions';
+import { getPaletteExportsForVariant, getPaletteImportsForVariant } from '../../extensions';
+import { appendPaletteImportSection } from '../../palette-import';
 import type { IVariantPalette, PaletteHostApi, VariantPaletteFactory } from '../../palette-types';
 import variantHtml from './popp-variant.html';
 import './popp-variant.css';
@@ -56,6 +57,7 @@ class PoppVariantPalette implements IVariantPalette {
         this.bindValidity();
         this.bindKindColors();
         appendPaletteExportSection(container, getPaletteExportsForVariant(POPP_VARIANT_ID, this.host), this.host);
+        appendPaletteImportSection(container, getPaletteImportsForVariant(POPP_VARIANT_ID, this.host), this.host);
 
         document.addEventListener('keydown', this.onKeyDown, true);
         this.unsubscribeTools = poppToolEvents.onDefaultToolsEnabled(() => this.onDefaultToolsEnabled());

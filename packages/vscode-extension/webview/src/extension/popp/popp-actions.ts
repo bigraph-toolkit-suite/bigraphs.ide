@@ -235,3 +235,39 @@ export interface StartDescriptionEditAction extends Action {
 export const StartDescriptionEditAction = {
     KIND: 'popp.startDescriptionEdit' as const
 };
+
+// ---------------------------------------------------------------------------
+// JSON export / import of the POPP model (see the server's POPPJson)
+// ---------------------------------------------------------------------------
+/** Asks the server for the model as a POPP JSON document; answered with a {@link JsonExportAction}. */
+export interface RequestJsonExportAction extends Action {
+    kind: 'popp.requestJsonExport';
+}
+export const RequestJsonExportAction = {
+    KIND: 'popp.requestJsonExport' as const,
+    create(): RequestJsonExportAction {
+        return { kind: 'popp.requestJsonExport' };
+    }
+};
+
+/** The model as a POPP JSON document with a suggested file name; handed to the VS Code extension to save. */
+export interface JsonExportAction extends Action {
+    kind: 'popp.jsonExport';
+    json: string;
+    fileName: string;
+}
+export const JsonExportAction = {
+    KIND: 'popp.jsonExport' as const
+};
+
+/** Replaces the model with the content of a POPP JSON document. */
+export interface ImportJsonOperation extends Operation {
+    kind: 'popp.importJson';
+    json: string;
+}
+export const ImportJsonOperation = {
+    KIND: 'popp.importJson' as const,
+    create(json: string): ImportJsonOperation {
+        return { kind: 'popp.importJson', isOperation: true, json };
+    }
+};

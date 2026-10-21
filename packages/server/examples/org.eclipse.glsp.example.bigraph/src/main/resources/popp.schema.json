@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "popp.schema.json",
+  "title": "POPP model",
+  "description": "A Problem-Oriented Project Planning model: a forest of homogeneous trees per node kind and typed relations between nodes of different trees (format version 1). Rules the schema cannot express: ids are unique across the whole model; a relation's type must match the kinds of its source and target (causes: problem -> consequence or goal -> success criterion; inverts: problem -> goal; realizes: solution -> goal; produces: solution -> success proof; validates: success proof -> success criterion); two nodes have at most one relation.",
+  "type": "object",
+  "required": ["format", "version", "trees"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "popp" },
+    "version": { "const": 1 },
+    "trees": {
+      "type": "object",
+      "description": "The roots of the trees of each kind; children are nested and share their root's kind. A missing array is an empty one.",
+      "additionalProperties": false,
+      "properties": {
+        "problems": { "$ref": "#/$defs/forest" },
+        "consequences": { "$ref": "#/$defs/forest" },
+        "goals": { "$ref": "#/$defs/forest" },
+        "successCriteria": { "$ref": "#/$defs/forest" },
+        "solutions": { "$ref": "#/$defs/forest" },
+        "successProofs": { "$ref": "#/$defs/forest" }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/relation" }
+    }
+  },
+  "$defs": {
+    "forest": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "node": {
+      "type": "object",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "default": "" },
+        "decomposition": {
+          "description": "How the node is decomposed into its children; only for nodes with children (default and).",
+          "enum": ["and", "or"]
+        },
+        "layout": {
+          "description": "Position in the diagram (optional, not part of the POPP metamodel).",
+          "type": "object",
+          "required": ["x", "y"],
+          "additionalProperties": false,
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" }
+          }
+        },
+        "children": { "$ref": "#/$defs/forest" }
+      },
+      "dependentRequired": { "decomposition": ["children"] }
+    },
+    "relation": {
+      "type": "object",
+      "required": ["type", "source", "target"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "enum": ["causes", "inverts", "realizes", "produces", "validates"] },
+        "source": { "type": "string", "description": "id of the source node" },
+        "target": { "type": "string", "description": "id of the target node" }
+      }
+    }
+  }
+}
