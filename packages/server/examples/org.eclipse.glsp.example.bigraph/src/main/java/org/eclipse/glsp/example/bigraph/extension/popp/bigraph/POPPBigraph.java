@@ -15,10 +15,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * The bigraph encoding of a POPP model, kept in sync with it through explicit calls and announced to observers.
  *
  * <p>Encoding: every domain node is a node whose control is its kind ({@code Problem}, {@code Goal}, ...). An AND/OR
- * decomposition with n children becomes a chain of n-1 binary chain nodes ({@code GoalAnd}, {@code ProblemOr}, ...) under the
- * decomposed node (one empty chain node without children, one chain node for a single child); the chain node
+ * decomposition with n children becomes a decomposition chain of n-1 binary gate nodes ({@code GoalAnd}, {@code ProblemOr}, ...) under the
+ * decomposed node (one empty gate node without children, one gate node for a single child); the gate node
  * directly under a domain node is the first one. A relation is an edge between two arity-1 stub nodes, one under each
- * endpoint. Every node is addressable by its id ({@code nodesById}): domain nodes by their model id, chain nodes by
+ * endpoint. Every node is addressable by its id ({@code nodesById}): domain nodes by their model id, gate nodes by
  * {@code <id>_DECOMP[_i]}, stubs by {@code <STUB_CONSTANT>:<source id>-><target id>}; the edge is named
  * {@code <TYPE>:<source id>-><target id>} (so ids must not contain {@code ->}).</p>
  */
@@ -31,7 +31,7 @@ public class POPPBigraph {
     private final List<POPPBigraphObserver> observers = new CopyOnWriteArrayList<>();
 
     private final Map<String, BigraphEntity.NodeEntity<DynamicControl>> nodesById = new HashMap<>();
-    private final Map<String, List<String>> decompChainIds = new HashMap<>();
+    private final Map<String, List<String>> decompGateIds = new HashMap<>();
 
     public POPPBigraph(PureBigraphMutable bigraph, DynamicSignature signature) {
         this.bigraph = bigraph;
@@ -99,29 +99,29 @@ public class POPPBigraph {
         return POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(node));
     }
 
-    /** Whether {@code node} is a decomposition chain node ({@code GoalAnd}, {@code ProblemOr}, ...). */
-    public boolean isChainNode(BigraphEntity.NodeEntity<?> node) {
+    /** Whether {@code node} is a gate node ({@code GoalAnd}, {@code ProblemOr}, ...). */
+    public boolean isGateNode(BigraphEntity.NodeEntity<?> node) {
         return POPPBigraphSignature.isDecompControl(POPPBigraphSignature.forNode(node));
     }
 
-    /** The domain kind of a node; empty for chain nodes, stubs and the container. */
+    /** The domain kind of a node; empty for gate nodes, stubs and the container. */
     public Optional<NodeKind> kindOf(BigraphEntity.NodeEntity<?> node) {
         POPPBigraphSignature c = POPPBigraphSignature.forNode(node);
         return POPPBigraphSignature.isKindControl(c) ? Optional.of(POPPBigraphSignature.toNodeKind(c)) : Optional.empty();
     }
 
-    /** The decomposition type of a chain node; {@code NONE} for every other node. */
+    /** The decomposition type of a gate node; {@code NONE} for every other node. */
     public DecompositionType decompositionTypeOf(BigraphEntity.NodeEntity<?> node) {
         return POPPBigraphSignature.decompositionTypeOf(POPPBigraphSignature.forNode(node));
     }
 
-    /** Creates and announces a chain node. Callers must not announce it again. */
-    private BigraphEntity.NodeEntity<DynamicControl> addChainNode(
+    /** Creates and announces a gate node. Callers must not announce it again. */
+    private BigraphEntity.NodeEntity<DynamicControl> addGateNode(
             BigraphEntity.NodeEntity<DynamicControl> parent, NodeKind kind, DecompositionType type, String id) {
-        POPPBigraphSignature control = POPPBigraphSignature.getChainControl(kind, type);
-        var chain = addNode(parent, control, id);
-        fireNodeAdded(chain, parent);
-        return chain;
+        POPPBigraphSignature control = POPPBigraphSignature.getGateControl(kind, type);
+        var gate = addNode(parent, control, id);
+        fireNodeAdded(gate, parent);
+        return gate;
     }
 
     /** Indexes an existing bigraph (e.g. a loaded file): every node by name, and every node's decomposition chain. */
@@ -136,22 +136,22 @@ public class POPPBigraph {
             }
             List<BigraphEntity.NodeEntity<DynamicControl>> chain = new ArrayList<>();
             for (BigraphEntity<?> child : bigraph.getChildrenOf(node)) {
-                if (child instanceof BigraphEntity.NodeEntity<?> n && isChainNode(n)) {
-                    collectChainNodes((BigraphEntity.NodeEntity<DynamicControl>) n, chain);
+                if (child instanceof BigraphEntity.NodeEntity<?> n && isGateNode(n)) {
+                    collectGateNodes((BigraphEntity.NodeEntity<DynamicControl>) n, chain);
                 }
             }
             if (!chain.isEmpty()) {
-                decompChainIds.put(node.getName(), chain.stream().map(BigraphEntity.NodeEntity::getName).toList());
+                decompGateIds.put(node.getName(), chain.stream().map(BigraphEntity.NodeEntity::getName).toList());
             }
         }
     }
 
-    private void collectChainNodes(BigraphEntity.NodeEntity<DynamicControl> chainNode,
+    private void collectGateNodes(BigraphEntity.NodeEntity<DynamicControl> gateNode,
                                    List<BigraphEntity.NodeEntity<DynamicControl>> out) {
-        out.add(chainNode);
-        for (BigraphEntity<?> child : bigraph.getChildrenOf(chainNode)) {
-            if (child instanceof BigraphEntity.NodeEntity<?> n && isChainNode(n)) {
-                collectChainNodes((BigraphEntity.NodeEntity<DynamicControl>) n, out);
+        out.add(gateNode);
+        for (BigraphEntity<?> child : bigraph.getChildrenOf(gateNode)) {
+            if (child instanceof BigraphEntity.NodeEntity<?> n && isGateNode(n)) {
+                collectGateNodes((BigraphEntity.NodeEntity<DynamicControl>) n, out);
             }
         }
     }
@@ -292,7 +292,7 @@ public class POPPBigraph {
      * {@code NONE} and the domain nodes directly under it (a defect the validator reports) if it has no chain.
      */
     public DecodedDecomposition decodeDecomposition(BigraphEntity.NodeEntity<DynamicControl> domainNode) {
-        BigraphEntity.NodeEntity<DynamicControl> chainRoot = null;
+        BigraphEntity.NodeEntity<DynamicControl> topGate = null;
         List<BigraphEntity.NodeEntity<DynamicControl>> directDomainChildren = new ArrayList<>();
 
         for (BigraphEntity<?> child : bigraph.getChildrenOf(domainNode)) {
@@ -300,31 +300,31 @@ public class POPPBigraph {
                 continue;
             }
             var node = (BigraphEntity.NodeEntity<DynamicControl>) raw;
-            if (isChainNode(node)) {
-                chainRoot = node;
+            if (isGateNode(node)) {
+                topGate = node;
             } else if (isDomainNode(node)) {
                 directDomainChildren.add(node);
             }
         }
 
-        if (chainRoot != null) {
-            DecompositionType type = decompositionTypeOf(chainRoot);
+        if (topGate != null) {
+            DecompositionType type = decompositionTypeOf(topGate);
             List<BigraphEntity.NodeEntity<DynamicControl>> children = new ArrayList<>();
-            collectChainChildren(chainRoot, children);
+            collectGateChildren(topGate, children);
             return new DecodedDecomposition(type, children);
         }
         return new DecodedDecomposition(DecompositionType.NONE, directDomainChildren);
     }
 
-    private void collectChainChildren(BigraphEntity.NodeEntity<DynamicControl> chainNode,
+    private void collectGateChildren(BigraphEntity.NodeEntity<DynamicControl> gateNode,
                                       List<BigraphEntity.NodeEntity<DynamicControl>> out) {
-        for (BigraphEntity<?> child : bigraph.getChildrenOf(chainNode)) {
+        for (BigraphEntity<?> child : bigraph.getChildrenOf(gateNode)) {
             if (!(child instanceof BigraphEntity.NodeEntity<?> raw)) {
                 continue;
             }
             var typed = (BigraphEntity.NodeEntity<DynamicControl>) raw;
-            if (isChainNode(typed)) {
-                collectChainChildren(typed, out);
+            if (isGateNode(typed)) {
+                collectGateChildren(typed, out);
             } else if (isDomainNode(typed)) {
                 out.add(typed);
             }
@@ -369,48 +369,48 @@ public class POPPBigraph {
             return;
         }
 
-        List<String> chainIds = new ArrayList<>();
+        List<String> gateIds = new ArrayList<>();
 
         if (childIds.isEmpty()) {
-            addChainNode(parent, node.getKind(), type, nodeId + "_DECOMP");
-            chainIds.add(nodeId + "_DECOMP");
+            addGateNode(parent, node.getKind(), type, nodeId + "_DECOMP");
+            gateIds.add(nodeId + "_DECOMP");
         } else if (childIds.size() == 1) {
-            var chainRoot = addChainNode(parent, node.getKind(), type, nodeId + "_DECOMP");
-            chainIds.add(nodeId + "_DECOMP");
-            moveAndNotify(requireNode(childIds.getFirst()), chainRoot);
+            var topGate = addGateNode(parent, node.getKind(), type, nodeId + "_DECOMP");
+            gateIds.add(nodeId + "_DECOMP");
+            moveAndNotify(requireNode(childIds.getFirst()), topGate);
         } else {
             BigraphEntity.NodeEntity<DynamicControl> currentParent = parent;
             for (int i = 0; i < childIds.size() - 1; i++) {
-                String chainId = i == 0 ? nodeId + "_DECOMP" : nodeId + "_DECOMP_" + i;
-                var chainNode = addChainNode(currentParent, node.getKind(), type, chainId);
-                chainIds.add(chainId);
-                moveAndNotify(requireNode(childIds.get(i)), chainNode);
-                currentParent = chainNode;
+                String gateId = i == 0 ? nodeId + "_DECOMP" : nodeId + "_DECOMP_" + i;
+                var gateNode = addGateNode(currentParent, node.getKind(), type, gateId);
+                gateIds.add(gateId);
+                moveAndNotify(requireNode(childIds.get(i)), gateNode);
+                currentParent = gateNode;
             }
             moveAndNotify(requireNode(childIds.getLast()), currentParent);
         }
 
-        decompChainIds.put(nodeId, chainIds);
+        decompGateIds.put(nodeId, gateIds);
     }
 
     private void clearDecompositionChain(String nodeId) {
-        List<String> chainIds = decompChainIds.remove(nodeId);
-        if (chainIds == null) {
+        List<String> gateIds = decompGateIds.remove(nodeId);
+        if (gateIds == null) {
             return;
         }
         BigraphEntity.NodeEntity<DynamicControl> container = getOrCreatePOPPContainer();
-        for (int i = chainIds.size() - 1; i >= 0; i--) {
-            BigraphEntity.NodeEntity<DynamicControl> chainNode = nodesById.remove(chainIds.get(i));
-            if (chainNode == null) {
+        for (int i = gateIds.size() - 1; i >= 0; i--) {
+            BigraphEntity.NodeEntity<DynamicControl> gateNode = nodesById.remove(gateIds.get(i));
+            if (gateNode == null) {
                 continue;
             }
-            new ArrayList<>(bigraph.getChildrenOf(chainNode)).forEach(child -> {
+            new ArrayList<>(bigraph.getChildrenOf(gateNode)).forEach(child -> {
                 if (child instanceof BigraphEntity.NodeEntity<?> n && isDomainNode(n)) {
                     moveAndNotify((BigraphEntity.NodeEntity<DynamicControl>) n, container);
                 }
             });
-            bigraph.removeNode(chainNode);
-            fireNodeRemoved(chainNode);
+            bigraph.removeNode(gateNode);
+            fireNodeRemoved(gateNode);
         }
     }
 

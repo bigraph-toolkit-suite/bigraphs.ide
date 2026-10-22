@@ -26,7 +26,7 @@ public abstract class AbstractCoverageSession implements CoverageSession {
      * otherwise PARTIAL if some child is at least PARTIAL, else UNCOVERED. NONE is UNCOVERED.
      * <p>
      * {@code children} must not be empty: for an empty list both AND and OR yield COVERED (vacuous truth). Callers
-     * only aggregate nodes that have children, and the chain rules never list an empty chain node.
+     * only aggregate nodes that have children, and the gate rules never list an empty gate node.
      */
     public static Coverage aggregate(DecompositionType type, List<Coverage> children) {
         boolean all = children.stream().allMatch(c -> c == Coverage.COVERED);

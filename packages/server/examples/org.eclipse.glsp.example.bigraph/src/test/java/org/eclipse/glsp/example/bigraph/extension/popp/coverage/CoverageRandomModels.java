@@ -8,8 +8,8 @@ import java.util.*;
 /**
  * Random POPP models for differential checks of the rewriting analyzers against {@link DomainCoverageAnalyzer}.
  * Unlike {@link CoverageTestModels#balancedTree}, they contain every node kind and relation type, n-ary and
- * single-child AND/OR decompositions (inner chain nodes), NONE leaves, and unrelated nodes. The model refuses a
- * decomposition type on a leaf, but a file can still contain an empty chain node, so some leaves get one written
+ * single-child AND/OR decompositions (inner gate nodes), NONE leaves, and unrelated nodes. The model refuses a
+ * decomposition type on a leaf, but a file can still contain an empty gate node, so some leaves get one written
  * directly into the bigraph (the model keeps them NONE).
  * <p>
  * {@link #main} runs the check outside JUnit: {@code CoverageRandomModels <analyzer,...> [models=200] [maxNodes=30]}.
@@ -32,7 +32,7 @@ final class CoverageRandomModels {
             List<TreeNode<?>> same = byKind.computeIfAbsent(kind, k -> new ArrayList<>());
             // attach below an earlier node of the same kind (trees are single-kind), or stay a root
             if (!same.isEmpty() && rnd.nextInt(3) > 0) {
-                // half of the time one of the first three nodes: wide decompositions (inner chain nodes)
+                // half of the time one of the first three nodes: wide decompositions (inner gate nodes)
                 TreeNode<?> parent = same.get(rnd.nextInt(rnd.nextBoolean() ? Math.min(3, same.size()) : same.size()));
                 model.decompose(parent, node);
             }
@@ -65,12 +65,12 @@ final class CoverageRandomModels {
         }
     }
 
-    /** Adds an empty chain node of {@code type} under {@code node}, in the bigraph only. */
+    /** Adds an empty gate node of {@code type} under {@code node}, in the bigraph only. */
     static void emptyChain(Synced popp, TreeNode<?> node, DecompositionType type) {
         var g = popp.bigraph.getBigraph();
         var parent = popp.bigraph.getById(node.getId()).orElseThrow();
         String control = org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature
-                .getChainControl(node.getKind(), type).controlName();
+                .getGateControl(node.getKind(), type).controlName();
         g.addNode(parent, popp.bigraph.getSignature().getControlByName(control), node.getId() + "_DECOMP");
     }
 

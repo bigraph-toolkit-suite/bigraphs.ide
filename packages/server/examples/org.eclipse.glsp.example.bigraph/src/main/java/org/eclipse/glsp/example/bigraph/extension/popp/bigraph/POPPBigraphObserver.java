@@ -9,14 +9,14 @@ import java.util.List;
  * Notified by {@link POPPBigraph} after (or, where noted, just before) it changes the shape of the
  * underlying bigraph. All methods are no-ops by default so implementations override only what they need.
  *
- * <p>Every bigraph node is announced: the container, domain nodes, chain nodes and stubs, so the observer's picture
+ * <p>Every bigraph node is announced: the container, domain nodes, gate nodes and stubs, so the observer's picture
  * matches the stored bigraph. Stubs are announced with their relation: added through {@code onNodeAdded} and
  * {@link #onRelationAdded}, removed only through {@link #onRelationRemoving}.</p>
  *
  * <p>Ordering guarantees:</p>
  * <ul>
  *   <li>A node is announced after its parent, so {@code parent} is always already known.</li>
- *   <li>A node's chain nodes and relations are removed, and announced, before the node itself.</li>
+ *   <li>A node's gate nodes and relations are removed, and announced, before the node itself.</li>
  * </ul>
  *
  * <p>Notifications may repeat for the same entity (e.g. the POPP container is announced on every

@@ -22,10 +22,10 @@ public final class CoverageTestModels {
 
     /**
      * The analyzer for a benchmark/check name: {@code domain} ({@link DomainCoverageAnalyzer}, the reference); a schedule
-     * of {@link ScheduledRewritingCoverageAnalyzer} from scratch: {@code rounds} (no optimisation), {@code workset},
-     * {@code workset-seeded},
-     * {@code guards-first}, {@code prefilter}, {@code workset-guards-seeded-first}, {@code workset-prefilter-seeded} (the
-     * default, also {@code default}), {@code workset-guards-seeded-first-prefilter}; {@code oracle-<schedule>}, the
+     * of {@link ScheduledRewritingCoverageAnalyzer} from scratch: {@code rounds} (no optimisation), {@code worklist},
+     * {@code worklist-seeded},
+     * {@code guards-first}, {@code prefilter}, {@code worklist-guards-seeded-first}, {@code worklist-prefilter-seeded} (the
+     * default, also {@code default}), {@code worklist-guards-seeded-first-prefilter}; {@code oracle-<schedule>}, the
      * hits-only replay of that schedule ({@link OracleRewritingCoverageAnalyzer}; {@code oracle} is the default
      * schedule's); or {@code incremental-<schedule>}, the {@link IncrementalCoverageAnalyzer} with that schedule
      * ({@code incremental} with the default one), registered as an observer of the bigraph. Rewriting needs the fixed
@@ -57,13 +57,13 @@ public final class CoverageTestModels {
     static ScheduledRewritingCoverageAnalyzer.Options options(String name) {
         return switch (name) {
             case "rounds" -> ScheduledRewritingCoverageAnalyzer.Options.ROUNDS;
-            case "workset" -> ScheduledRewritingCoverageAnalyzer.Options.WORKSET;
-            case "workset-seeded" -> ScheduledRewritingCoverageAnalyzer.Options.WORKSET_SEEDED;
+            case "worklist" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST;
+            case "worklist-seeded" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_SEEDED;
             case "guards-first" -> ScheduledRewritingCoverageAnalyzer.Options.GUARDS_FIRST;
             case "prefilter" -> ScheduledRewritingCoverageAnalyzer.Options.PREFILTER;
-            case "workset-guards-seeded-first" -> ScheduledRewritingCoverageAnalyzer.Options.WORKSET_GUARDS_SEEDED_FIRST;
-            case "workset-prefilter-seeded" -> ScheduledRewritingCoverageAnalyzer.Options.WORKSET_PREFILTER_SEEDED;
-            case "workset-guards-seeded-first-prefilter" -> ScheduledRewritingCoverageAnalyzer.Options.WORKSET_GUARDS_SEEDED_FIRST_PREFILTER;
+            case "worklist-guards-seeded-first" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_GUARDS_SEEDED_FIRST;
+            case "worklist-prefilter-seeded" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_PREFILTER_SEEDED;
+            case "worklist-guards-seeded-first-prefilter" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_GUARDS_SEEDED_FIRST_PREFILTER;
             default -> throw new IllegalArgumentException("Unknown analyzer " + name);
         };
     }

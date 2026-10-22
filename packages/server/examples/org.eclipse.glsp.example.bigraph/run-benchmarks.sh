@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The final benchmark run: correctness check, every schedule of ScheduledRewritingCoverageAnalyzer from scratch and
-# incremental with the hits-only references, the edit chains, a per-phase breakdown of the edit steps, the workset
+# incremental with the hits-only references, the edit chains, a per-phase breakdown of the edit steps, the worklist
 # under different rule sets and encodings, traced sessions and plots, one log.
 #
 #   ./run-benchmarks.sh [variant] [cores]
@@ -8,20 +8,20 @@
 #
 # Schedules (SCHEDULES), each from scratch (<schedule>) and incremental (incremental-<schedule>):
 #   rounds                                 no optimisation: every rule every round (the baseline)
-#   workset                                the rule workset (overlap analysis), every rule queued at the start
-#   workset-seeded                         + seed (from scratch: the link rules; incremental: the rules the edit can
+#   worklist                                the rule worklist (overlap analysis), every rule queued at the start
+#   worklist-seeded                         + seed (from scratch: the link rules; incremental: the rules the edit can
 #                                          have enabled, see IncrementalCoverageAnalyzer)
-#   workset-guards-seeded-first            + guard patterns (matchFirst)
+#   worklist-guards-seeded-first            + guard patterns (matchFirst)
 #   prefilter                              the structural prefilter alone (every rule every round, matcher on hits)
-#   workset-prefilter-seeded               workset + seed + prefilter: the default; incremental-workset-prefilter-seeded
+#   worklist-prefilter-seeded               worklist + seed + prefilter: the default; incremental-worklist-prefilter-seeded
 #                                          is the extension's analyzer, also called "incremental"
-#   workset-guards-seeded-first-prefilter  everything
+#   worklist-guards-seeded-first-prefilter  everything
 # References (perfect pruning: only the matcher calls that hit):
 #   oracle                                 from scratch: the default schedule's hits, replayed (JMH, schedules step)
 #   bound_ms                               incremental: computed per edit step from a traced step (breakdown step;
 #                                          a replay would fall into the measured step itself)
-# Rules: threshold chain rules and the overlap analysis (the defaults since this run). The encodings step compares
-# them with enumerated chain rules and the control-pair analysis (-Dpopp.chains, -Dpopp.enabling).
+# Rules: threshold gate rules and the overlap analysis (the defaults since this run). The encodings step compares
+# them with enumerated gate rules and the control-pair analysis (-Dpopp.gates, -Dpopp.enabling).
 #
 # Output (in benchmark-results/<variant>-<timestamp>/):
 #   run.log              everything printed by the steps, in order, plus the system settings
@@ -39,10 +39,10 @@
 #   breakdown-incremental-schedules.csv  the same for incremental at every other schedule, MIXED edits
 #   breakdown-scratch.csv                the same for every schedule from scratch, MIXED edits
 #                        Every step starts from the benchmark model, with the same edits for every analyzer.
-#   encodings/           the workset under the rule sets: encodings-static.csv (rules and enabled rules per encoding,
-#                        incl. the two earlier ones), and per chains x enabling: <c>-<e>.json (JMH inspectRoot of
-#                        ENCODING_SCHEDULES), precision-<c>-<e>/ (queued rule calls vs. hits, WorksetPrecision),
-#                        breakdown-<c>-<e>.csv (incremental workset schedules on identical edits)
+#   encodings/           the worklist under the rule sets: encodings-static.csv (rules and enabled rules per encoding,
+#                        incl. the two earlier ones), and per gate rules x enabling: <c>-<e>.json (JMH inspectRoot of
+#                        ENCODING_SCHEDULES), precision-<c>-<e>/ (queued rule calls vs. hits, WorklistPrecision),
+#                        breakdown-<c>-<e>.csv (incremental worklist schedules on identical edits)
 #   trace/               one traced session per schedule and the oracle (RewritingTraceReport)
 #   figures/             plots (benchmark-plots/*.py), if python3 with matplotlib is installed
 #
@@ -80,18 +80,18 @@ BREAKDOWN_WARMUP="${BREAKDOWN_WARMUP:-2}"
 # the most important results first, so a run that overruns the night still has them
 STEPS=",${STEPS:-check,default,edits,schedules,breakdown,encodings,trace,plot},"
 step() { [[ "$STEPS" == *",$1,"* ]]; }
-DEFAULT_SCHEDULE="workset-prefilter-seeded"
-SCHEDULES="${SCHEDULES:-rounds,workset,workset-seeded,workset-guards-seeded-first,prefilter,workset-prefilter-seeded,workset-guards-seeded-first-prefilter}"
+DEFAULT_SCHEDULE="worklist-prefilter-seeded"
+SCHEDULES="${SCHEDULES:-rounds,worklist,worklist-seeded,worklist-guards-seeded-first,prefilter,worklist-prefilter-seeded,worklist-guards-seeded-first-prefilter}"
 DEFAULT_ANALYZERS="${DEFAULT_ANALYZERS:-$DEFAULT_SCHEDULE}"       # add domain for its numbers in summary.csv
 ORACLES="${ORACLES:-oracle}"
 prefixed() { local out="" s; for s in ${SCHEDULES//,/ }; do out="$out,$1$s"; done; echo "${out#,}"; }
 INCREMENTALS="$(prefixed incremental-)"
 OTHER_INCREMENTALS="$(echo "$INCREMENTALS" | tr ',' '\n' | grep -vx "incremental-$DEFAULT_SCHEDULE" | paste -sd,)"
-# the encodings step: the workset schedules under both chain encodings and both enabling analyses
-ENCODING_CHAINS="${ENCODING_CHAINS:-enumerated,threshold}"
+# the encodings step: the worklist schedules under both gate rule sets and both enabling analyses
+ENCODING_GATES="${ENCODING_GATES:-enumerated,threshold}"
 ENCODING_ENABLING="${ENCODING_ENABLING:-controls,overlap}"
-ENCODING_SCHEDULES="${ENCODING_SCHEDULES:-workset,workset-seeded}"   # + rounds once per chain encoding
-ENCODING_INCREMENTALS="${ENCODING_INCREMENTALS:-incremental-workset,incremental-workset-seeded}"
+ENCODING_SCHEDULES="${ENCODING_SCHEDULES:-worklist,worklist-seeded}"   # + rounds once per gate rule set
+ENCODING_INCREMENTALS="${ENCODING_INCREMENTALS:-incremental-worklist,incremental-worklist-seeded}"
 OUT="benchmark-results/${VARIANT}-$(date +%Y%m%d-%H%M%S)"
 
 SHUTDOWN="${SHUTDOWN:-0}"
@@ -111,7 +111,7 @@ mkdir -p "$OUT"
 # Always runs, so edits since the last build are never benchmarked stale.
 mvn -q test-compile dependency:build-classpath -Dmdep.outputFile=target/cp.txt -Dmdep.includeScope=test
 for c in CoverageBenchmark CoverageBenchmarkCheck RewritingTraceReport EditChainBenchmark EditChainBreakdown \
-         WorksetPrecision EncodingComparison; do
+         WorklistPrecision EncodingComparison; do
   if [ ! -f "target/test-classes/org/eclipse/glsp/example/bigraph/extension/popp/coverage/$c.class" ]; then
     echo "missing $c.class after mvn test-compile" >&2; exit 1
   fi
@@ -148,7 +148,7 @@ fi
   $RUN -Dvariant="$VARIANT" -cp "$CP" $PKG.CoverageBenchmarkCheck \
     2 "$DEFAULT_SCHEDULE,oracle-$DEFAULT_SCHEDULE,incremental-$DEFAULT_SCHEDULE"
   $RUN -Dvariant="$VARIANT" -cp "$CP" $PKG.CoverageBenchmarkCheck 1 "$SCHEDULES,$ORACLES,$OTHER_INCREMENTALS"
-  $RUN -cp "$CP" $PKG.CoverageBenchmarkCheck --edits incremental,incremental-workset
+  $RUN -cp "$CP" $PKG.CoverageBenchmarkCheck --edits incremental,incremental-worklist
   echo
   fi
 
@@ -210,14 +210,14 @@ fi
   mkdir -p "$OUT/encodings"
   echo "=== encodings: rules and enabled rules per encoding (static)"
   $RUN -cp "$CP" $PKG.EncodingComparison "$OUT/encodings/encodings-static.csv"
-  for c in ${ENCODING_CHAINS//,/ }; do
+  for c in ${ENCODING_GATES//,/ }; do
     for e in ${ENCODING_ENABLING//,/ }; do
-      PROPS="-Dpopp.chains=$c -Dpopp.enabling=$e"
-      # rounds does not use the enabling analysis: once per chain encoding
+      PROPS="-Dpopp.gates=$c -Dpopp.enabling=$e"
+      # rounds does not use the enabling analysis: once per gate rule set
       SCH="$ENCODING_SCHEDULES"; [ "$e" = "${ENCODING_ENABLING##*,}" ] && SCH="rounds,$SCH"
-      echo "=== encodings: chains=$c enabling=$e: check, workset precision, JMH inspectRoot of $SCH, incremental breakdown"
+      echo "=== encodings: gates=$c enabling=$e: check, worklist precision, JMH inspectRoot of $SCH, incremental breakdown"
       $RUN $PROPS -cp "$CP" $PKG.CoverageBenchmarkCheck 1 "$SCH,$ENCODING_INCREMENTALS"
-      $RUN $PROPS -cp "$CP" $PKG.WorksetPrecision "$OUT/encodings/precision-$c-$e" "$ENCODING_DEPTHS" true,false
+      $RUN $PROPS -cp "$CP" $PKG.WorklistPrecision "$OUT/encodings/precision-$c-$e" "$ENCODING_DEPTHS" true,false
       $JMH 'CoverageBenchmark\.inspectRoot' $ENCODING_JMH -rf json -rff "$OUT/encodings/$c-$e.json" \
         -p analyzer="$SCH" -p depth="$ENCODING_DEPTHS" -p complete=true -jvmArgsAppend "-Dvariant=$VARIANT $PROPS"
       $RUN $PROPS -cp "$CP" $PKG.EditChainBreakdown "$OUT/encodings/breakdown-$c-$e.csv" "$ENCODING_INCREMENTALS" \

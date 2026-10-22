@@ -16,7 +16,7 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 
-from bench_style import SCHEDULES, style, INK, INK2, GRID, save, nfr, NFR_NODES, setup as setup_style
+from bench_style import canon, SCHEDULES, style, INK, INK2, GRID, save, nfr, NFR_NODES, setup as setup_style
 
 PHASES = [  # column, label, colour
     ("build_ms", "build", "#b9b8b3"),
@@ -33,7 +33,7 @@ PHASES = [  # column, label, colour
 def order_key(analyzer):
     base = analyzer[len("incremental-"):] if analyzer.startswith("incremental-") else analyzer
     if analyzer == "incremental":
-        base = "workset-prefilter-seeded"
+        base = "worklist-prefilter-seeded"
     return SCHEDULES.index(base) if base in SCHEDULES else len(SCHEDULES)
 
 
@@ -47,11 +47,11 @@ def plot(path, out):
         by_action[r["action"]].append(r)
     for action, rs in by_action.items():
         depths = sorted({int(r["depth"]) for r in rs})
-        analyzers = sorted({r["analyzer"] for r in rs}, key=order_key)
+        analyzers = sorted({canon(r["analyzer"]) for r in rs}, key=order_key)
         fig, axes = plt.subplots(1, len(depths), figsize=(3.1 * len(depths) + 1.6, 0.42 * len(analyzers) + 1.4),
                                  sharey=True, squeeze=False)
         for ax, d in zip(axes[0], depths):
-            here = {r["analyzer"]: r for r in rs if int(r["depth"]) == d}
+            here = {canon(r["analyzer"]): r for r in rs if int(r["depth"]) == d}
             for y, a in enumerate(analyzers):
                 r = here.get(a)
                 if not r:

@@ -68,7 +68,7 @@ class POPPValidationServiceTest {
                 ValidationResultAction.class,
                 a -> !a.getReport().valid(), 5000).orElseThrow();
         assertEquals(session.model().getVersion(), result.getReport().modelVersion());
-        assertEquals("CHAIN_OUTSIDE_DECOMPOSITION", result.getReport().issues().getFirst().code());
+        assertEquals("GATE_OUTSIDE_DECOMPOSITION", result.getReport().issues().getFirst().code());
         assertEquals("ERROR", result.getReport().issues().getFirst().severity());
         assertNotNull(goal);
     }

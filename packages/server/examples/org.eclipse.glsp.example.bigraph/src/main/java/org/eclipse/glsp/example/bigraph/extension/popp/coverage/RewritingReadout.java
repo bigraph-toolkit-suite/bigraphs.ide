@@ -6,7 +6,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignat
 
 import java.util.*;
 
-/** State and derivation per domain node id; chain nodes are internal and not included. */
+/** State and derivation per domain node id; gate nodes are internal and not included. */
 record RewritingReadout(Map<String, Coverage> coverage, Map<String, Derivation> derivation) {
     /** Why a node has its state: the reason marker of the rule that set it, and the giver for link rules. */
     record Derivation(CoverageMarker marker, String giverId) {}

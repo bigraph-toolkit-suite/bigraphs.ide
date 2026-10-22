@@ -29,7 +29,7 @@ import java.util.function.Predicate;
  * session off it. There is no state table besides the bigraph: states are the state cells, reasons the reason markers
  * the rewrites left, and what a state rests on is read off the bigraph.
  * <p>
- * <b>Sync.</b> The structure bigraph announces every node (container, domain and chain nodes, stubs) and every
+ * <b>Sync.</b> The structure bigraph announces every node (container, domain and gate nodes, stubs) and every
  * relation, in order (see {@link POPPBigraphObserver}). The coverage bigraph keeps the structure bigraph's node names
  * through rewriting, so the operations are replayed by name: a node is added (a tree node with a fresh state cell,
  * {@code Unc}, or {@code Cov} and {@code CovIntrinsic} if its kind is intrinsic in the mode, see
@@ -42,21 +42,21 @@ import java.util.function.Predicate;
  * node, an AND child, AND instead of OR) can lower states, so every state that rested on the removed part goes back to
  * UNCOVERED first. What a state rests on is in the bigraph:
  * <ul>
- *   <li>a chain node rests on its slots (its children);</li>
- *   <li>a domain node whose reason marker is {@code CovDecomp}/{@code PartDecomp} rests on its first chain node;</li>
+ *   <li>a gate node rests on its slots (its children);</li>
+ *   <li>a domain node whose reason marker is {@code CovDecomp}/{@code PartDecomp} rests on its topmost gate node;</li>
  *   <li>a domain node whose reason marker is {@code CovLink}/{@code PartLink} rests on the giver at the other end of
  *       the relation edge that marker is linked to.</li>
  * </ul>
  * Resetting a node removes its state cell and reason markers, adds {@code Unc} and resets, transitively, everything
- * that rests on it: its parent if that is a chain node or a domain node with a decomposition reason, and every domain
+ * that rests on it: its parent if that is a gate node or a domain node with a decomposition reason, and every domain
  * node whose reason marker sits on one of its relation edges. Derivations were established in order, so they form a
  * DAG, and this leaves only states that are still derivable. A node added, removed or moved below a tree node resets
  * that node by the first two rules; a relation removed resets the receivers whose reason marker is linked to its edge.
- * Intrinsic nodes (domain and chain nodes of an intrinsically covered kind) are never reset.
+ * Intrinsic nodes (domain and gate nodes of an intrinsically covered kind) are never reset.
  * <p>
- * <b>Seed.</b> A reset or new node can only be upgraded by rules whose receiver has its kind (chain, lift and link
+ * <b>Seed.</b> A reset or new node can only be upgraded by rules whose receiver has its kind (gate, lift and link
  * rules for that kind); a node whose children changed likewise; a new relation first only by the link rules of its
- * type into its receiver's kind. Those rules are queued; the workset queues whatever their upgrades enable. Every other rule had no
+ * type into its receiver's kind. Those rules are queued; the worklist queues whatever their upgrades enable. Every other rule had no
  * match at the old fixpoint, and nothing it needs has changed.
  * <p>
  * The coverage bigraph is wrapped for editing ({@link PureBigraphMutable} over the same EMF instance model) and wrapped
@@ -143,7 +143,7 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
             PureBigraph synced = mirror.forMatching();
             long syncNanos = System.nanoTime() - t0;
             // a seeded schedule starts from the rules the edit can have enabled; an unseeded one queues every rule,
-            // as from scratch (for comparing the seed; without a workset every round tries every rule anyway)
+            // as from scratch (for comparing the seed; without a worklist every round tries every rule anyway)
             Predicate<CompiledRule> seed = engine.options().seed() == ScheduledRewritingCoverageAnalyzer.Options.ALL_RULES
                     ? ScheduledRewritingCoverageAnalyzer.Options.ALL_RULES : mirror::seeds;
             int seeded = (int) ScheduledRewritingCoverageAnalyzer.rules().stream().filter(seed).count();
@@ -226,7 +226,7 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
             } else {
                 cell(n, CoverageMarker.UNC);
             }
-            invalidate(parent); // a new chain node is a new slot of its parent
+            invalidate(parent); // a new gate node is a new slot of its parent
         }
 
         private void removed(Removed r) {
@@ -294,7 +294,7 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
 
         /**
          * Something {@code p}'s state may rest on changed (a child added, removed, moved or reset): reset {@code p}
-         * if its state rests on its children, i.e. if it is a chain node, or a domain node with a decomposition reason.
+         * if its state rests on its children, i.e. if it is a gate node, or a domain node with a decomposition reason.
          */
         private void invalidate(BigraphEntity<?> p) {
             if (!(p instanceof BigraphEntity.NodeEntity<?> raw) || !isTree(raw)) return;
@@ -432,11 +432,11 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
             return marker(n).isEmpty() && POPPBigraphSignature.isTreeControl(POPPBigraphSignature.forNode(n));
         }
 
-        /** The kind of a tree node: of the domain node, or of the tree a chain node belongs to. */
+        /** The kind of a tree node: of the domain node, or of the tree a gate node belongs to. */
         private static NodeKind kind(BigraphEntity.NodeEntity<?> n) {
             POPPBigraphSignature c = POPPBigraphSignature.forNode(n);
             return POPPBigraphSignature.isKindControl(c) ? POPPBigraphSignature.toNodeKind(c)
-                    : POPPBigraphSignature.chainKindOf(c).orElseThrow();
+                    : POPPBigraphSignature.gateKindOf(c).orElseThrow();
         }
 
         /** The receiver of a relation edge named {@code TYPE:source->target} (see {@link POPPBigraph#createRelation}). */

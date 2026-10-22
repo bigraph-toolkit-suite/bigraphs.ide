@@ -27,24 +27,24 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * bigraph ({@link CoverageBigraph}), matched with the Bigraph Framework's {@link PureBigraphMatcher} (jLibBig
  * underneath), applied by rewriting. Evaluates every session from scratch; the POPP extension uses it through
  * {@link IncrementalCoverageAnalyzer}, which keeps the fixpoint bigraph and only re-derives what an edit affected.
- * {@link Options#DEFAULT}: workset, prefilter, seed.
+ * {@link Options#DEFAULT}: worklist, prefilter, seed.
  * <p>
  * Which rule to match when is decided from what the rules themselves say, not from tables over the model: every
  * decision not to call the matcher for a rule follows from the rule set (a static analysis), from a matcher call on a
  * smaller pattern (a guard) or from a generic structural search (the prefilter). The levers can be combined freely;
  * with none of them every rule is matched in every round.
  * <p>
- * <b>Rule workset</b> ({@code workset}). A static analysis of the rules computes which rules a rule <i>enables</i>:
+ * <b>Rule worklist</b> ({@code worklist}). A static analysis of the rules computes which rules a rule <i>enables</i>:
  * {@code r} enables {@code s} if {@code r}'s receiver as {@code r} leaves it (new state and reason marker) can be glued
  * onto a node of {@code s}'s redex that needs something {@code r} created ({@link CoverageRewriteRules#enablingByOverlap()},
  * a produce-use dependency as in critical pair analysis; a node without a site has exactly its children, and a node has
  * one state). The coarser analysis by parent&gt;child control pairs ({@code -Dpopp.enabling=controls}) is kept for the
- * comparison. How much the workset can prune depends on the rule set: with threshold chain rules
- * ({@link CoverageRewriteRules#THRESHOLD_CHAINS}) a slot that changes state enables only the thresholds of its new
+ * comparison. How much the worklist can prune depends on the rule set: with threshold gate rules
+ * ({@link CoverageRewriteRules#THRESHOLD_GATES}) a slot that changes state enables only the thresholds of its new
  * state, not every combination of sibling states. Evaluation runs in waves: a wave takes the queued rules in turn and
  * rewrites with each until it has no match; a rule that rewrote something queues every rule it enables for the next
  * wave, each at most once; a rule without a match is dropped, since only an enabling rule can give it one. Without
- * {@code workset}
+ * {@code worklist}
  * every wave tries every rule (rounds).
  * <p>
  * <b>Guard patterns</b> ({@code guards}). Each rule has a guard: its receiver node with its marker children and a
@@ -54,14 +54,14 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * rule out a whole group.
  * <p>
  * <b>Seed</b> ({@code seed}). The rules queued at the start; the developer's knowledge of the start state. For
- * coverage only link rules can match first: the trees of intrinsic kinds start covered (chain nodes included, see
- * {@link CoverageBigraph}) and all others uncovered, so no chain or lift rule has an input until a link rule raised
+ * coverage only link rules can match first: the trees of intrinsic kinds start covered (gate nodes included, see
+ * {@link CoverageBigraph}) and all others uncovered, so no gate or lift rule has an input until a link rule raised
  * something.
  * <p>
  * <b>Structural prefilter</b> ({@code prefilter}). Before a matcher call, a generic filter
  * ({@link StructuralPrefilter}) searches the redex's place and link structure in the agent; only if it embeds is the
  * matcher called (filter-and-refine). It never rejects a rule that matches, and for the coverage rules it is exact,
- * so the matcher is called only for hits; with it, guards and the workset are unnecessary.
+ * so the matcher is called only for hits; with it, guards and the worklist are unnecessary.
  * <p>
  * <b>Applying the rules.</b> Every match is turned into the next agent by the framework's
  * {@code PureReactiveSystem.buildParametricReaction} (context, instantiated reactum and parameters composed), and the
@@ -77,7 +77,7 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
 
     private static final List<CompiledRule> RULES = CoverageRewriteRules.compile();
     private static final DynamicSignature SIGNATURE = RULES.getFirst().rule().getRedex().getSignature();
-    /** The node kinds and the chain controls. */
+    /** The node kinds and the gate controls. */
     private static final Set<String> KINDS = new HashSet<>(), GATES = new HashSet<>();
     static {
         for (POPPBigraphSignature c : POPPBigraphSignature.values()) {
@@ -87,7 +87,7 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
     }
 
     /**
-     * @param workset     queue only enabled rules (otherwise every wave matches every rule)
+     * @param worklist     queue only enabled rules (otherwise every wave matches every rule)
      * @param guards      match a rule's guard before the rule
      * @param seed        the rules queued at the start
      * @param nested      with {@code guards}: also a second-level guard that adds one child of the receiver
@@ -95,14 +95,14 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
      *                    {@link #FIRST_MATCH_WORKS}, otherwise all matches are enumerated)
      * @param prefilter   call the matcher only when the {@link StructuralPrefilter} finds the redex's structure
      */
-    public record Options(boolean workset, boolean guards, Predicate<CompiledRule> seed, boolean nested, boolean firstMatch,
+    public record Options(boolean worklist, boolean guards, Predicate<CompiledRule> seed, boolean nested, boolean firstMatch,
                           boolean prefilter) {
-        public Options(boolean workset, boolean guards, Predicate<CompiledRule> seed) {
-            this(workset, guards, seed, false, false, false);
+        public Options(boolean worklist, boolean guards, Predicate<CompiledRule> seed) {
+            this(worklist, guards, seed, false, false, false);
         }
 
-        public Options(boolean workset, boolean guards, Predicate<CompiledRule> seed, boolean nested, boolean firstMatch) {
-            this(workset, guards, seed, nested, firstMatch, false);
+        public Options(boolean worklist, boolean guards, Predicate<CompiledRule> seed, boolean nested, boolean firstMatch) {
+            this(worklist, guards, seed, nested, firstMatch, false);
         }
 
         public static final Predicate<CompiledRule> ALL_RULES = r -> true;
@@ -111,20 +111,20 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
 
         /** None of the optimisations: every rule every round until a round changes nothing (the baseline). */
         public static final Options ROUNDS = new Options(false, false, ALL_RULES);
-        /** Only the workset: every rule queued at the start. */
-        public static final Options WORKSET = new Options(true, false, ALL_RULES);
-        public static final Options WORKSET_SEEDED = new Options(true, false, LINK_RULES);
+        /** Only the worklist: every rule queued at the start. */
+        public static final Options WORKLIST = new Options(true, false, ALL_RULES);
+        public static final Options WORKLIST_SEEDED = new Options(true, false, LINK_RULES);
         /** Only guards (with matchFirst): every rule every round, guarded. */
         public static final Options GUARDS_FIRST = new Options(false, true, ALL_RULES, false, true);
         /** Only the prefilter: every rule every round, the matcher only where the prefilter finds the redex. */
         public static final Options PREFILTER = new Options(false, false, ALL_RULES, false, false, true);
-        public static final Options WORKSET_GUARDS_SEEDED_FIRST = new Options(true, true, LINK_RULES, false, true);
-        public static final Options WORKSET_PREFILTER_SEEDED = new Options(true, false, LINK_RULES, false, false, true);
-        /** Everything: workset, seed, prefilter, then guards (redundant after an exact prefilter; shows their cost). */
-        public static final Options WORKSET_GUARDS_SEEDED_FIRST_PREFILTER = new Options(true, true, LINK_RULES, false, true, true);
+        public static final Options WORKLIST_GUARDS_SEEDED_FIRST = new Options(true, true, LINK_RULES, false, true);
+        public static final Options WORKLIST_PREFILTER_SEEDED = new Options(true, false, LINK_RULES, false, false, true);
+        /** Everything: worklist, seed, prefilter, then guards (redundant after an exact prefilter; shows their cost). */
+        public static final Options WORKLIST_GUARDS_SEEDED_FIRST_PREFILTER = new Options(true, true, LINK_RULES, false, true, true);
 
-        /** The analyzer's default: workset, prefilter and seed. */
-        public static final Options DEFAULT = WORKSET_PREFILTER_SEEDED;
+        /** The analyzer's default: worklist, prefilter and seed. */
+        public static final Options DEFAULT = WORKLIST_PREFILTER_SEEDED;
     }
 
     /** A rule with what the static analysis knows about it. */
@@ -170,12 +170,12 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
                     .filter(n -> n.getName().equals(r.receiverNode())).findFirst()
                     .map(POPPBigraphSignature::forNode)
                     .flatMap(c -> POPPBigraphSignature.isKindControl(c) ? Optional.of(POPPBigraphSignature.toNodeKind(c))
-                            : POPPBigraphSignature.chainKindOf(c));
+                            : POPPBigraphSignature.gateKindOf(c));
             RECEIVER_KINDS.put(r, kind);
         }
     }
 
-    /** The kind of a rule's receiver: of the domain node, or of the tree a chain node belongs to. */
+    /** The kind of a rule's receiver: of the domain node, or of the tree a gate node belongs to. */
     public static Optional<NodeKind> receiverKind(CompiledRule rule) {
         return RECEIVER_KINDS.getOrDefault(rule, Optional.empty());
     }
@@ -356,13 +356,13 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
                 }
                 if (applied) {
                     changed = true;
-                    if (options.workset()) for (int i : s.enables()) queue.add(rules.get(i));
+                    if (options.worklist()) for (int i : s.enables()) queue.add(rules.get(i));
                 }
             }
             if (trace != null) trace.round(waves, wave.size(), prefiltered, guarded, roundStart, trace.now(), rewriteInRound,
                     roundAgent, RewritingReadout.ofRewritten(agent).coverage());
             if (!changed) break;
-            if (!options.workset()) queue.addAll(rules);
+            if (!options.worklist()) queue.addAll(rules);
         }
         t0 = System.nanoTime();
         RewritingReadout readout = RewritingReadout.ofRewritten(agent);
@@ -570,7 +570,7 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
     /**
      * The first-level guard: the rule's receiver with its markers and a site. The second-level ({@code nested}) guard
      * adds one tree child of the receiver with its markers: of the children, the one whose shape sorts last, which for
-     * chain rules is the slot in the highest state ({@code Cov} &gt; {@code Part} &gt; {@code Unc}), so rules are
+     * gate rules is the slot in the highest state ({@code Cov} &gt; {@code Part} &gt; {@code Unc}), so rules are
      * grouped by the best slot they need. Shared by key; both embed into the rule's redex.
      */
     private static Guard guard(CompiledRule rule, boolean nested, Map<String, Guard> byKey) {

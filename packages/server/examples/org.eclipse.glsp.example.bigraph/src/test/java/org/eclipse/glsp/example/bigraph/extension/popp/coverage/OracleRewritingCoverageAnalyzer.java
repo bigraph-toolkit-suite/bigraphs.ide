@@ -18,7 +18,7 @@ import java.util.*;
  * rule calls that found a match (guard calls are not rule calls and are dropped). {@link #session} replays it on a
  * freshly built coverage bigraph: every call hits and is followed by its rewrite, with the same matcher API as the
  * schedule ({@code matchFirst} for the {@code *-first} schedules, otherwise the first of all matches), so the replay
- * rewrites in the same order with the same matches. There are no guards, no prefilter, no workset bookkeeping and no
+ * rewrites in the same order with the same matches. There are no guards, no prefilter, no worklist bookkeeping and no
  * failed calls: the time is hits x (cost of a hitting call + its rewrite), plus building the coverage bigraph and the
  * readout, i.e. a lower bound for that schedule. With rewriting the order matters (what a call costs depends on the
  * agent it runs on), so every schedule has its own oracle; the replay is checked against the recording's result once.

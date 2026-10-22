@@ -99,8 +99,8 @@ class POPPModelValidatorTest {
                 .filter(n -> POPPBigraphSignature.INVERTS_INCOMING.matches(n) && g.getParent(n) == node(g, goal.getId()))
                 .findFirst().orElseThrow();
         g.removeNode(goalStub);
-        // 2) a chain node directly in the container
-        g.addNode(container, popp.bigraph.getSignature().getControlByName("ProblemAnd"), "stray-chain");
+        // 2) a gate node directly in the container
+        g.addNode(container, popp.bigraph.getSignature().getControlByName("ProblemAnd"), "stray-gate");
         // 3) a child placed directly in its parent, without the chain
         g.moveNode(node(g, child.getId()), node(g, problem.getId()));
 
@@ -110,9 +110,9 @@ class POPPModelValidatorTest {
         List<ValidationIssue> dangling = issues(report, ValidationIssue.Code.DANGLING_STUB);
         assertEquals(1, dangling.size(), report.issues()::toString);
         assertEquals(List.of(problem.getId()), dangling.getFirst().nodeIds());
-        List<ValidationIssue> stray = issues(report, ValidationIssue.Code.CHAIN_OUTSIDE_DECOMPOSITION);
+        List<ValidationIssue> stray = issues(report, ValidationIssue.Code.GATE_OUTSIDE_DECOMPOSITION);
         assertEquals(1, stray.size());
-        assertEquals(List.of("stray-chain"), stray.getFirst().elements());
+        assertEquals(List.of("stray-gate"), stray.getFirst().elements());
         List<ValidationIssue> direct = issues(report, ValidationIssue.Code.CHILD_WITHOUT_DECOMPOSITION);
         assertEquals(1, direct.size());
         assertEquals(List.of(problem.getId(), child.getId()), direct.getFirst().nodeIds());
@@ -163,7 +163,7 @@ class POPPModelValidatorTest {
     }
 
     @Test
-    void aStubInAChainNodeIsMisplacedAndAttributedToTheDecomposedNode() {
+    void aStubInAGateNodeIsMisplacedAndAttributedToTheDecomposedNode() {
         CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
         Goal parent = (Goal) popp.model.createNode(NodeKind.GOAL, "parent", 0, 0);
         parent.addChild((Goal) popp.model.createNode(NodeKind.GOAL, "child", 0, 0));

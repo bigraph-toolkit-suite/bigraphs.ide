@@ -17,7 +17,7 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * The structural well-formedness conditions of the POPP encoding, each as a pattern whose occurrence is a defect.
  *
  * <p>The patterns rely on two properties of bigraph matching: a redex node without a site only matches an agent node
- * with exactly the redex node's content (so {@code GoalAnd} without children matches only an empty chain node), and a
+ * with exactly the redex node's content (so {@code GoalAnd} without children matches only an empty gate node), and a
  * closed edge of the redex only matches an agent edge with exactly the same points (so a stub on a one-point edge
  * matches only a stub without partner). Siblings of a redex root belong to the context, so a single-node redex
  * matches the node wherever it is; anchoring in the {@code POPP} container restricts a pattern to the top level.</p>
@@ -30,8 +30,8 @@ public final class POPPValidationPatterns {
     private static final List<POPPBigraphSignature> KINDS = List.of(
             POPPBigraphSignature.PROBLEM, POPPBigraphSignature.GOAL, POPPBigraphSignature.CONSEQUENCE,
             POPPBigraphSignature.SOLUTION, POPPBigraphSignature.SUCCESS_CRITERIA, POPPBigraphSignature.SUCCESS_PROOF);
-    /** Every chain control (one per kind and decomposition type). */
-    private static final List<POPPBigraphSignature> CHAINS = Arrays.stream(POPPBigraphSignature.values())
+    /** Every gate control (one per kind and decomposition type). */
+    private static final List<POPPBigraphSignature> GATES = Arrays.stream(POPPBigraphSignature.values())
             .filter(POPPBigraphSignature::isDecompControl).toList();
     private static final List<POPPBigraphSignature> STUBS = Arrays.stream(POPPBigraphSignature.values())
             .filter(POPPBigraphSignature::isStubControl).toList();
@@ -69,21 +69,21 @@ public final class POPPValidationPatterns {
         List<ValidationPattern> out = new ArrayList<>();
         POPPBigraphSignature popp = POPPBigraphSignature.POPP;
 
-        // A chain node directly in the container: decomposition structure that belongs to no decomposed node.
-        for (POPPBigraphSignature chain : CHAINS) {
-            out.add(pattern("chain-in-container-" + chain.controlName(), ValidationIssue.Code.CHAIN_OUTSIDE_DECOMPOSITION,
-                    node(popp, "container", node(chain, "chain", Node.SITE), Node.SITE),
-                    List.of("chain"),
-                    s -> chain.controlName() + " node directly in the POPP container, not under a decomposed node",
+        // A gate node directly in the container: decomposition structure that belongs to no decomposed node.
+        for (POPPBigraphSignature gate : GATES) {
+            out.add(pattern("gate-in-container-" + gate.controlName(), ValidationIssue.Code.GATE_OUTSIDE_DECOMPOSITION,
+                    node(popp, "container", node(gate, "gate", Node.SITE), Node.SITE),
+                    List.of("gate"),
+                    s -> gate.controlName() + " node directly in the POPP container, not under a decomposed node",
                     false));
         }
 
-        // An empty chain node: a decomposition type without decomposed children.
-        for (POPPBigraphSignature chain : CHAINS) {
-            String type = POPPBigraphSignature.decompositionTypeOf(chain).name();
-            out.add(pattern("empty-" + chain.controlName(), ValidationIssue.Code.EMPTY_DECOMPOSITION,
-                    node(chain, "chain"),
-                    List.of("chain"),
+        // An empty gate node: a decomposition type without decomposed children.
+        for (POPPBigraphSignature gate : GATES) {
+            String type = POPPBigraphSignature.decompositionTypeOf(gate).name();
+            out.add(pattern("empty-" + gate.controlName(), ValidationIssue.Code.EMPTY_DECOMPOSITION,
+                    node(gate, "gate"),
+                    List.of("gate"),
                     s -> s.getFirst() + " has an " + type + " decomposition without children",
                     false));
         }
@@ -95,22 +95,22 @@ public final class POPPValidationPatterns {
                     List.of("stub"),
                     s -> s.getFirst() + ": " + stub.controlName() + " stub without a partner (relation end missing)",
                     false));
-            // Stubs belong directly inside domain nodes, never in the container or in a chain node.
+            // Stubs belong directly inside domain nodes, never in the container or in a gate node.
             out.add(pattern("stub-in-container-" + stub.controlName(), ValidationIssue.Code.MISPLACED_STUB,
                     node(popp, "container", stub(stub, "stub", Link.OPEN), Node.SITE),
                     List.of("stub"),
                     s -> stub.controlName() + " stub directly in the POPP container, not in a node",
                     false));
-            for (POPPBigraphSignature chain : CHAINS) {
-                out.add(pattern("stub-in-" + chain.controlName() + "-" + stub.controlName(), ValidationIssue.Code.MISPLACED_STUB,
-                        node(chain, "chain", stub(stub, "stub", Link.OPEN), Node.SITE),
+            for (POPPBigraphSignature gate : GATES) {
+                out.add(pattern("stub-in-" + gate.controlName() + "-" + stub.controlName(), ValidationIssue.Code.MISPLACED_STUB,
+                        node(gate, "gate", stub(stub, "stub", Link.OPEN), Node.SITE),
                         List.of("stub"),
                         s -> s.getFirst() + ": " + stub.controlName() + " stub inside a decomposition node instead of the node itself",
                         false));
             }
         }
 
-        // A domain node directly inside another one: a child attached without the decomposition chain.
+        // A domain node directly inside another one: a child attached without the decomposition gate.
         for (POPPBigraphSignature parent : KINDS) {
             for (POPPBigraphSignature child : KINDS) {
                 out.add(pattern("direct-" + parent.controlName() + "-" + child.controlName(),

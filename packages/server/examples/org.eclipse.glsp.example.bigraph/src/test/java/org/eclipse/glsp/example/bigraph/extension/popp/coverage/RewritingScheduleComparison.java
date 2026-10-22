@@ -14,8 +14,8 @@ import java.util.*;
  * {@code RewritingScheduleComparison [maxDepth=2] [runs=5] [warmup=2] [mode=VERIFY] [analyzers=...]}
  */
 public final class RewritingScheduleComparison {
-    static final List<String> DEFAULT = List.of("workset", "workset-seeded", "guards-first", "prefilter",
-            "workset-guards-seeded-first", "workset-prefilter-seeded", "workset-guards-seeded-first-prefilter", "oracle");
+    static final List<String> DEFAULT = List.of("worklist", "worklist-seeded", "guards-first", "prefilter",
+            "worklist-guards-seeded-first", "worklist-prefilter-seeded", "worklist-guards-seeded-first-prefilter", "oracle");
 
     public static void main(String[] args) {
         int maxDepth = args.length > 0 ? Integer.parseInt(args[0]) : 2;

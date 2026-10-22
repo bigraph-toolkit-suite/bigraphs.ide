@@ -74,10 +74,10 @@ class POPPBigraphSynchronizerTest {
                 model.createNode(NodeKind.GOAL, "c", 0, 0));
         children.forEach(c -> model.decompose(parent, c));
 
-        assertEquals("GoalAnd", control(entity(parent.getId() + "_DECOMP")), "one chain control per kind");
+        assertEquals("GoalAnd", control(entity(parent.getId() + "_DECOMP")), "one gate control per kind");
         assertEquals(parent.getId(), parentOf(parent.getId() + "_DECOMP"));
         assertEquals(parent.getId() + "_DECOMP", parentOf(parent.getId() + "_DECOMP_1"));
-        assertFalse(exists(parent.getId() + "_DECOMP_2"), "three children need two chain nodes");
+        assertFalse(exists(parent.getId() + "_DECOMP_2"), "three children need two gate nodes");
         assertEquals(DecompositionType.AND, session.popp().decodeDecomposition(entity(parent.getId())).type());
         assertEquals(children.stream().map(TreeNode::getId).collect(Collectors.toSet()), decodedChildren(parent));
     }

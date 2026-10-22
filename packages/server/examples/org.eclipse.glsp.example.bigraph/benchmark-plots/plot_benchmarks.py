@@ -21,7 +21,7 @@ from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter, NullLoca
 
 NODES = {0: 6, 1: 18, 2: 42, 3: 90}
 
-from bench_style import SCHEDULES, style, INK, INK2, GRID, ms_label, save, nfr, NFR_NODES, setup as setup_style
+from bench_style import canon, SCHEDULES, style, INK, INK2, GRID, ms_label, save, nfr, NFR_NODES, setup as setup_style
 
 BENCH_TITLE = {
     "inspectRoot": "Inspect problem root (warm)",
@@ -47,7 +47,7 @@ def load(results):
                 except (TypeError, ValueError):
                     e = 0.0
                 n = int(p["length"])
-                EDITS[(p["action"], n, p["analyzer"])][NODES[int(p["depth"])]] = (m["score"] / n, (e if e == e else 0.0) / n, "ms")
+                EDITS[(p["action"], n, canon(p["analyzer"]))][NODES[int(p["depth"])]] = (m["score"] / n, (e if e == e else 0.0) / n, "ms")
                 continue
             try:
                 err = float(m["scoreError"])   # "NaN" (a string) for single samples, e.g. the cold start
@@ -55,7 +55,7 @@ def load(results):
                 err = 0.0
             if err != err:
                 err = 0.0
-            data[(bench, p["analyzer"], p["complete"] == "true")][NODES[int(p["depth"])]] = (m["score"], err, m["scoreUnit"])
+            data[(bench, canon(p["analyzer"]), p["complete"] == "true")][NODES[int(p["depth"])]] = (m["score"], err, m["scoreUnit"])
     return data
 
 
@@ -172,6 +172,9 @@ def fig_gap_to_oracle(data, out):
         xs, ys = line(ax, common, a)
         xs_all |= set(xs)
         ends.append((ys[-1], xs[-1]))
+    if not xs_all:
+        plt.close(fig)
+        return
     # end labels, nudged apart when two lines end close together
     ends.sort()
     last = None
@@ -202,7 +205,7 @@ def fig_cold(data, out):
         return
     fig, ax = plt.subplots(figsize=(6.2, 4.0))
     xs_all = set()
-    labelled = {"rounds", "workset", "guards-first", "workset-prefilter-seeded"}
+    labelled = {"rounds", "worklist", "guards-first", "worklist-prefilter-seeded"}
     for a in order:
         s = data.get(("coldFirstSession", a, True))
         if s:
@@ -224,7 +227,7 @@ def fig_fast(data, out):
     """The extension's analyzer (incremental) and the default schedule from scratch on every benchmark, with the
     hits-only oracle as the reference where it is measured (inspectRoot); solid = complete, dashed = partial model.
     The domain analyzer (a different algorithm, no rewriting) is only in summary.csv."""
-    shown = ["incremental", "workset-prefilter-seeded", "oracle"]
+    shown = ["incremental", "worklist-prefilter-seeded", "oracle"]
     benches = ["inspectRoot", "inspectAllNodes", "editThenInspect", "editOnly"]
     if not any(data.get((b, a, c)) for b in benches for a in shown for c in (True, False)):
         return
@@ -262,7 +265,7 @@ def fig_edit_chains(out):
         return
     actions = [a for a in ["LINK", "TYPE", "MOVE", "NODE", "MIXED"] if any(k[0] == a for k in EDITS)]
     lengths = sorted({k[1] for k in EDITS})
-    order = ["workset-prefilter-seeded", "incremental", "incremental-rounds"]
+    order = ["worklist-prefilter-seeded", "incremental", "incremental-rounds"]
     analyzers = [a for a in order if any(k[2] == a for k in EDITS)] + sorted({k[2] for k in EDITS} - set(order))
     fig, axes = plt.subplots(len(lengths), len(actions), figsize=(1.75 * len(actions) + 0.8, 2.1 * len(lengths) + 0.9),
                              sharex=True, sharey=True, squeeze=False)

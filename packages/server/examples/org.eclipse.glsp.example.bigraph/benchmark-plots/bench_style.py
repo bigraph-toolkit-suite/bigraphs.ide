@@ -9,34 +9,34 @@ BLUE, ORANGE, AQUA, GREEN, VIOLET, MAGENTA, GREY = "#2a78d6", "#eb6834", "#1baf7
 BROWN = "#8a5a2b"
 
 # analyzer -> (label, colour, marker, linestyle). Colour = the lever that prunes (none, guards, prefilter, both);
-# solid = with workset and seed, dashed = without (every rule every round, or the workset without seed).
+# solid = with worklist and seed, dashed = without (every rule every round, or the worklist without seed).
 STYLE = {
     "rounds":                                ("Rounds (no optimisation, baseline)",        BROWN,   "v", "--"),
-    "workset":                               ("Workset",                                   BLUE,    "o", "--"),
-    "workset-seeded":                        ("Workset + seed",                            BLUE,    "s", "-"),
+    "worklist":                               ("Worklist",                                   BLUE,    "o", "--"),
+    "worklist-seeded":                        ("Worklist + seed",                            BLUE,    "s", "-"),
     "guards-first":                          ("Guards (matchFirst)",                       ORANGE,  "o", "--"),
-    "workset-guards-seeded-first":           ("Workset + seed + guards (matchFirst)",      ORANGE,  "s", "-"),
+    "worklist-guards-seeded-first":           ("Worklist + seed + guards (matchFirst)",      ORANGE,  "s", "-"),
     "prefilter":                             ("Prefilter",                                 AQUA,    "o", "--"),
-    "workset-prefilter-seeded":              ("Workset + seed + prefilter (default)",      AQUA,    "s", "-"),
-    "workset-guards-seeded-first-prefilter": ("Workset + seed + guards (matchFirst) + prefilter", VIOLET, "D", "-"),
-    "incremental":                           ("Incremental: Workset + seed + prefilter (default, the extension)", MAGENTA, "P", "-"),
+    "worklist-prefilter-seeded":              ("Worklist + seed + prefilter (default)",      AQUA,    "s", "-"),
+    "worklist-guards-seeded-first-prefilter": ("Worklist + seed + guards (matchFirst) + prefilter", VIOLET, "D", "-"),
+    "incremental":                           ("Incremental: Worklist + seed + prefilter (default, the extension)", MAGENTA, "P", "-"),
     "oracle":                                ("Hits only (perfect pruning)",               GREY,    "x", "-"),
     "domain":                                ("Domain analyzer",                           INK,     ".", "-"),
 }
 
 # per schedule: its hits-only oracle (grey family, the schedule's marker) and the incremental analyzer with it
-# (the schedule's colour, dotted); incremental-workset-prefilter-seeded is the extension's analyzer, "incremental"
+# (the schedule's colour, dotted); incremental-worklist-prefilter-seeded is the extension's analyzer, "incremental"
 for _name, (_label, _colour, _marker, _ls) in list(STYLE.items()):
     if _name in ("incremental", "oracle", "domain"):
         continue
     STYLE["oracle-" + _name] = ("Hits only: " + _label, GREY, _marker, ":")
     STYLE["incremental-" + _name] = ("Incremental: " + _label, _colour, _marker, ":")
-STYLE["oracle-workset-prefilter-seeded"] = STYLE["oracle"]
-STYLE["incremental-workset-prefilter-seeded"] = STYLE["incremental"]
+STYLE["oracle-worklist-prefilter-seeded"] = STYLE["oracle"]
+STYLE["incremental-worklist-prefilter-seeded"] = STYLE["incremental"]
 
 # the schedules in a fixed order (legends, dot plots)
-SCHEDULES = ["rounds", "workset", "workset-seeded", "workset-guards-seeded-first", "prefilter",
-             "workset-prefilter-seeded", "workset-guards-seeded-first-prefilter"]
+SCHEDULES = ["rounds", "worklist", "worklist-seeded", "worklist-guards-seeded-first", "prefilter",
+             "worklist-prefilter-seeded", "worklist-guards-seeded-first-prefilter"]
 
 
 # The non-functional requirement: a coverage answer within 500 ms on a model of 42 POPP nodes.
@@ -60,6 +60,11 @@ def nfr(ax, horizontal=True, label=True):
         if label:
             ax.annotate("NFR 500 ms", (NFR_MS, 0), xycoords=("data", "axes fraction"), xytext=(3, 3),
                         textcoords="offset points", fontsize=6.5, color=NFR_COLOUR)
+
+
+def canon(analyzer):
+    """Analyzer name in the current naming (results before the rename say 'workset')."""
+    return analyzer.replace("workset", "worklist")
 
 
 def style(analyzer):
