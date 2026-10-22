@@ -24,28 +24,31 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class POPPBigraphTest {
 
-    /** Everything an observer is told, in order. */
-    private static final class Recorder implements POPPBigraphObserver {
+    /** Everything a listener is told, in order. */
+    private static final class Recorder implements POPPBigraphListener {
         final List<BigraphEntity.NodeEntity<DynamicControl>> added = new ArrayList<>();
         final List<BigraphEntity.NodeEntity<DynamicControl>> removed = new ArrayList<>();
         final List<BigraphEntity.NodeEntity<DynamicControl>> reparented = new ArrayList<>();
         final List<double[]> positions = new ArrayList<>();
         final List<List<? extends BigraphEntity<?>>> relationsAdded = new ArrayList<>();
         final List<List<? extends BigraphEntity<?>>> relationsRemoving = new ArrayList<>();
-        /** For each onRelationRemoving: were all stubs still attached to a parent at that moment? */
+        /** For each RelationRemoving: were all stubs still attached to a parent at that moment? */
         final List<Boolean> stubsAttachedWhenRemoving = new ArrayList<>();
         private final POPPBigraph bigraph;
 
         Recorder(POPPBigraph bigraph) { this.bigraph = bigraph; }
 
-        @Override public void onNodeAdded(BigraphEntity.NodeEntity<DynamicControl> node, BigraphEntity<?> parent) { added.add(node); }
-        @Override public void onNodeRemoved(BigraphEntity.NodeEntity<DynamicControl> node) { removed.add(node); }
-        @Override public void onNodeReparented(BigraphEntity.NodeEntity<DynamicControl> child, BigraphEntity.NodeEntity<DynamicControl> newParent) { reparented.add(child); }
-        @Override public void onPositionChanged(BigraphEntity.NodeEntity<DynamicControl> node, double x, double y) { positions.add(new double[]{x, y}); }
-        @Override public void onRelationAdded(BigraphEntity.Edge edge, List<? extends BigraphEntity<?>> stubs) { relationsAdded.add(stubs); }
-        @Override public void onRelationRemoving(BigraphEntity.Edge edge, List<? extends BigraphEntity<?>> stubs) {
-            relationsRemoving.add(stubs);
-            stubsAttachedWhenRemoving.add(stubs.stream().allMatch(s -> bigraph.getBigraph().getParent(s) != null));
+        @Override
+        public void onBigraphEvent(POPPBigraphEvent event) {
+            if (event instanceof POPPBigraphEvent.NodeAdded e) added.add(e.node());
+            else if (event instanceof POPPBigraphEvent.NodeRemoved e) removed.add(e.node());
+            else if (event instanceof POPPBigraphEvent.NodeReparented e) reparented.add(e.child());
+            else if (event instanceof POPPBigraphEvent.PositionChanged e) positions.add(new double[]{e.x(), e.y()});
+            else if (event instanceof POPPBigraphEvent.RelationAdded e) relationsAdded.add(e.stubs());
+            else if (event instanceof POPPBigraphEvent.RelationRemoving e) {
+                relationsRemoving.add(e.stubs());
+                stubsAttachedWhenRemoving.add(e.stubs().stream().allMatch(s -> bigraph.getBigraph().getParent(s) != null));
+            }
         }
     }
 
@@ -167,9 +170,9 @@ class POPPBigraphTest {
     }
 
     @Test
-    void observersAreToldAboutEveryAddedAndRemovedNode() {
+    void listenersAreToldAboutEveryAddedAndRemovedNode() {
         Recorder recorder = new Recorder(popp);
-        popp.addObserver(recorder);
+        popp.addListener(recorder);
         SuccessCriteria node = criteria("a");
         popp.addTreeNode(node);
         // container (announced idempotently) and the node
@@ -196,20 +199,20 @@ class POPPBigraphTest {
     }
 
     @Test
-    void removedObserversAreNoLongerNotified() {
+    void removedListenersAreNoLongerNotified() {
         Recorder recorder = new Recorder(popp);
-        popp.addObserver(recorder);
-        popp.removeObserver(recorder);
+        popp.addListener(recorder);
+        popp.removeListener(recorder);
         popp.addTreeNode(criteria("a"));
         assertTrue(recorder.added.isEmpty());
     }
 
     @Test
-    void updatePositionNotifiesObservers() {
+    void updatePositionNotifiesListeners() {
         Recorder recorder = new Recorder(popp);
         SuccessCriteria node = criteria("old");
         popp.addTreeNode(node);
-        popp.addObserver(recorder);
+        popp.addListener(recorder);
 
         popp.updatePosition(node.getId(), 3.5, 4.5);
 
@@ -400,7 +403,7 @@ class POPPBigraphTest {
     void stubsHangUnderTheirEndpointAndAreForgottenWithTheRelation() {
         Chain c = chain();
         Recorder recorder = new Recorder(popp);
-        popp.addObserver(recorder);
+        popp.addListener(recorder);
         Relation relation = relation(c.criteria(), c.proof());
         popp.createRelation(relation);
 
@@ -432,12 +435,12 @@ class POPPBigraphTest {
     }
 
     @Test
-    void removeRelationTellsObserversWithNodesThatAreStillAttached() {
+    void removeRelationTellsListenersWithNodesThatAreStillAttached() {
         Chain c = chain();
         Relation relation = relation(c.criteria(), c.proof());
         popp.createRelation(relation);
         Recorder recorder = new Recorder(popp);
-        popp.addObserver(recorder);
+        popp.addListener(recorder);
 
         popp.removeRelation(relation);
 
@@ -445,7 +448,7 @@ class POPPBigraphTest {
         var stubs = recorder.relationsRemoving.getFirst();
         assertEquals(2, stubs.size());
         assertTrue(stubs.stream().allMatch(s -> s instanceof BigraphEntity.NodeEntity<?>),
-                "observers get the stub nodes, not the link's ports");
+                "listeners get the stub nodes, not the link's ports");
         assertTrue(recorder.stubsAttachedWhenRemoving.getFirst(), "announced before the removal");
     }
 
@@ -538,11 +541,11 @@ class POPPBigraphTest {
     }
 
     @Test
-    void updateDescriptionStoresTheTextWithoutNotifyingObservers() {
+    void updateDescriptionStoresTheTextWithoutNotifyingListeners() {
         SuccessCriteria node = criteria("old");
         popp.addTreeNode(node);
         Recorder recorder = new Recorder(popp);
-        popp.addObserver(recorder);
+        popp.addListener(recorder);
 
         popp.updateDescription(node.getId(), "new");
         popp.updateDescription(node.getId(), null);

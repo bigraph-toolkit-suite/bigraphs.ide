@@ -12,7 +12,7 @@ import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * The bigraph encoding of a POPP model, kept in sync with it through explicit calls and announced to observers.
+ * The bigraph encoding of a POPP model, kept in sync with it through explicit calls and announced to listeners.
  *
  * <p>Encoding: every domain node is a node whose control is its kind ({@code Problem}, {@code Goal}, ...). An AND/OR
  * decomposition with n children becomes a decomposition chain of n-1 binary gate nodes ({@code GoalAnd}, {@code ProblemOr}, ...) under the
@@ -28,7 +28,7 @@ public class POPPBigraph {
 
     private final PureBigraphMutable bigraph;
     private final DynamicSignature signature;
-    private final List<POPPBigraphObserver> observers = new CopyOnWriteArrayList<>();
+    private final List<POPPBigraphListener> listeners = new CopyOnWriteArrayList<>();
 
     private final Map<String, BigraphEntity.NodeEntity<DynamicControl>> nodesById = new HashMap<>();
     private final Map<String, List<String>> decompGateIds = new HashMap<>();
@@ -43,40 +43,21 @@ public class POPPBigraph {
         this(bigraph, bigraph.getSignature());
     }
 
-    public void addObserver(POPPBigraphObserver observer) { observers.add(observer); }
-
-    public void removeObserver(POPPBigraphObserver observer) { observers.remove(observer); }
-
-    private void fireNodeAdded(BigraphEntity.NodeEntity<DynamicControl> node, BigraphEntity<?> parent) {
-        observers.forEach(o -> o.onNodeAdded(node, parent));
+    public void addListener(POPPBigraphListener listener) {
+        if (!listeners.contains(listener)) listeners.add(listener);
     }
 
-    private void fireNodeRemoved(BigraphEntity.NodeEntity<DynamicControl> node) {
-        observers.forEach(o -> o.onNodeRemoved(node));
+    public void removeListener(POPPBigraphListener listener) { listeners.remove(listener); }
+
+    private void emit(POPPBigraphEvent event) {
+        listeners.forEach(l -> l.onBigraphEvent(event));
     }
 
-    private void fireNodeReparented(BigraphEntity.NodeEntity<DynamicControl> child,
-                                    BigraphEntity.NodeEntity<DynamicControl> newParent) {
-        observers.forEach(o -> o.onNodeReparented(child, newParent));
-    }
-
-    private void firePositionChanged(BigraphEntity.NodeEntity<DynamicControl> node, double x, double y) {
-        observers.forEach(o -> o.onPositionChanged(node, x, y));
-    }
-
-    private void fireRelationAdded(BigraphEntity.Edge edge, List<? extends BigraphEntity<?>> stubs) {
-        observers.forEach(o -> o.onRelationAdded(edge, stubs));
-    }
-
-    private void fireRelationRemoving(BigraphEntity.Edge edge, List<? extends BigraphEntity<?>> stubs) {
-        observers.forEach(o -> o.onRelationRemoving(edge, stubs));
-    }
-
-    /** Moves {@code child} in the raw bigraph and tells observers. */
+    /** Moves {@code child} in the raw bigraph and tells the listeners. */
     private void moveAndNotify(BigraphEntity.NodeEntity<DynamicControl> child,
                                BigraphEntity.NodeEntity<DynamicControl> newParent) {
         bigraph.moveNode(child, newParent);
-        fireNodeReparented(child, newParent);
+        emit(new POPPBigraphEvent.NodeReparented(child, newParent));
     }
 
     public PureBigraphMutable getBigraph() { return bigraph; }
@@ -120,7 +101,7 @@ public class POPPBigraph {
             BigraphEntity.NodeEntity<DynamicControl> parent, NodeKind kind, DecompositionType type, String id) {
         POPPBigraphSignature control = POPPBigraphSignature.getGateControl(kind, type);
         var gate = addNode(parent, control, id);
-        fireNodeAdded(gate, parent);
+        emit(new POPPBigraphEvent.NodeAdded(gate, parent));
         return gate;
     }
 
@@ -182,7 +163,7 @@ public class POPPBigraph {
         return addNode(root, POPPBigraphSignature.POPP, "POPP");
     }
 
-    /** Raw add: registers the node in the cache but does NOT notify observers, callers do that. */
+    /** Raw add: registers the node in the cache but does NOT notify the listeners, callers do that. */
     private BigraphEntity.NodeEntity<DynamicControl> addNode(BigraphEntity<?> parent, POPPBigraphSignature control, String id) {
         DynamicControl ctrl = requireSignature().getControlByName(control.controlName());
         BigraphEntity.NodeEntity<DynamicControl> entity = bigraph.addNode(parent, ctrl, id);
@@ -200,8 +181,8 @@ public class POPPBigraph {
                 "layout.x", node.getX(),
                 "layout.y", node.getY()));
 
-        fireNodeAdded(container, getDefaultRoot()); // idempotent, covers the lazily created container
-        fireNodeAdded(entity, container);
+        emit(new POPPBigraphEvent.NodeAdded(container, getDefaultRoot())); // idempotent, covers the lazily created container
+        emit(new POPPBigraphEvent.NodeAdded(entity, container));
         rebuildDecomposition(node);
         return entity;
     }
@@ -219,13 +200,13 @@ public class POPPBigraph {
     /** Removes a domain node and its chain; its relations and children must already be gone (see the model). */
     public void deleteTreeNode(String id) {
         clearDecompositionChain(id);
-        removeNode(id).ifPresent(this::fireNodeRemoved);
+        removeNode(id).ifPresent(n -> emit(new POPPBigraphEvent.NodeRemoved(n)));
     }
 
     public void updatePosition(String id, double x, double y) {
         BigraphEntity.NodeEntity<DynamicControl> entity = requireNode(id);
         putAttributes(entity, Map.of("layout.x", x, "layout.y", y));
-        firePositionChanged(entity, x, y);
+        emit(new POPPBigraphEvent.PositionChanged(entity, x, y));
     }
 
     public void updateDescription(String id, String description) {
@@ -247,7 +228,7 @@ public class POPPBigraph {
         }
 
         if (newParent == null) {
-            fireNodeReparented(entity, container);
+            emit(new POPPBigraphEvent.NodeReparented(entity, container));
             return;
         }
 
@@ -259,7 +240,7 @@ public class POPPBigraph {
     }
 
     /**
-     * Raw removal of a node from bigraph + cache, without notifying observers: {@link #deleteTreeNode} announces it
+     * Raw removal of a node from bigraph + cache, without notifying the listeners: {@link #deleteTreeNode} announces it
      * afterwards, {@link #removeRelation} has announced the stubs with {@code onRelationRemoving} beforehand.
      */
     private Optional<BigraphEntity.NodeEntity<DynamicControl>> removeNode(String id) {
@@ -410,7 +391,7 @@ public class POPPBigraph {
                 }
             });
             bigraph.removeNode(gateNode);
-            fireNodeRemoved(gateNode);
+            emit(new POPPBigraphEvent.NodeRemoved(gateNode));
         }
     }
 
@@ -430,9 +411,9 @@ public class POPPBigraph {
         bigraph.connectNodeToLink(sourceStub, edge);
         bigraph.connectNodeToLink(targetStub, edge);
 
-        fireNodeAdded(sourceStub, source);
-        fireNodeAdded(targetStub, target);
-        fireRelationAdded(edge, List.of(sourceStub, targetStub));
+        emit(new POPPBigraphEvent.NodeAdded(sourceStub, source));
+        emit(new POPPBigraphEvent.NodeAdded(targetStub, target));
+        emit(new POPPBigraphEvent.RelationAdded(edge, List.of(sourceStub, targetStub)));
         return edge;
     }
 
@@ -456,7 +437,7 @@ public class POPPBigraph {
             }
         }
 
-        fireRelationRemoving(edge, stubs); // before removal: observers still need to resolve the entities
+        emit(new POPPBigraphEvent.RelationRemoving(edge, stubs)); // before removal: listeners still need to resolve the entities
 
         stubs.forEach(stub -> removeNode(stub.getName())); // drops the cache entry as well as the bigraph node
         bigraph.removeEdge(edge);

@@ -10,7 +10,8 @@ import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.emf.ecore.EStructuralFeature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphObserver;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphEvent;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphListener;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageRewriteRules.CompiledRule;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
@@ -22,7 +23,7 @@ import java.util.function.Predicate;
 
 /**
  * Coverage kept in sync with the structure bigraph instead of recomputed: one coverage bigraph per mode, rewritten to
- * its fixpoint once and from then on edited in place. An observer of {@link POPPBigraph} (next to the synchronizer's
+ * its fixpoint once and from then on edited in place. A listener of {@link POPPBigraph} (next to the synchronizer's
  * view mirror) records the structural operations; the next session of a mode replays them on that mode's coverage
  * bigraph, resets the states that rested on what changed, rewrites the bigraph to its fixpoint again (with
  * {@link ScheduledRewritingCoverageAnalyzer#rewriteToFixpoint}, scheduled by the engine's options) and reads the
@@ -30,7 +31,7 @@ import java.util.function.Predicate;
  * the rewrites left, and what a state rests on is read off the bigraph.
  * <p>
  * <b>Sync.</b> The structure bigraph announces every node (container, domain and gate nodes, stubs) and every
- * relation, in order (see {@link POPPBigraphObserver}). The coverage bigraph keeps the structure bigraph's node names
+ * relation, in order (see {@link POPPBigraphEvent}). The coverage bigraph keeps the structure bigraph's node names
  * through rewriting, so the operations are replayed by name: a node is added (a tree node with a fresh state cell,
  * {@code Unc}, or {@code Cov} and {@code CovIntrinsic} if its kind is intrinsic in the mode, see
  * {@link CoverageBigraph}), removed or moved; a relation edge is
@@ -63,13 +64,13 @@ import java.util.function.Predicate;
  * again, with empty caches, for matching: the framework caches a link's points and does not invalidate the cache on
  * link edits ({@code getPointsFromLink}), so links are read from the EMF model directly here.
  * <p>
- * The coverage analyzer of the POPP extension. Register it with {@link POPPBigraph#addObserver}; the first session of a
+ * The coverage analyzer of the POPP extension. Register it with {@link POPPBigraph#addListener}; the first session of a
  * mode, and a session on a different {@link POPPBigraph} or model (a reloaded file), evaluates from scratch. Needs a jLibBig whose AgentMatcher keeps links
  * ({@link ScheduledRewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}).
  */
-public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPPBigraphObserver {
+public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPPBigraphListener {
 
-    /** A structural operation on the structure bigraph, by node names. */
+    /** A structural operation on the structure bigraph, by node names (a {@link POPPBigraphEvent} without entities). */
     private sealed interface Op {}
     /** {@code parent == null}: under the root. */
     private record Added(String node, String control, String parent) implements Op {}
@@ -203,13 +204,13 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
         }
 
         void apply(Op op) {
-            switch (op) {
-                case Added a -> added(a);
-                case Removed r -> removed(r);
-                case Moved m -> moved(m);
-                case RelationAdded r -> relationAdded(r);
-                case RelationRemoving r -> relationRemoving(r);
-            }
+            // If language standard is updated to 21 replace with switch casting
+            if (op instanceof Added a) added(a);
+            else if (op instanceof Removed r) removed(r);
+            else if (op instanceof Moved m) moved(m);
+            else if (op instanceof RelationAdded r) relationAdded(r);
+            else if (op instanceof RelationRemoving r) relationRemoving(r);
+            else throw new IllegalStateException("Unhandled operation: " + op);
         }
 
         private void added(Added a) {
@@ -457,31 +458,26 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
         }
     }
 
+    /**
+     * Records a structural change as an {@link Op} by node names: the log must not hold on to the structure bigraph's
+     * entities, which are detached when they are removed. Position changes do not matter for coverage.
+     */
     @Override
-    public synchronized void onNodeAdded(BigraphEntity.NodeEntity<DynamicControl> node, BigraphEntity<?> parent) {
-        String parentName = parent instanceof BigraphEntity.NodeEntity<?> p ? p.getName() : null;
-        log.add(new Added(node.getName(), node.getControl().getNamedType().stringValue(), parentName));
-    }
-
-    @Override
-    public synchronized void onNodeRemoved(BigraphEntity.NodeEntity<DynamicControl> node) {
-        log.add(new Removed(node.getName()));
-    }
-
-    @Override
-    public synchronized void onNodeReparented(BigraphEntity.NodeEntity<DynamicControl> child,
-                                              BigraphEntity.NodeEntity<DynamicControl> newParent) {
-        log.add(new Moved(child.getName(), newParent.getName()));
-    }
-
-    @Override
-    public synchronized void onRelationAdded(BigraphEntity.Edge edge, List<? extends BigraphEntity<?>> stubs) {
-        log.add(new RelationAdded(edge.getName(), names(stubs)));
-    }
-
-    @Override
-    public synchronized void onRelationRemoving(BigraphEntity.Edge edge, List<? extends BigraphEntity<?>> stubs) {
-        log.add(new RelationRemoving(names(stubs)));
+    public synchronized void onBigraphEvent(POPPBigraphEvent event) {
+        // If language standard is updated to 21 replace with switch casting
+        if (event instanceof POPPBigraphEvent.NodeAdded e) {
+            String parentName = e.parent() instanceof BigraphEntity.NodeEntity<?> p ? p.getName() : null;
+            log.add(new Added(e.node().getName(), e.node().getControl().getNamedType().stringValue(), parentName));
+        } else if (event instanceof POPPBigraphEvent.NodeRemoved e) {
+            log.add(new Removed(e.node().getName()));
+        } else if (event instanceof POPPBigraphEvent.NodeReparented e) {
+            log.add(new Moved(e.child().getName(), e.newParent().getName()));
+        } else if (event instanceof POPPBigraphEvent.RelationAdded e) {
+            log.add(new RelationAdded(e.edge().getName(), names(e.stubs())));
+        } else if (event instanceof POPPBigraphEvent.RelationRemoving e) {
+            log.add(new RelationRemoving(names(e.stubs())));
+        }
+        // PositionChanged: does not matter for coverage
     }
 
     private static List<String> names(List<? extends BigraphEntity<?>> stubs) {

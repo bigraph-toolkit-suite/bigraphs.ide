@@ -6,12 +6,12 @@ import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPEvent;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPSpecificEventListener;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPEventListener;
 import org.eclipse.glsp.graph.*;
 
 /** Keeps the GModel the user interacts with in sync with the domain model, by applying its events. */
 @Singleton
-public class POPPGModelSynchronizer extends POPPSpecificEventListener {
+public class POPPGModelSynchronizer implements POPPEventListener {
     private final POPPExtensionContext context;
     private final POPPGModelFactory factory;
 
@@ -26,37 +26,45 @@ public class POPPGModelSynchronizer extends POPPSpecificEventListener {
     }
 
     @Override
-    protected void onNodeCreated(POPPEvent.NodeCreated e) {
+    public void onPOPPEvent(final POPPEvent event) {
+        // If language standard is updated to 21 replace with switch casting
+        if (event instanceof POPPEvent.NodeCreated e) nodeCreated(e);
+        else if (event instanceof POPPEvent.NodeDescriptionChanged e) nodeDescriptionChanged(e);
+        else if (event instanceof POPPEvent.NodeMoved e) nodeMoved(e);
+        else if (event instanceof POPPEvent.NodeDecompositionTypeChanged e) nodeDecompositionTypeChanged(e);
+        else if (event instanceof POPPEvent.NodeRemoved e) nodeRemoved(e);
+        else if (event instanceof POPPEvent.NodeChangedParent e) nodeChangedParent(e);
+        else if (event instanceof POPPEvent.RelationCreated e) relationCreated(e);
+        else if (event instanceof POPPEvent.RelationRemoved e) relationRemoved(e);
+        else throw new IllegalStateException("Unhandled POPPEvent: " + event);
+    }
+
+    private void nodeCreated(POPPEvent.NodeCreated e) {
         GNode newNode = factory.createTreeNode(e.node());
         getGModel().addNode(newNode.getId(), newNode);
     }
 
-    @Override
-    protected void onNodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {
+    private void nodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {
         GNode editedNode = getGModel().getNode(e.node().getId());
         factory.applyLayout(editedNode, e.node());
     }
 
-    @Override
-    protected void onNodeMoved(POPPEvent.NodeMoved e) {
+    private void nodeMoved(POPPEvent.NodeMoved e) {
         GNode editedNode = getGModel().getNode(e.node().getId());
         factory.applyLayout(editedNode, e.node());
     }
 
-    @Override
-    protected void onNodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged e) {
+    private void nodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged e) {
         GNode editedNode = getGModel().getNode(e.node().getId());
         editedNode.getArgs().put("decomposition_type", e.node().getDecompositionType().toString());
         factory.applyLayout(editedNode, e.node());
     }
 
-    @Override
-    protected void onNodeRemoved(POPPEvent.NodeRemoved e) {
+    private void nodeRemoved(POPPEvent.NodeRemoved e) {
         context.getOwnState().getGModel().removeNode(e.node().getId());
     }
 
-    @Override
-    protected void onNodeChangedParent(POPPEvent.NodeChangedParent e) {
+    private void nodeChangedParent(POPPEvent.NodeChangedParent e) {
         if (e.oldParent() != null) {
             getGModel().getRoot().getChildren().stream()
                     .filter(element -> element.getId().equals(factory.toDecompositionEdgeId(e.oldParent(), e.node())))
@@ -69,14 +77,12 @@ public class POPPGModelSynchronizer extends POPPSpecificEventListener {
         }
     }
 
-    @Override
-    protected void onRelationCreated(POPPEvent.RelationCreated e) {
+    private void relationCreated(POPPEvent.RelationCreated e) {
         GEdge relationEdge = factory.createRelationEdge(e.relation());
         getGModel().getRoot().getChildren().add(relationEdge);
     }
 
-    @Override
-    protected void onRelationRemoved(POPPEvent.RelationRemoved e) {
+    private void relationRemoved(POPPEvent.RelationRemoved e) {
         getGModel().getRoot().getChildren().stream()
                 .filter(element -> element.getId().equals(factory.toRelationEdgeId(e.relation())))
                 .findFirst().ifPresent(oldEdge -> getGModel().getRoot().getChildren().remove(oldEdge));

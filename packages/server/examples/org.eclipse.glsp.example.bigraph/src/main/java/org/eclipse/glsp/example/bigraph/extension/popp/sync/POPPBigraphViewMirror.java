@@ -1,6 +1,7 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.sync;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphObserver;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphEvent;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphListener;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.eclipse.glsp.example.bigraph.views.BigraphView;
@@ -16,12 +17,12 @@ import java.util.function.Supplier;
 
 /**
  * Keeps the core "bigraph" variant's {@link BigraphView} mirrored. That view only updates through
- * its public {@code on*} callbacks and has no idea POPP exists, so every structural change
- * {@link POPPBigraph} reports is translated into the matching callback here.
+ * its public {@code on*} callbacks and has no idea POPP exists, so every {@link POPPBigraphEvent} is translated into
+ * the matching callback here.
  *
  * <p>The view is looked up lazily on every event since it can come and go (variant switches).</p>
  */
-public class POPPBigraphViewMirror implements POPPBigraphObserver {
+public class POPPBigraphViewMirror implements POPPBigraphListener {
     private final Supplier<Optional<BigraphView>> viewSupplier;
 
     public POPPBigraphViewMirror(final Supplier<Optional<BigraphView>> viewSupplier) {
@@ -29,7 +30,18 @@ public class POPPBigraphViewMirror implements POPPBigraphObserver {
     }
 
     @Override
-    public void onNodeAdded(final BigraphEntity.NodeEntity<DynamicControl> node, final BigraphEntity<?> parent) {
+    public void onBigraphEvent(final POPPBigraphEvent event) {
+        // If language standard is updated to 21 replace with switch casting
+        if (event instanceof POPPBigraphEvent.NodeAdded e) nodeAdded(e.node(), e.parent());
+        else if (event instanceof POPPBigraphEvent.NodeRemoved e) nodeRemoved(e.node());
+        else if (event instanceof POPPBigraphEvent.NodeReparented e) nodeReparented(e.child(), e.newParent());
+        else if (event instanceof POPPBigraphEvent.PositionChanged e) positionChanged(e.node(), e.x(), e.y());
+        else if (event instanceof POPPBigraphEvent.RelationAdded e) relationAdded(e.edge(), e.stubs());
+        else if (event instanceof POPPBigraphEvent.RelationRemoving e) relationRemoving(e.edge(), e.stubs());
+        else throw new IllegalStateException("Unhandled POPPBigraphEvent: " + event);
+    }
+
+    private void nodeAdded(final BigraphEntity.NodeEntity<DynamicControl> node, final BigraphEntity<?> parent) {
         viewSupplier.get().ifPresent(view -> {
             if (view.getGModelIdForEntity(node).isEmpty()) {
                 view.onAddNode(node, parent, node.getControl());
@@ -37,22 +49,19 @@ public class POPPBigraphViewMirror implements POPPBigraphObserver {
         });
     }
 
-    @Override
-    public void onNodeRemoved(final BigraphEntity.NodeEntity<DynamicControl> node) {
+    private void nodeRemoved(final BigraphEntity.NodeEntity<DynamicControl> node) {
         viewSupplier.get().ifPresent(view ->
                 view.getGModelIdForEntity(node).ifPresent(view::onDeleteNode));
     }
 
-    @Override
-    public void onNodeReparented(final BigraphEntity.NodeEntity<DynamicControl> child,
+    private void nodeReparented(final BigraphEntity.NodeEntity<DynamicControl> child,
                                  final BigraphEntity.NodeEntity<DynamicControl> newParent) {
         viewSupplier.get().ifPresent(view -> view.getGModelIdForEntity(child).ifPresent(childId ->
                 view.getGModelIdForEntity(newParent).ifPresent(parentId ->
                         view.onChangeNodeParent(childId, parentId))));
     }
 
-    @Override
-    public void onPositionChanged(final BigraphEntity.NodeEntity<DynamicControl> node, final double x, final double y) {
+    private void positionChanged(final BigraphEntity.NodeEntity<DynamicControl> node, final double x, final double y) {
         viewSupplier.get().ifPresent(view -> view.getGModelIdForEntity(node).ifPresent(viewId ->
                 findGNode(view, viewId).ifPresent(gNode -> {
                     GPoint point = GraphFactory.eINSTANCE.createGPoint();
@@ -62,8 +71,7 @@ public class POPPBigraphViewMirror implements POPPBigraphObserver {
                 })));
     }
 
-    @Override
-    public void onRelationAdded(final BigraphEntity.Edge edge, final List<? extends BigraphEntity<?>> stubs) {
+    private void relationAdded(final BigraphEntity.Edge edge, final List<? extends BigraphEntity<?>> stubs) {
         viewSupplier.get().ifPresent(view -> {
             // Core's LinkRenderer only wires Port/InnerName/OuterName points, not plain stub nodes
             // (see LinkRenderer#createLinkConnections), so the hyperedge-to-stub links are built here instead.
@@ -80,8 +88,7 @@ public class POPPBigraphViewMirror implements POPPBigraphObserver {
         });
     }
 
-    @Override
-    public void onRelationRemoving(final BigraphEntity.Edge edge, final List<? extends BigraphEntity<?>> stubs) {
+    private void relationRemoving(final BigraphEntity.Edge edge, final List<? extends BigraphEntity<?>> stubs) {
         viewSupplier.get().ifPresent(view -> {
             view.getGModelIdForEntity(edge).ifPresent(view::onDeleteEdge);
             stubs.forEach(stub -> view.getGModelIdForEntity(stub).ifPresent(view::onDeleteNode));
