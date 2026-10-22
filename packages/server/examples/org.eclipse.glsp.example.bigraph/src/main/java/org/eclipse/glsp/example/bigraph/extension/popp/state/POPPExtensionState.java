@@ -50,9 +50,9 @@ public class POPPExtensionState {
     }
 
     public void setPoppBigraph(POPPBigraph poppBigraph) {
-        if (this.poppBigraph != null) this.poppBigraph.removeObserver(analyzer);
+        if (this.poppBigraph != null) this.poppBigraph.removeListener(analyzer);
         this.poppBigraph = poppBigraph;
-        if (poppBigraph != null) poppBigraph.addObserver(analyzer);
+        if (poppBigraph != null) poppBigraph.addListener(analyzer);
     }
 
     public CoverageAnalyzer getAnalyzer() {

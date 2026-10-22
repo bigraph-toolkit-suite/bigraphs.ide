@@ -5,7 +5,7 @@ import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPEvent;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPSpecificEventListener;
+import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPEventListener;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 import java.util.ArrayList;
@@ -28,7 +28,7 @@ public final class CoverageTestModels {
      * default, also {@code default}), {@code worklist-guards-seeded-first-prefilter}; {@code oracle-<schedule>}, the
      * hits-only replay of that schedule ({@link OracleRewritingCoverageAnalyzer}; {@code oracle} is the default
      * schedule's); or {@code incremental-<schedule>}, the {@link IncrementalCoverageAnalyzer} with that schedule
-     * ({@code incremental} with the default one), registered as an observer of the bigraph. Rewriting needs the fixed
+     * ({@code incremental} with the default one), registered as a listener of the bigraph. Rewriting needs the fixed
      * jLibBig {@code AgentMatcher}, see {@link ScheduledRewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}.
      */
     public static CoverageAnalyzer analyzer(String name, Synced popp) {
@@ -46,10 +46,10 @@ public final class CoverageTestModels {
         };
     }
 
-    /** An {@link IncrementalCoverageAnalyzer}, registered as an observer of the model's bigraph. */
+    /** An {@link IncrementalCoverageAnalyzer}, registered as a listener of the model's bigraph. */
     private static CoverageAnalyzer incremental(Synced popp, CoverageInput input, ScheduledRewritingCoverageAnalyzer.Options options) {
         var analyzer = new IncrementalCoverageAnalyzer(input, options);
-        popp.bigraph.addObserver(analyzer);
+        popp.bigraph.addListener(analyzer);
         return analyzer;
     }
 
@@ -81,25 +81,20 @@ public final class CoverageTestModels {
         }
     }
 
-    private static final class Forwarder extends POPPSpecificEventListener {
-        private final POPPBigraph bigraph;
-        Forwarder(POPPBigraph bigraph) { this.bigraph = bigraph; }
-        @Override protected void onNodeCreated(POPPEvent.NodeCreated e) { bigraph.addTreeNode(e.node()); }
-        @Override protected void onNodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {
-            bigraph.updateDescription(e.node().getId(), e.node().getDescription());
+    /** What the bigraph synchronizer does, without its Guice context. */
+    private record Forwarder(POPPBigraph bigraph) implements POPPEventListener {
+        @Override
+        public void onPOPPEvent(POPPEvent event) {
+            if (event instanceof POPPEvent.NodeCreated e) bigraph.addTreeNode(e.node());
+            else if (event instanceof POPPEvent.NodeDescriptionChanged e) bigraph.updateDescription(e.node().getId(), e.node().getDescription());
+            else if (event instanceof POPPEvent.NodeMoved e) bigraph.updatePosition(e.node().getId(), e.node().getX(), e.node().getY());
+            else if (event instanceof POPPEvent.NodeDecompositionTypeChanged e) bigraph.rebuildDecomposition(e.node());
+            else if (event instanceof POPPEvent.NodeRemoved e) bigraph.deleteTreeNode(e.node().getId());
+            else if (event instanceof POPPEvent.NodeChangedParent e) bigraph.reparentTreeNode(e.node(), e.oldParent(), e.newParent());
+            else if (event instanceof POPPEvent.RelationCreated e) bigraph.createRelation(e.relation());
+            else if (event instanceof POPPEvent.RelationRemoved e) bigraph.removeRelation(e.relation());
+            else throw new IllegalStateException("Unhandled POPPEvent: " + event);
         }
-        @Override protected void onNodeMoved(POPPEvent.NodeMoved e) {
-            bigraph.updatePosition(e.node().getId(), e.node().getX(), e.node().getY());
-        }
-        @Override protected void onNodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged e) {
-            bigraph.rebuildDecomposition(e.node());
-        }
-        @Override protected void onNodeRemoved(POPPEvent.NodeRemoved e) { bigraph.deleteTreeNode(e.node().getId()); }
-        @Override protected void onNodeChangedParent(POPPEvent.NodeChangedParent e) {
-            bigraph.reparentTreeNode(e.node(), e.oldParent(), e.newParent());
-        }
-        @Override protected void onRelationCreated(POPPEvent.RelationCreated e) { bigraph.createRelation(e.relation()); }
-        @Override protected void onRelationRemoved(POPPEvent.RelationRemoved e) { bigraph.removeRelation(e.relation()); }
     }
 
     /**
