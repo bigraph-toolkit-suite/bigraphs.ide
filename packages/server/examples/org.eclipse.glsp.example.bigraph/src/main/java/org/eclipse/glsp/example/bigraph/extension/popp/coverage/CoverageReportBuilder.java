@@ -60,7 +60,11 @@ public final class CoverageReportBuilder {
 
     /** The report for {@code model}, with coverage from {@code analyzer} (which must analyse that model). */
     public static CoverageReport build(POPPModel model, CoverageAnalyzer analyzer, CoverageMode mode) {
-        CoverageSession session = analyzer.session(mode);
+        // every preset for the summary plus the selected mode, evaluated in parallel
+        List<CoverageMode> modes = new ArrayList<>(CoverageMode.presets());
+        modes.add(mode);
+        Map<CoverageMode, CoverageSession> sessions = analyzer.sessions(modes);
+        CoverageSession session = sessions.get(mode);
         List<TreeNode<?>> nodes = new ArrayList<>(model.getAllNodes());
 
         List<RootStatus> roots = new ArrayList<>();
@@ -78,14 +82,19 @@ public final class CoverageReportBuilder {
             }
         }
 
-        return new CoverageReport(mode.name(), summaries(nodes, analyzer), roots, metrics(nodes));
+        return new CoverageReport(mode.name(), summaries(nodes, sessions), roots, metrics(nodes));
     }
 
     /** A {@link ModeSummary} per preset; one session each (cached per model revision by the analyzer). */
     public static List<ModeSummary> summaries(List<TreeNode<?>> nodes, CoverageAnalyzer analyzer) {
+        return summaries(nodes, analyzer.sessions(CoverageMode.presets()));
+    }
+
+    /** A {@link ModeSummary} per preset, from the given sessions (which must contain every preset). */
+    private static List<ModeSummary> summaries(List<TreeNode<?>> nodes, Map<CoverageMode, CoverageSession> sessions) {
         List<ModeSummary> out = new ArrayList<>();
         for (CoverageMode mode : CoverageMode.presets()) {
-            CoverageSession session = analyzer.session(mode);
+            CoverageSession session = sessions.get(mode);
             Map<String, Integer> counts = new LinkedHashMap<>();
             for (Coverage c : Coverage.values()) counts.put(c.name(), 0);
             Coverage root = null;

@@ -49,6 +49,47 @@ class IncrementalCoverageAnalyzerTest {
         assertEquals(0, bad, report.toString());
     }
 
+    /**
+     * The modes evaluated in parallel ({@link CoverageAnalyzer#sessions}) agree with the domain analyzer after every
+     * edit. Runs in a pool of one thread per mode, so that all modes really overlap even on a machine with few cores.
+     */
+    @Test
+    void agreesWhenTheModesRunInParallel() throws Exception {
+        assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        List<CoverageMode> modes = CoverageMode.presets();
+        java.util.concurrent.ForkJoinPool pool = new java.util.concurrent.ForkJoinPool(modes.size());
+        StringBuilder report = new StringBuilder();
+        int bad = 0;
+        try {
+            for (long seed = 1; seed <= 6; seed++) {
+                Synced popp = new Synced();
+                CoverageTestModels.fullModel(popp.model, 1 + (int) (seed % 2), seed % 2 == 0);
+                CoverageAnalyzer analyzer = CoverageTestModels.analyzer("incremental", popp);
+                EditScript script = new EditScript(popp.model, seed);
+                for (int step = 0; step <= 30; step++) {
+                    String what = step == 0 ? "start" : script.step(EditScript.Action.MIXED);
+                    Map<CoverageMode, CoverageSession> sessions = pool.submit(() -> analyzer.sessions(modes)).get();
+                    for (CoverageMode mode : modes) {
+                        CoverageSession expected = new DomainCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph)).session(mode);
+                        CoverageSession actual = sessions.get(mode);
+                        List<String> diff = new ArrayList<>();
+                        for (TreeNode<?> node : popp.model.getAllNodes()) {
+                            if (expected.coverage(node) != actual.coverage(node)) {
+                                diff.add(node.getDescription() + " " + expected.coverage(node) + "/" + actual.coverage(node));
+                            }
+                        }
+                        if (!diff.isEmpty() && bad++ < 3) {
+                            report.append(String.format("seed %d step %d (%s) %s: expected/actual %s%n", seed, step, what, mode, diff));
+                        }
+                    }
+                }
+            }
+        } finally {
+            pool.shutdown();
+        }
+        assertEquals(0, bad, report.toString());
+    }
+
     @Test
     void editsTheCoverageBigraphInsteadOfRebuildingIt() {
         assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");

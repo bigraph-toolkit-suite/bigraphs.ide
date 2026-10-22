@@ -4,6 +4,9 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /** Strategy pattern for switching between implementations or optimizations of the coverage algorithm. */
 public interface CoverageAnalyzer {
@@ -14,6 +17,19 @@ public interface CoverageAnalyzer {
      * @throws IllegalStateException if no model is loaded
      */
     CoverageSession session(CoverageMode mode);
+
+    /**
+     * The sessions of several modes at once, computed in parallel (the modes are independent), in the order of
+     * {@code modes}. Sessions of the same mode never run in parallel, see the analyzers' {@link #session}. The returned
+     * sessions are meant to be read by one thread.
+     */
+    default Map<CoverageMode, CoverageSession> sessions(Collection<CoverageMode> modes) {
+        List<CoverageMode> distinct = modes.stream().distinct().toList();
+        List<CoverageSession> computed = distinct.parallelStream().map(this::session).toList();
+        Map<CoverageMode, CoverageSession> out = new LinkedHashMap<>();
+        for (int i = 0; i < distinct.size(); i++) out.put(distinct.get(i), computed.get(i));
+        return out;
+    }
 
     /** What is the coverage ({@link Coverage}) of a given node? */
     default Coverage coverage(TreeNode<?> node, CoverageMode mode) {
