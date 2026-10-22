@@ -19,6 +19,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
 /**
@@ -84,13 +85,19 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
 
     private final CoverageInput input;
     private final ScheduledRewritingCoverageAnalyzer engine;
+    /** The operations not yet replayed by every mode. {@code log} and {@code logOffset} are guarded by {@code this}. */
     private final List<Op> log = new ArrayList<>();
     private int logOffset; // index of log.get(0) in the whole history
-    private final Map<CoverageMode, Synced> synced = new HashMap<>();
+    /**
+     * Per mode: its coverage bigraph and session, written only while holding the mode's lock. Sessions of different
+     * modes share nothing but the log, so they run in parallel ({@link CoverageAnalyzer#sessions}).
+     */
+    private final Map<CoverageMode, Synced> synced = new ConcurrentHashMap<>();
+    private final Map<CoverageMode, Object> modeLocks = new ConcurrentHashMap<>();
     private volatile Stats lastStats;
 
     /**
-     * What the last session did: from scratch or incremental, operations replayed, states reset, rules seeded, and the
+     * What the last finished session did (of any mode, when sessions run in parallel): from scratch or incremental, operations replayed, states reset, rules seeded, and the
      * time to replay the operations and reset (the rewriting is in {@link #lastEngineStats()}).
      */
     public record Stats(boolean incremental, int operations, int reset, int seeded, long syncNanos) {}
@@ -118,26 +125,43 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
     public RewritingTrace lastTrace() { return engine.lastTrace(); }
 
     /** The coverage bigraph of {@code mode} at its last fixpoint (for inspection and tests). */
-    public synchronized Optional<PureBigraph> coverageBigraph(CoverageMode mode) {
+    public Optional<PureBigraph> coverageBigraph(CoverageMode mode) {
         return Optional.ofNullable(synced.get(mode)).map(Synced::coverage);
     }
 
+    /**
+     * Thread-safe: sessions of the same mode run one after another, sessions of different modes in parallel. The
+     * structure bigraph must not change during a session, which holds since edits and sessions are both handled on the
+     * GLSP dispatch thread, which waits for the sessions.
+     */
     @Override
-    public synchronized CoverageSession session(CoverageMode mode) {
+    public CoverageSession session(CoverageMode mode) {
+        synchronized (modeLocks.computeIfAbsent(mode, m -> new Object())) {
+            return sessionOf(mode);
+        }
+    }
+
+    private CoverageSession sessionOf(CoverageMode mode) {
         POPPBigraph source = input.bigraph();
         Synced previous = synced.get(mode);
-        int head = logOffset + log.size();
+        int head;
+        boolean fromScratch;
+        List<Op> ops = List.of();
+        synchronized (this) {
+            head = logOffset + log.size();
+            // a different bigraph, or a different model on the same bigraph (a reloaded file): from scratch
+            fromScratch = previous == null || previous.source() != source || previous.model() != input.model()
+                    || previous.cursor() < logOffset;
+            if (!fromScratch) ops = List.copyOf(log.subList(previous.cursor() - logOffset, log.size()));
+        }
         ScheduledRewritingCoverageAnalyzer.Fixpoint next;
-        // a different bigraph, or a different model on the same bigraph (a reloaded file): from scratch
-        if (previous == null || previous.source() != source || previous.model() != input.model()
-                || previous.cursor() < logOffset) {
+        if (fromScratch) {
             next = engine.rewriteToFixpoint(mode, CoverageBigraph.build(source, mode), engine.options().seed());
             lastStats = new Stats(false, 0, 0, -1, 0);
         } else if (previous.cursor() == head) {
             lastStats = new Stats(true, 0, 0, 0, 0);
             return previous.session();
         } else {
-            List<Op> ops = log.subList(previous.cursor() - logOffset, log.size());
             long t0 = System.nanoTime();
             Mirror mirror = new Mirror(previous.coverage(), mode);
             for (Op op : ops) mirror.apply(op);
@@ -156,7 +180,8 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
         return next.session();
     }
 
-    private void trimLog() {
+    /** Drops the operations every mode has replayed. A mode in its first session is not counted, see {@link #sessionOf}. */
+    private synchronized void trimLog() {
         int min = synced.values().stream().mapToInt(Synced::cursor).min().orElse(logOffset + log.size());
         int drop = Math.min(min - logOffset, log.size());
         if (drop > 0) {
