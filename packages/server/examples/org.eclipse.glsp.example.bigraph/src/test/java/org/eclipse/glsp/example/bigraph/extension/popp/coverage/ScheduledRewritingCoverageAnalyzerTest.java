@@ -9,21 +9,21 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-/** The whole-agent rules scheduled by workset and guards agree with the domain analyzer and save matcher calls. */
+/** The whole-agent rules scheduled by worklist and guards agree with the domain analyzer and save matcher calls. */
 class ScheduledRewritingCoverageAnalyzerTest {
 
     @Test
     void theStaticAnalysisFindsFewGuardsAndSparseDependencies() {
         String summary = ScheduledRewritingCoverageAnalyzer.analysisSummary();
-        assertTrue(summary.contains(" 36 guards"), summary); // per kind and state, chain controls included
+        assertTrue(summary.contains(" 36 guards"), summary); // per kind and state, gate controls included
         assertTrue(summary.contains("enables 5.8 rules"), summary);
     }
 
     @Test
     void everyScheduleAgreesWithTheDomainAnalyzerOnRandomModels() {
         StringBuilder report = new StringBuilder();
-        for (String variant : new String[]{"workset", "workset-seeded", "guards-first", "prefilter",
-                "workset-guards-seeded-first", "workset-prefilter-seeded", "workset-guards-seeded-first-prefilter"}) {
+        for (String variant : new String[]{"worklist", "worklist-seeded", "guards-first", "prefilter",
+                "worklist-guards-seeded-first", "worklist-prefilter-seeded", "worklist-guards-seeded-first-prefilter"}) {
             assertEquals(0, CoverageRandomModels.mismatches(variant, 12, 8, 4400, report), variant + "\n" + report);
         }
     }
@@ -32,7 +32,7 @@ class ScheduledRewritingCoverageAnalyzerTest {
     void rewritingAgreesWithTheDomainAnalyzerOnRandomModels() {
         assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         StringBuilder report = new StringBuilder();
-        for (String variant : new String[]{"workset-prefilter-seeded"}) {
+        for (String variant : new String[]{"worklist-prefilter-seeded"}) {
             assertEquals(0, CoverageRandomModels.mismatches(variant, 12, 8, 4400, report), variant + "\n" + report);
         }
     }
@@ -64,7 +64,7 @@ class ScheduledRewritingCoverageAnalyzerTest {
         var rounds = new ScheduledRewritingCoverageAnalyzer(input,
                 new ScheduledRewritingCoverageAnalyzer.Options(false, false, ScheduledRewritingCoverageAnalyzer.Options.ALL_RULES));
         var guarded = new ScheduledRewritingCoverageAnalyzer(input,
-                ScheduledRewritingCoverageAnalyzer.Options.WORKSET_GUARDS_SEEDED_FIRST);
+                ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_GUARDS_SEEDED_FIRST);
         var prefiltered = new ScheduledRewritingCoverageAnalyzer(input);
 
         for (var analyzer : List.of(rounds, guarded, prefiltered)) {

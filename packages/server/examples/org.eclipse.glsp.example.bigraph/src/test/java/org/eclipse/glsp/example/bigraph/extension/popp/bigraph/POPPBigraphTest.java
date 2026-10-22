@@ -107,7 +107,7 @@ class POPPBigraphTest {
         assertEquals(POPPBigraphSignature.SUCCESS_CRITERIA, POPPBigraphSignature.forNode(entity));
         assertEquals(NodeKind.SUCCESS_CRITERIA, popp.kindOf(entity).orElseThrow());
         assertTrue(popp.isDomainNode(entity));
-        assertFalse(popp.isChainNode(entity));
+        assertFalse(popp.isGateNode(entity));
         assertTrue(popp.getBigraph().getChildrenOf(entity).isEmpty(), "a domain node carries no marker children");
     }
 
@@ -182,14 +182,14 @@ class POPPBigraphTest {
     }
 
     @Test
-    void chainNodesUseTheDecompositionControlAndTheFirstOneHangsUnderTheDecomposedNode() {
+    void gateNodesUseTheDecompositionControlAndTheTopmostOneHangsUnderTheDecomposedNode() {
         SuccessCriteria parent = parentWithChildren(DecompositionType.OR, 3);
         var first = popp.getById(parent.getId() + "_DECOMP").orElseThrow();
         var second = popp.getById(parent.getId() + "_DECOMP_1").orElseThrow();
 
         assertEquals(POPPBigraphSignature.SUCCESS_CRITERIA_OR, POPPBigraphSignature.forNode(first));
         assertEquals(POPPBigraphSignature.SUCCESS_CRITERIA_OR, POPPBigraphSignature.forNode(second));
-        assertTrue(popp.isChainNode(first));
+        assertTrue(popp.isGateNode(first));
         assertEquals(DecompositionType.OR, popp.decompositionTypeOf(first));
         assertSame(entity(parent), popp.getBigraph().getParent(first));
         assertSame(first, popp.getBigraph().getParent(second));
@@ -260,7 +260,7 @@ class POPPBigraphTest {
         int before = nodeCount();
         reloaded.deleteTreeNode(parent.getId());
 
-        assertEquals(before - 3, nodeCount(), "the parent and its two chain nodes must go");
+        assertEquals(before - 3, nodeCount(), "the parent and its two gate nodes must go");
         assertTrue(reloaded.getById(parent.getId() + "_DECOMP").isEmpty());
     }
 
@@ -499,26 +499,26 @@ class POPPBigraphTest {
     // ---- queries and attributes -------------------------------------------------------------------------------
 
     @Test
-    void nodeQueriesTellDomainNodesChainNodesAndStubsApart() {
+    void nodeQueriesTellDomainNodesGateNodesAndStubsApart() {
         SuccessCriteria parent = parentWithChildren(DecompositionType.OR, 2);
         Chain chain = chain();
         popp.createRelation(relation(chain.proof(), chain.criteria()));
         var domain = entity(parent);
-        var chainNode = popp.getById(parent.getId() + "_DECOMP").orElseThrow();
+        var gateNode = popp.getById(parent.getId() + "_DECOMP").orElseThrow();
         var stub = popp.getBigraph().getNodes().stream().filter(POPPBigraphSignature.VALIDATES_INCOMING::matches)
                 .findFirst().orElseThrow();
 
         assertTrue(popp.isDomainNode(domain));
-        assertFalse(popp.isChainNode(domain));
+        assertFalse(popp.isGateNode(domain));
         assertEquals(NodeKind.SUCCESS_CRITERIA, popp.kindOf(domain).orElseThrow());
         assertEquals(DecompositionType.NONE, popp.decompositionTypeOf(domain));
 
-        assertTrue(popp.isChainNode(chainNode));
-        assertTrue(popp.kindOf(chainNode).isEmpty());
-        assertEquals(DecompositionType.OR, popp.decompositionTypeOf(chainNode));
+        assertTrue(popp.isGateNode(gateNode));
+        assertTrue(popp.kindOf(gateNode).isEmpty());
+        assertEquals(DecompositionType.OR, popp.decompositionTypeOf(gateNode));
 
         assertFalse(popp.isDomainNode(stub));
-        assertFalse(popp.isChainNode(stub));
+        assertFalse(popp.isGateNode(stub));
         assertTrue(popp.kindOf(stub).isEmpty());
         assertEquals(chain.criteria().getId(), ((BigraphEntity.NodeEntity<?>) popp.getBigraph().getParent(stub)).getName());
     }

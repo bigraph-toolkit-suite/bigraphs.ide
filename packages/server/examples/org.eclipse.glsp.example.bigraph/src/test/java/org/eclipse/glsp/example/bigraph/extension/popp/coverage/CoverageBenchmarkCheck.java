@@ -12,7 +12,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
  * Usage: {@code CoverageBenchmarkCheck <maxDepth> <analyzer,...>}; never throws on a mismatch, it only reports, and
  * exits with status 1 if anything differed. {@code CoverageBenchmarkCheck --capabilities} only prints which framework
  * fixes are on the classpath ({@code firstMatch=... rewrite=...}), for the benchmark script; {@code --rules} which rule
- * set and enabling analysis are in effect ({@code -Dpopp.chains}, {@code -Dpopp.enabling}).
+ * set and enabling analysis are in effect ({@code -Dpopp.gates}, {@code -Dpopp.enabling}).
  * {@code CoverageBenchmarkCheck --edits <analyzer,...>} checks incremental analyzers instead: random edit sequences
  * ({@link EditScript}) on the benchmark models, compared with the domain analyzer after every edit.
  */
@@ -36,7 +36,7 @@ public final class CoverageBenchmarkCheck {
             return;
         }
         if (args.length > 0 && args[0].equals("--rules")) {
-            System.out.println("chains=" + (CoverageRewriteRules.THRESHOLD_CHAINS ? "threshold" : "enumerated")
+            System.out.println("gates=" + (CoverageRewriteRules.THRESHOLD_GATES ? "threshold" : "enumerated")
                     + " enabling=" + (ScheduledRewritingCoverageAnalyzer.ENABLING_BY_OVERLAP ? "overlap" : "controls")
                     + ": " + ScheduledRewritingCoverageAnalyzer.analysisSummary());
             return;
@@ -47,7 +47,7 @@ public final class CoverageBenchmarkCheck {
             return;
         }
         int maxDepth = args.length > 0 ? Integer.parseInt(args[0]) : 2;
-        String[] analyzers = (args.length > 1 ? args[1] : "workset-prefilter-seeded").split(",");
+        String[] analyzers = (args.length > 1 ? args[1] : "worklist-prefilter-seeded").split(",");
         String variant = System.getProperty("variant", "unlabelled");
         int bad = 0;
         System.out.println("[check] matchFirst works: " + ScheduledRewritingCoverageAnalyzer.FIRST_MATCH_WORKS);

@@ -14,7 +14,7 @@ import java.util.Optional;
  *   <li>PART_DECOMP, PART_LINK: reason markers for PARTIAL.</li>
  * </ul>
  * The reason markers appear in the rules' reactums and name a rule's reason ({@code Derivation}). In an agent only
- * {@code CovIntrinsic} and, on PARTIAL chain nodes, {@code PartDecomp} occur. The link markers have arity 1 and are
+ * {@code CovIntrinsic} and, on PARTIAL gate nodes, {@code PartDecomp} occur. The link markers have arity 1 and are
  * connected to the relation edge in the reactum.
  */
 public enum CoverageMarker {

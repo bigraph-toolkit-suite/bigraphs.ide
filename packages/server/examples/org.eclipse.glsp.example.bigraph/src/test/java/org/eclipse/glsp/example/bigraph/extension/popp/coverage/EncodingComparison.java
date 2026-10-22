@@ -11,17 +11,17 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 import java.util.*;
 
 /**
- * How the density of the encoding affects the rule workset: per encoding, the number of rules and how many rules a
+ * How the density of the encoding affects the rule worklist: per encoding, the number of rules and how many rules a
  * rule enables on average, by the control-pair analysis and by the overlap analysis
  * ({@link CoverageRewriteRules#enablingByOverlap(List)}). Static, on the rules as terms; the two earlier encodings are
  * rebuilt here from their rule generators (they no longer have a signature or bigraph builder in the code):
  * <ol>
- *   <li><b>single control</b>: every tree and chain node is a {@code TreeNode}; a chain node carries its type as a
- *   marker ({@code AndDecomp}/{@code OrDecomp}) and the first one a {@code ChainRoot} marker; no node kinds;</li>
- *   <li><b>generic gates</b>: domain nodes per kind, chain nodes {@code AndDecomp}/{@code OrDecomp} for every kind;</li>
- *   <li><b>per-kind gates</b>: chain nodes per kind and type ({@code GoalAnd}, ...), one rule per combination of slot
+ *   <li><b>single control</b>: every tree and gate node is a {@code TreeNode}; a gate node carries its type as a
+ *   marker ({@code AndDecomp}/{@code OrDecomp}) and the first one a {@code TopGate} marker; no node kinds;</li>
+ *   <li><b>generic gates</b>: domain nodes per kind, gate nodes {@code AndDecomp}/{@code OrDecomp} for every kind;</li>
+ *   <li><b>per-kind gates</b>: gate nodes per kind and type ({@code GoalAnd}, ...), one rule per combination of slot
  *   states (the encoding of the benchmark run);</li>
- *   <li><b>per-kind gates, threshold chains</b>: as 3, with the chain rules as thresholds.</li>
+ *   <li><b>per-kind gates, threshold rules</b>: as 3, with the gate rules as thresholds.</li>
  * </ol>
  * {@code EncodingComparison [out.csv]}
  */
@@ -29,29 +29,29 @@ public final class EncodingComparison {
     private static final List<Coverage> ALL = List.of(Coverage.UNCOVERED, Coverage.PARTIAL, Coverage.COVERED);
     private static final List<Coverage> UPGRADABLE = List.of(Coverage.UNCOVERED, Coverage.PARTIAL);
     private static final List<Coverage> PARTIAL_OR_COVERED = List.of(Coverage.PARTIAL, Coverage.COVERED);
-    private static final String TREE = "TreeNode", ROOT = "ChainRoot";
+    private static final String TREE = "TreeNode", ROOT = "TopGate";
 
     public static void main(String[] args) throws java.io.IOException {
         java.io.PrintWriter csv = args.length > 0
                 ? new java.io.PrintWriter(java.nio.file.Files.newBufferedWriter(java.nio.file.Path.of(args[0]))) : null;
-        if (csv != null) csv.println("encoding,rules,chain,lift,link,enables_controls,enables_overlap");
+        if (csv != null) csv.println("encoding,rules,gate,lift,link,enables_controls,enables_overlap");
         Map<String, List<RuleSpecification>> encodings = new LinkedHashMap<>();
         encodings.put("1 single control (TreeNode + markers)", singleControl());
-        encodings.put("2 per-kind domain, generic gates", genericGates(CoverageRewriteRules.specs(false)));
-        encodings.put("3 per-kind gates, enumerated chains", CoverageRewriteRules.specs(false));
-        encodings.put("4 per-kind gates, threshold chains", CoverageRewriteRules.specs(true));
-        System.out.printf("%-40s %6s %6s %6s %6s %6s %6s %6s%n", "encoding", "rules", "chain", "lift", "link",
+        encodings.put("2 per-kind domain, generic gate controls", genericGates(CoverageRewriteRules.specs(false)));
+        encodings.put("3 per-kind gate controls, combination rules", CoverageRewriteRules.specs(false));
+        encodings.put("4 per-kind gate controls, threshold rules", CoverageRewriteRules.specs(true));
+        System.out.printf("%-44s %6s %6s %6s %6s %6s %6s %6s%n", "encoding", "rules", "gate", "lift", "link",
                 "en/ctl", "en/ovl", "ovl %");
         for (var e : encodings.entrySet()) {
             List<RuleSpecification> rules = e.getValue();
-            long chain = rules.stream().filter(r -> r.name().startsWith("chain")).count();
+            long gate = rules.stream().filter(r -> r.name().startsWith("gate")).count();
             long lift = rules.stream().filter(r -> r.name().startsWith("lift")).count();
             long link = rules.stream().filter(r -> r.name().startsWith("link")).count();
             double ctl = average(byControls(rules)), ovl = average(CoverageRewriteRules.enablingByOverlap(rules));
-            System.out.printf("%-40s %6d %6d %6d %6d %6.1f %6.1f %5.1f%%%n", e.getKey(), rules.size(), chain, lift, link,
+            System.out.printf("%-44s %6d %6d %6d %6d %6.1f %6.1f %5.1f%%%n", e.getKey(), rules.size(), gate, lift, link,
                     ctl, ovl, 100 * ovl / rules.size());
             if (csv != null) csv.printf(java.util.Locale.ROOT, "\"%s\",%d,%d,%d,%d,%.2f,%.2f%n", e.getKey(), rules.size(),
-                    chain, lift, link, ctl, ovl);
+                    gate, lift, link, ctl, ovl);
         }
         if (csv != null) csv.close();
         System.out.println("en/ctl, en/ovl: rules a rule enables on average (control pairs, overlap); ovl %: as a share of all rules");
@@ -130,8 +130,8 @@ public final class EncodingComparison {
     private static List<RuleSpecification> genericGates(List<RuleSpecification> rules) {
         Map<String, String> rename = new HashMap<>();
         for (NodeKind k : NodeKind.values()) {
-            rename.put(POPPBigraphSignature.getChainControl(k, DecompositionType.AND).controlName(), "AndDecomp");
-            rename.put(POPPBigraphSignature.getChainControl(k, DecompositionType.OR).controlName(), "OrDecomp");
+            rename.put(POPPBigraphSignature.getGateControl(k, DecompositionType.AND).controlName(), "AndDecomp");
+            rename.put(POPPBigraphSignature.getGateControl(k, DecompositionType.OR).controlName(), "OrDecomp");
         }
         Map<String, RuleSpecification> distinct = new LinkedHashMap<>();   // rules that only differed in the gate's kind
         for (RuleSpecification r : rules) {
@@ -180,16 +180,16 @@ public final class EncodingComparison {
             for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR))
                 for (Coverage cur : UPGRADABLE)
                     for (int i = 0; i < ALL.size(); i++) {
-                        if (root) chain(out, type, cur, true, List.of(ALL.get(i)));
-                        for (int j = i; j < ALL.size(); j++) chain(out, type, cur, root, List.of(ALL.get(i), ALL.get(j)));
+                        if (root) addGate(out, type, cur, true, List.of(ALL.get(i)));
+                        for (int j = i; j < ALL.size(); j++) addGate(out, type, cur, root, List.of(ALL.get(i), ALL.get(j)));
                     }
         for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR))
             for (Coverage s : PARTIAL_OR_COVERED)
                 for (Coverage c : UPGRADABLE) {
                     if (s.compareTo(c) <= 0) continue;
-                    Term chain = Term.node(TREE, state(s), Term.node(ROOT), Term.node(marker(type)), Term.SITE);
-                    Term redex = Term.node(TREE, state(c), Term.SITE, chain);
-                    Term reactum = Term.node(TREE, state(s), why(s, false), Term.SITE, chain);
+                    Term topGate = Term.node(TREE, state(s), Term.node(ROOT), Term.node(marker(type)), Term.SITE);
+                    Term redex = Term.node(TREE, state(c), Term.SITE, topGate);
+                    Term reactum = Term.node(TREE, state(s), why(s, false), Term.SITE, topGate);
                     out.add(spec("lift-" + type + "-" + c + "-" + s, List.of(redex), List.of(reactum), redex, reactum, null, s));
                 }
         for (RelationType t : RelationType.values()) {
@@ -213,7 +213,7 @@ public final class EncodingComparison {
         return out;
     }
 
-    private static void chain(List<RuleSpecification> out, DecompositionType type, Coverage cur, boolean root, List<Coverage> slots) {
+    private static void addGate(List<RuleSpecification> out, DecompositionType type, Coverage cur, boolean root, List<Coverage> slots) {
         Coverage target = AbstractCoverageSession.aggregate(type, slots);
         if (target.compareTo(cur) <= 0) return;
         List<Term> kept = new ArrayList<>();
@@ -232,7 +232,7 @@ public final class EncodingComparison {
             after.add(slot);
         }
         Term redex = Term.node(TREE, before.toArray(Term[]::new)), reactum = Term.node(TREE, after.toArray(Term[]::new));
-        out.add(spec("chain-" + (root ? "root-" : "") + type + "-" + cur + "-" + slots, List.of(redex), List.of(reactum),
+        out.add(spec("gate-" + (root ? "root-" : "") + type + "-" + cur + "-" + slots, List.of(redex), List.of(reactum),
                 redex, reactum, null, target));
     }
 

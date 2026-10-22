@@ -20,8 +20,8 @@ import java.util.*;
  * {@code summary.csv} (one row per variant and depth).
  */
 public final class RewritingTraceReport {
-    static final List<String> DEFAULT = List.of("workset", "workset-seeded", "guards-first", "prefilter",
-            "workset-guards-seeded-first", "workset-prefilter-seeded", "workset-guards-seeded-first-prefilter", "oracle");
+    static final List<String> DEFAULT = List.of("worklist", "worklist-seeded", "guards-first", "prefilter",
+            "worklist-guards-seeded-first", "worklist-prefilter-seeded", "worklist-guards-seeded-first-prefilter", "oracle");
 
     public static void main(String[] args) throws IOException {
         Path out = Path.of(args.length > 0 ? args[0] : "trace");

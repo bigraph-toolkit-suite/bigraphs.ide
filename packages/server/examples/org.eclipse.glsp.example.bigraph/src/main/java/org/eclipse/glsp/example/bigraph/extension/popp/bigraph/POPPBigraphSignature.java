@@ -19,10 +19,10 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureSignatureBu
  * The POPP-specific {@link DynamicSignature}, expressed as an enum of controls.
  *
  * <p>Every domain node is a node whose control is its kind ({@code Problem}, {@code Goal}, ...). The place graph
- * carries the hierarchies and decompositions: an n-ary AND/OR decomposition becomes a chain of binary chain nodes
- * under the decomposed node, with one chain control per kind and type ({@code GoalAnd}, {@code ProblemOr}, ...), so
- * a chain node says which tree it belongs to. The first chain node is the one directly under a domain node; every
- * further chain node is under a chain node. Cross-tree relations are a pair of arity-1 stub
+ * carries the hierarchies and decompositions: an n-ary AND/OR decomposition becomes a decomposition chain of binary gate nodes
+ * under the decomposed node, with one gate control per kind and type ({@code GoalAnd}, {@code ProblemOr}, ...), so
+ * a gate node says which tree it belongs to. The topmost gate node is the one directly under a domain node; every
+ * further gate node is under a gate node. Cross-tree relations are a pair of arity-1 stub
  * nodes (one per relation type and direction) under their endpoints, connected by an edge.
  *
  * <p>Coverage state is not part of this signature: the coverage analysis adds its marker controls on a derived copy
@@ -40,7 +40,7 @@ public enum POPPBigraphSignature {
     SUCCESS_CRITERIA("SuccessCriteria", 0),
     SUCCESS_PROOF("SuccessProof", 0),
 
-    // Decomposition chain nodes: one control per kind and decomposition type
+    // Gate nodes of the decomposition chains: one control per kind and decomposition type
     PROBLEM_AND("ProblemAnd", NodeKind.PROBLEM, DecompositionType.AND),
     PROBLEM_OR("ProblemOr", NodeKind.PROBLEM, DecompositionType.OR),
     GOAL_AND("GoalAnd", NodeKind.GOAL, DecompositionType.AND),
@@ -69,23 +69,23 @@ public enum POPPBigraphSignature {
 
     private final String controlName;
     private final int arity;
-    /** For chain controls: the kind of the decomposed node and the type; {@code null} for every other control. */
-    private final NodeKind chainKind;
-    private final DecompositionType chainType;
+    /** For gate controls: the kind of the decomposed node and the type; {@code null} for every other control. */
+    private final NodeKind gateKind;
+    private final DecompositionType gateType;
 
     POPPBigraphSignature(String controlName, int arity) {
         this(controlName, arity, null, null);
     }
 
-    POPPBigraphSignature(String controlName, NodeKind chainKind, DecompositionType chainType) {
-        this(controlName, 0, chainKind, chainType);
+    POPPBigraphSignature(String controlName, NodeKind gateKind, DecompositionType gateType) {
+        this(controlName, 0, gateKind, gateType);
     }
 
-    POPPBigraphSignature(String controlName, int arity, NodeKind chainKind, DecompositionType chainType) {
+    POPPBigraphSignature(String controlName, int arity, NodeKind gateKind, DecompositionType gateType) {
         this.controlName = controlName;
         this.arity = arity;
-        this.chainKind = chainKind;
-        this.chainType = chainType;
+        this.gateKind = gateKind;
+        this.gateType = gateType;
     }
 
     public String controlName() {
@@ -121,23 +121,23 @@ public enum POPPBigraphSignature {
         return null;
     }
 
-    /** A decomposition chain node ({@code GoalAnd}, {@code ProblemOr}, ...). */
+    /** A gate node ({@code GoalAnd}, {@code ProblemOr}, ...). */
     public static boolean isDecompControl(POPPBigraphSignature control) {
-        return control != null && control.chainType != null;
+        return control != null && control.gateType != null;
     }
 
-    /** The kind of the tree a chain control belongs to; empty for every other control. */
-    public static Optional<NodeKind> chainKindOf(POPPBigraphSignature control) {
-        return control == null ? Optional.empty() : Optional.ofNullable(control.chainKind);
+    /** The kind of the tree a gate control belongs to; empty for every other control. */
+    public static Optional<NodeKind> gateKindOf(POPPBigraphSignature control) {
+        return control == null ? Optional.empty() : Optional.ofNullable(control.gateKind);
     }
 
-    /** The chain control for a decomposition of a node of {@code kind}; {@code null} for {@code NONE}. */
-    public static POPPBigraphSignature getChainControl(NodeKind kind, DecompositionType type) {
+    /** The gate control for a decomposition of a node of {@code kind}; {@code null} for {@code NONE}. */
+    public static POPPBigraphSignature getGateControl(NodeKind kind, DecompositionType type) {
         if (type == DecompositionType.NONE) return null;
         for (POPPBigraphSignature c : values()) {
-            if (c.chainKind == kind && c.chainType == type) return c;
+            if (c.gateKind == kind && c.gateType == type) return c;
         }
-        throw new IllegalArgumentException("No chain control for " + kind + " " + type);
+        throw new IllegalArgumentException("No gate control for " + kind + " " + type);
     }
 
     private static final Set<POPPBigraphSignature> KIND_CONTROLS = EnumSet.of(
@@ -146,7 +146,7 @@ public enum POPPBigraphSignature {
     /** A domain node's control: its kind. */
     public static boolean isKindControl(POPPBigraphSignature c) { return c != null && KIND_CONTROLS.contains(c); }
 
-    /** A node of the decomposition tree: a domain node or a chain node. */
+    /** A node of the decomposition tree: a domain node or a gate node. */
     public static boolean isTreeControl(POPPBigraphSignature c) { return isKindControl(c) || isDecompControl(c); }
 
     /** A relation stub (arity 1). */
@@ -177,9 +177,9 @@ public enum POPPBigraphSignature {
         };
     }
 
-    /** The decomposition type of a chain-node control; {@code NONE} for every other control. */
+    /** The decomposition type of a gate control; {@code NONE} for every other control. */
     public static DecompositionType decompositionTypeOf(POPPBigraphSignature control) {
-        return control == null || control.chainType == null ? DecompositionType.NONE : control.chainType;
+        return control == null || control.gateType == null ? DecompositionType.NONE : control.gateType;
     }
 
     /**

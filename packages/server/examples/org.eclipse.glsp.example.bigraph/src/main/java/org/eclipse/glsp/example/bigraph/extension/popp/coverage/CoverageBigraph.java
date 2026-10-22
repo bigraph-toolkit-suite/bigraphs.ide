@@ -14,9 +14,9 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 
 /**
  * The coverage bigraph: a copy of the structure bigraph over {@link CoverageSignature} in which every domain node and
- * every chain node holds a state cell ({@code Unc}, {@code Part} or {@code Cov}). Tree nodes of an intrinsically
- * covered kind start covered and hold {@code CovIntrinsic}: the domain nodes by definition, and their chain nodes
- * because the chain controls are per kind, so all their slots are covered domain nodes of that kind or chain nodes of
+ * every gate node holds a state cell ({@code Unc}, {@code Part} or {@code Cov}). Tree nodes of an intrinsically
+ * covered kind start covered and hold {@code CovIntrinsic}: the domain nodes by definition, and their gate nodes
+ * because the gate controls are per kind, so all their slots are covered domain nodes of that kind or gate nodes of
  * that tree. Every other tree node starts with {@code Unc}. Stubs and relation edges are copied unchanged. Rewriting
  * adds the reason markers of the upgrades; {@code IncrementalCoverageAnalyzer} keeps one such bigraph per mode and
  * edits it in place.
@@ -38,12 +38,12 @@ public class CoverageBigraph {
     }
 
     /**
-     * Whether a tree node with {@code control} (a domain or a chain control) is covered from the start in {@code mode}:
+     * Whether a tree node with {@code control} (a domain or a gate control) is covered from the start in {@code mode}:
      * its kind, or the kind of its tree, is intrinsically covered.
      */
     public static boolean isIntrinsic(POPPBigraphSignature control, CoverageMode mode) {
         if (POPPBigraphSignature.isKindControl(control)) return mode.isIntrinsic(POPPBigraphSignature.toNodeKind(control));
-        return POPPBigraphSignature.chainKindOf(control).map(mode::isIntrinsic).orElse(false);
+        return POPPBigraphSignature.gateKindOf(control).map(mode::isIntrinsic).orElse(false);
     }
 
     /** Copies the place graph. */

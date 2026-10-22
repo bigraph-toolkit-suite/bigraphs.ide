@@ -20,8 +20,8 @@ import java.util.concurrent.TimeUnit;
  * including the model's events and the synced bigraph; subtract {@link #editOnly()} for the coverage share.
  * <p>
  * Run it with {@code org.openjdk.jmh.Main}, e.g. {@code ... org.openjdk.jmh.Main CoverageBenchmark -rf json -rff
- * out.json -p analyzer=domain,workset-prefilter-seeded -p depth=0,1,2,3}; see {@code run-benchmarks.sh} for the whole set. The
- * whole-agent analyzers ({@code rewriting*}, {@code guards}, {@code workset*}) take seconds per session from depth 2
+ * out.json -p analyzer=domain,worklist-prefilter-seeded -p depth=0,1,2,3}; see {@code run-benchmarks.sh} for the whole set. The
+ * whole-agent analyzers ({@code rewriting*}, {@code guards}, {@code worklist*}) take seconds per session from depth 2
  * on, so give them fewer depths.
  */
 @State(Scope.Benchmark)
@@ -37,7 +37,7 @@ public class CoverageBenchmark {
     public int depth;
 
     /** A name accepted by {@code CoverageTestModels.analyzer}. */
-    @Param({"domain", "workset-prefilter-seeded"})
+    @Param({"domain", "worklist-prefilter-seeded"})
     public String analyzer;
 
     /** A {@link CoverageMode} preset name. */

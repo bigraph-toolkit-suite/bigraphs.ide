@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""The rule workset under different rule sets and encodings (the encodings step of run-benchmarks.sh).
+"""The rule worklist under different rule sets and encodings (the encodings step of run-benchmarks.sh).
 
     python3 plot_encodings.py <results-dir>/encodings [out-dir]
 
 08-encodings-static: per encoding, the number of rules and how many rules a rule enables (control-pair analysis vs.
 overlap analysis), incl. the two earlier encodings that exist only as rule sets.
-09-encodings-workset: per chain encoding x enabling analysis, (a) the workset schedules from scratch (JMH inspectRoot),
-(b) queued rule calls per session after the seed vs. hits (WorksetPrecision, workset + seed, all modes, complete and
-partial models), (c) the incremental workset schedules per edit step on identical edits (EditChainBreakdown, MIXED).
+09-encodings-worklist: per gate encoding x enabling analysis, (a) the worklist schedules from scratch (JMH inspectRoot),
+(b) queued rule calls per session after the seed vs. hits (WorklistPrecision, worklist + seed, all modes, complete and
+partial models), (c) the incremental worklist schedules per edit step on identical edits (EditChainBreakdown, MIXED).
 """
 import csv
 import glob
@@ -18,19 +18,20 @@ from collections import defaultdict
 
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.ticker import LogLocator
 
-from bench_style import INK, INK2, GRID, BLUE, ORANGE, AQUA, GREY, ms_label, save, nfr, setup as setup_style
+from bench_style import canon, INK, INK2, GRID, BLUE, ORANGE, AQUA, GREY, ms_label, save, nfr, setup as setup_style
 
 NODES = {0: 6, 1: 18, 2: 42, 3: 90}
-COMBOS = [  # (chains, enabling), label, colour
-    (("enumerated", "controls"), "enumerated chains, control pairs (before)", GREY),
-    (("enumerated", "overlap"), "enumerated chains, overlap", BLUE),
-    (("threshold", "controls"), "threshold chains, control pairs", ORANGE),
-    (("threshold", "overlap"), "threshold chains, overlap (now)", AQUA),
+COMBOS = [  # (gate rules, enabling), label, colour
+    (("enumerated", "controls"), "combination gate rules, control pairs (before)", GREY),
+    (("enumerated", "overlap"), "combination gate rules, overlap", BLUE),
+    (("threshold", "controls"), "threshold gate rules, control pairs", ORANGE),
+    (("threshold", "overlap"), "threshold gate rules, overlap (now)", AQUA),
 ]
-SCHEDULE_STYLE = {"rounds": ("rounds", ":", "v"), "workset": ("workset", "--", "o"),
-                  "workset-seeded": ("workset + seed", "-", "s"),
-                  "incremental-workset": ("workset", "--", "o"), "incremental-workset-seeded": ("workset + seed", "-", "s")}
+SCHEDULE_STYLE = {"rounds": ("rounds", ":", "v"), "worklist": ("worklist", "--", "o"),
+                  "worklist-seeded": ("worklist + seed", "-", "s"),
+                  "incremental-worklist": ("worklist", "--", "o"), "incremental-worklist-seeded": ("worklist + seed", "-", "s")}
 
 
 def log_axes(ax, xs):
@@ -41,6 +42,7 @@ def log_axes(ax, xs):
     ax.set_xlabel("POPP nodes")
     ax.grid(color=GRID, lw=0.6)
     ax.set_axisbelow(True)
+    ax.yaxis.set_major_locator(LogLocator(base=10, subs=(1, 2, 5)))
     ax.yaxis.set_major_formatter(plt.FuncFormatter(ms_label))
 
 
@@ -83,14 +85,16 @@ def load_jmh(d):
             continue
         for r in json.load(open(path)):
             p = r["params"]
-            data[(combo, p["analyzer"])][NODES[int(p["depth"])]] = r["primaryMetric"]["score"]
+            data[(combo, canon(p["analyzer"]))][NODES[int(p["depth"])]] = r["primaryMetric"]["score"]
     return data
 
 
 def load_precision(d):
     data = {}  # combo -> {nodes: (queued per session, hits per session)}
     for (combo, _, _) in COMBOS:
-        path = os.path.join(d, f"precision-{combo[0]}-{combo[1]}", "workset-precision.csv")
+        path = os.path.join(d, f"precision-{combo[0]}-{combo[1]}", "worklist-precision.csv")
+        if not os.path.exists(path):
+            path = path.replace("worklist-precision", "workset-precision")  # results before the rename
         if not os.path.exists(path):
             continue
         acc = defaultdict(lambda: [0, 0, 0])
@@ -110,11 +114,11 @@ def load_breakdown(d):
         if not os.path.exists(path):
             continue
         for r in csv.DictReader(open(path)):
-            data[(combo, r["analyzer"])][int(r["popp_nodes"])] = float(r["step_ms"])
+            data[(combo, canon(r["analyzer"]))][int(r["popp_nodes"])] = float(r["step_ms"])
     return data
 
 
-def workset_figure(d, out):
+def worklist_figure(d, out):
     jmh, prec, bd = load_jmh(d), load_precision(d), load_breakdown(d)
     if not (jmh or prec or bd):
         return
@@ -143,9 +147,15 @@ def workset_figure(d, out):
         ax.plot(n, [s[x][0] for x in n], color=colour, marker="s", ms=3.5, lw=1.3)
         xs |= set(n)
     if prec:
-        any_combo = next(iter(prec.values()))
-        n = sorted(any_combo)
-        ax.plot(n, [any_combo[x][1] for x in n], color=INK, ls=":", marker="x", ms=4, lw=1.2)
+        # hits depend on the rule family only (threshold gate nodes may take two steps), not on the enabling analysis
+        for family in ("enumerated", "threshold"):
+            s = next((v for (c, _), v in prec.items() if c == family), None)
+            if not s:
+                continue
+            colour = next(col for (c, e), _, col in COMBOS if c == family and e == "overlap")
+            n = sorted(x for x in s if s[x][1] > 0)
+            ax.plot(n, [s[x][1] for x in n], color=colour, ls=":", marker="x", ms=4, lw=1.2)
+        n = sorted(next(iter(prec.values())))
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_xticks(n, [str(x) for x in n])
@@ -153,7 +163,7 @@ def workset_figure(d, out):
         ax.set_xlabel("POPP nodes")
         ax.grid(color=GRID, lw=0.6)
     ax.set_ylabel("rule calls per session after the seed")
-    ax.set_title("Workset + seed: queued calls vs. hits (dotted)", fontsize=9)
+    ax.set_title("Worklist + seed: queued calls vs. hits (dotted)", fontsize=9)
 
     ax = axes[2]
     xs = set()
@@ -170,13 +180,13 @@ def workset_figure(d, out):
 
     handles = [Line2D([], [], color=c, lw=2) for _, _, c in COMBOS] + \
               [Line2D([], [], color=INK2, ls=ls, marker=m, ms=3.5) for (_, ls, m) in
-               [SCHEDULE_STYLE["rounds"], SCHEDULE_STYLE["workset"], SCHEDULE_STYLE["workset-seeded"]]] + \
+               [SCHEDULE_STYLE["rounds"], SCHEDULE_STYLE["worklist"], SCHEDULE_STYLE["worklist-seeded"]]] + \
               [Line2D([], [], color=INK, ls=":", marker="x")]
-    labels = [l for _, l, _ in COMBOS] + ["rounds (no workset)", "workset", "workset + seed", "hits (any workset)"]
+    labels = [l for _, l, _ in COMBOS] + ["rounds (no worklist)", "worklist", "worklist + seed", "hits (per gate rule family)"]
     fig.legend(handles, labels, loc="lower center", ncol=4, frameon=False, bbox_to_anchor=(0.5, -0.02), fontsize=8)
-    fig.suptitle("The rule workset depends on the rule set and the encoding", fontsize=10)
+    fig.suptitle("The rule worklist depends on the rule set and the encoding", fontsize=10)
     fig.tight_layout(rect=(0, 0.13, 1, 0.95))
-    save(fig, out, "09-encodings-workset")
+    save(fig, out, "09-encodings-worklist")
 
 
 def main():
@@ -188,7 +198,7 @@ def main():
     os.makedirs(out, exist_ok=True)
     setup_style()
     static_figure(d, out)
-    workset_figure(d, out)
+    worklist_figure(d, out)
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import java.util.*;
 
 /**
- * How precise is the rule workset? Runs traced sessions from scratch with {@code workset-seeded} (every queued rule is
+ * How precise is the rule worklist? Runs traced sessions from scratch with {@code worklist-seeded} (every queued rule is
  * matched, so the trace shows the whole queue) and splits the queued rule calls after the seed wave into:
  * <ul>
  *   <li><b>hits</b>: rules that rewrote something in their wave;</li>
@@ -24,14 +24,14 @@ import java.util.*;
  * The observed pairs are a subset of the true dependencies, so the rule-level share is an upper bound of what a better
  * static analysis can save. Also reports per enabling pair how often it was used.
  * <p>
- * {@code WorksetPrecision <out-dir> [depths=0,1,2] [complete=true,false]}
+ * {@code WorklistPrecision <out-dir> [depths=0,1,2] [complete=true,false]}
  */
-public final class WorksetPrecision {
+public final class WorklistPrecision {
 
     private record Session(String label, int nodes, List<Set<String>> queued, List<Set<String>> hits) {}
 
     public static void main(String[] args) throws IOException {
-        Path out = Path.of(args.length > 0 ? args[0] : "workset-precision");
+        Path out = Path.of(args.length > 0 ? args[0] : "worklist-precision");
         int[] depths = Arrays.stream((args.length > 1 ? args[1] : "0,1,2").split(",")).mapToInt(Integer::parseInt).toArray();
         String[] completes = (args.length > 2 ? args[2] : "true,false").split(",");
         Files.createDirectories(out);
@@ -44,7 +44,7 @@ public final class WorksetPrecision {
                     Synced popp = new Synced();
                     var trees = CoverageTestModels.fullModel(popp.model, depth, Boolean.parseBoolean(complete));
                     var analyzer = new ScheduledRewritingCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph),
-                            ScheduledRewritingCoverageAnalyzer.Options.WORKSET_SEEDED);
+                            ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_SEEDED);
                     analyzer.setTracing(true);
                     analyzer.session(mode).coverage(trees.root(NodeKind.PROBLEM));
                     RewritingTrace trace = analyzer.lastTrace();
@@ -82,7 +82,7 @@ public final class WorksetPrecision {
             }
         }
 
-        try (PrintWriter csv = new PrintWriter(Files.newBufferedWriter(out.resolve("workset-precision.csv")))) {
+        try (PrintWriter csv = new PrintWriter(Files.newBufferedWriter(out.resolve("worklist-precision.csv")))) {
             csv.println("session,popp_nodes,waves,queued_after_seed,hits,rule_level_waste,location_waste");
             long tq = 0, th = 0, tr = 0, tl = 0;
             System.out.printf("%-42s %5s %5s %8s %6s %10s %10s%n", "session", "nodes", "waves", "queued", "hits", "rule-level", "location");
