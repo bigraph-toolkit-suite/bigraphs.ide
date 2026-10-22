@@ -1,5 +1,5 @@
 import { coreClientExtension } from './core';
-import { IClientExtension, ModelVariantDescriptor, GlspServerActionContext, WebviewMessageContext } from './types';
+import { IClientExtension, ModelVariantDescriptor, GlspServerActionContext, WebviewMessageContext, ExtensionSidePanel, ExtensionSidePanelDiagram, ExtensionSidePanelView } from './types';
 
 /**
  * Host-side registry of all client extensions.
@@ -8,7 +8,10 @@ import { IClientExtension, ModelVariantDescriptor, GlspServerActionContext, Webv
  * everything that consumes variants ({@code create-bigraph.ts}, future
  * meta loaders, …) flows through {@link getClientExtensions} /
  * {@link getModelVariants} and stays oblivious to which extension
- * contributed what.</p>
+ * contributed what. A {@code sidePanel} on an extension is shown in the
+ * Bigraph Explorer sidebar while a diagram of one of its variants is
+ * the focused editor. Switching diagrams leaves the activity bar on
+ * its current item. At most one side panel is visible.</p>
  *
  * <p>Ordering matters only for UI presentation — variants are picked
  * up in the order their owning extensions were registered. Core comes
@@ -78,4 +81,12 @@ export async function dispatchWebviewMessage(
     return false;
 }
 
-export { IClientExtension, ModelVariantDescriptor, GlspServerActionContext, WebviewMessageContext };
+export {
+    IClientExtension,
+    ModelVariantDescriptor,
+    GlspServerActionContext,
+    WebviewMessageContext,
+    ExtensionSidePanel,
+    ExtensionSidePanelDiagram,
+    ExtensionSidePanelView,
+};

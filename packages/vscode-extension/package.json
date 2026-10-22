@@ -152,6 +152,12 @@
           "id": "evolutionManagerView",
           "name": "Rewriting",
           "type": "webview"
+        },
+        {
+          "id": "bigraph.extensionSidePanels",
+          "name": "Extension",
+          "type": "webview",
+          "when": "bigraph.extensionSidePanels.visible"
         }
       ]
     },

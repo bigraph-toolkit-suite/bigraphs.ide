@@ -7,6 +7,7 @@ import { registerEditorCommands } from './commands/editor-commands';
 import { initExplorerSidebar } from './bigraphsExplorer/init';
 import { HtmlViewProvider } from './rewriteRuleEditor/htmlViewProvider';
 import { initEvolutionSidebar } from './evolutionManager/init';
+import { registerExtensionSidePanels } from './extension/sidePanel';
 
 async function initEditor(context: vscode.ExtensionContext): Promise<void> {
 	await (await import('./editor/init.js')).initDiagramEditor(context);
@@ -24,6 +25,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	);
 	const evolutionDisposables = initEvolutionSidebar(context);
 	context.subscriptions.push(...evolutionDisposables);
+	context.subscriptions.push(...registerExtensionSidePanels(context));
 
 	const editorReady = initEditor(context).catch((err) => {
 		console.error('[bigraphide] Editor/GLSP init failed:', err);
