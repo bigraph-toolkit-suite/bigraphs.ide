@@ -22,8 +22,7 @@ class ScheduledRewritingCoverageAnalyzerTest {
     @Test
     void everyScheduleAgreesWithTheDomainAnalyzerOnRandomModels() {
         StringBuilder report = new StringBuilder();
-        for (String variant : new String[]{"worklist", "worklist-seeded", "guards-first", "prefilter",
-                "worklist-guards-seeded-first", "worklist-prefilter-seeded", "worklist-guards-seeded-first-prefilter"}) {
+        for (String variant : new String[]{"worklist", "worklist-seeded", "guards-first", "worklist-guards-seeded-first"}) {
             assertEquals(0, CoverageRandomModels.mismatches(variant, 12, 8, 4400, report), variant + "\n" + report);
         }
     }
@@ -32,7 +31,7 @@ class ScheduledRewritingCoverageAnalyzerTest {
     void rewritingAgreesWithTheDomainAnalyzerOnRandomModels() {
         assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         StringBuilder report = new StringBuilder();
-        for (String variant : new String[]{"worklist-prefilter-seeded"}) {
+        for (String variant : new String[]{"worklist-guards-seeded-first"}) {
             assertEquals(0, CoverageRandomModels.mismatches(variant, 12, 8, 4400, report), variant + "\n" + report);
         }
     }
@@ -56,25 +55,23 @@ class ScheduledRewritingCoverageAnalyzerTest {
     }
 
     @Test
-    void eachLeverSavesMatcherCallsAndThePrefilterCallsOnlyForHits() {
+    void eachLeverSavesMatcherCalls() {
         assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         Synced popp = new Synced();
         Tree tree = CoverageTestModels.balancedTree(popp.model, 2, true);
         CoverageInput input = CoverageInput.of(popp.model, popp.bigraph);
         var rounds = new ScheduledRewritingCoverageAnalyzer(input,
                 new ScheduledRewritingCoverageAnalyzer.Options(false, false, ScheduledRewritingCoverageAnalyzer.Options.ALL_RULES));
-        var guarded = new ScheduledRewritingCoverageAnalyzer(input,
-                ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_GUARDS_SEEDED_FIRST);
-        var prefiltered = new ScheduledRewritingCoverageAnalyzer(input);
+        var seeded = new ScheduledRewritingCoverageAnalyzer(input,
+                ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_SEEDED);
+        var guarded = new ScheduledRewritingCoverageAnalyzer(input);
 
-        for (var analyzer : List.of(rounds, guarded, prefiltered)) {
+        for (var analyzer : List.of(rounds, seeded, guarded)) {
             assertEquals(Coverage.COVERED, analyzer.coverage(tree.root(), CoverageMode.VERIFY));
         }
+        assertTrue(seeded.lastStats().matcherCalls() < rounds.lastStats().matcherCalls(),
+                seeded.lastStats() + " vs " + rounds.lastStats());
         assertTrue(guarded.lastStats().matcherCalls() * 5 < rounds.lastStats().matcherCalls(),
                 guarded.lastStats() + " vs " + rounds.lastStats());
-        // the prefilter is exact for the coverage rules: every matcher call finds a match
-        assertEquals(prefiltered.lastStats().successfulCalls(), prefiltered.lastStats().matcherCalls(),
-                prefiltered.lastStats().toString());
-        assertTrue(prefiltered.lastStats().matcherCalls() < guarded.lastStats().matcherCalls());
     }
 }

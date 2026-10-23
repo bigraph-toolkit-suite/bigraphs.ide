@@ -4,9 +4,9 @@
     python3 plot_breakdown.py <results-dir> [out-dir]
 
 Reads every breakdown-*.csv in <results-dir> (written by EditChainBreakdown via run-benchmarks.sh). One figure per
-file and action: a bar per analyzer, split into the phases of a traced step (build, sync, prefilter, matcher calls that
+file and action: a bar per analyzer, split into the phases of a traced step (build, sync, matcher calls that
 hit, matcher calls that miss, guards, rewrite, readout); the grey tick is the untraced step time. The hits-only bound
-is everything but the misses and the guards (and the prefilter).
+is everything but the misses and the guards.
 """
 import csv
 import glob
@@ -21,7 +21,6 @@ from bench_style import canon, SCHEDULES, style, INK, INK2, GRID, save, nfr, NFR
 PHASES = [  # column, label, colour
     ("build_ms", "build", "#b9b8b3"),
     ("sync_ms", "sync", "#8c8b86"),
-    ("prefilter_ms", "prefilter", "#1baf7a"),
     ("hit_match_ms", "matcher: hits", "#2a78d6"),
     ("rewrite_ms", "rewrite", "#6250d6"),
     ("readout_ms", "readout", "#52514e"),
@@ -33,7 +32,7 @@ PHASES = [  # column, label, colour
 def order_key(analyzer):
     base = analyzer[len("incremental-"):] if analyzer.startswith("incremental-") else analyzer
     if analyzer == "incremental":
-        base = "worklist-prefilter-seeded"
+        base = "worklist-guards-seeded-first"
     return SCHEDULES.index(base) if base in SCHEDULES else len(SCHEDULES)
 
 

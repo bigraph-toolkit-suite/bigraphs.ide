@@ -96,26 +96,42 @@ public record CoverageMode(String name, String label, Set<NodeKind> emitters, Se
      * goals are emitters) are left out, since they could only ever be reported as uncovered.
      */
     public Set<NodeKind> gapKinds() {
-        Map<NodeKind, Set<NodeKind>> flow = new EnumMap<>(NodeKind.class), back = new EnumMap<>(NodeKind.class);
-        for (NodeKind k : NodeKind.values()) {
-            flow.put(k, EnumSet.noneOf(NodeKind.class));
-            back.put(k, EnumSet.noneOf(NodeKind.class));
-        }
-        for (RelationType type : RelationType.values()) {
-            for (RelationType.NodeTypePair pair : type.getSupportedNodeTypePair()) {
-                switch (type.getCoveragePropagation()) {
-                    case FORWARD -> { flow.get(pair.from()).add(pair.to()); back.get(pair.to()).add(pair.from()); }
-                    case BACKWARD -> { flow.get(pair.to()).add(pair.from()); back.get(pair.from()).add(pair.to()); }
-                    default -> {}
-                }
-            }
-        }
+        Map<NodeKind, Set<NodeKind>> flow = flow(false), back = flow(true);
         Set<NodeKind> downstream = reach(emitters, flow);   // at least one step from an emitter
         Set<NodeKind> upstream = reach(targets, back);
         upstream.addAll(targets);
         Set<NodeKind> out = EnumSet.noneOf(NodeKind.class);
         for (NodeKind k : downstream) if (upstream.contains(k) && !emitters.contains(k)) out.add(k);
         return Collections.unmodifiableSet(out);
+    }
+
+    /**
+     * The kinds whose nodes can be raised in this mode: every kind coverage can flow to over propagating relations,
+     * starting from the intrinsically covered kinds, except those kinds themselves (they start covered). Nodes of every
+     * other kind stay uncovered in this mode, so no rule can raise them.
+     */
+    public Set<NodeKind> raisableKinds() {
+        Set<NodeKind> out = reach(emitters, flow(false));
+        out.removeAll(emitters);
+        return Collections.unmodifiableSet(out);
+    }
+
+    /** Coverage flow between kinds over the propagating relation types ({@code backwards}: against the flow). */
+    private static Map<NodeKind, Set<NodeKind>> flow(boolean backwards) {
+        Map<NodeKind, Set<NodeKind>> out = new EnumMap<>(NodeKind.class);
+        for (NodeKind k : NodeKind.values()) out.put(k, EnumSet.noneOf(NodeKind.class));
+        for (RelationType type : RelationType.values()) {
+            for (RelationType.NodeTypePair pair : type.getSupportedNodeTypePair()) {
+                NodeKind giver, receiver;
+                switch (type.getCoveragePropagation()) {
+                    case FORWARD -> { giver = pair.from(); receiver = pair.to(); }
+                    case BACKWARD -> { giver = pair.to(); receiver = pair.from(); }
+                    default -> { continue; }
+                }
+                if (backwards) out.get(receiver).add(giver); else out.get(giver).add(receiver);
+            }
+        }
+        return out;
     }
 
     private static Set<NodeKind> reach(Set<NodeKind> from, Map<NodeKind, Set<NodeKind>> edges) {

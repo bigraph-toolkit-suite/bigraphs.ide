@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Chains of edits, each followed by an inspection, as an editing user produces them: one operation is {@link #length}
  * steps of "edit ({@link #action}), then the coverage of the problem root". Compares recomputing every session from
- * scratch (a schedule, e.g. {@code worklist-prefilter-seeded}) with continuing from the last fixpoint
+ * scratch (a schedule, e.g. {@code worklist-guards-seeded-first}) with continuing from the last fixpoint
  * ({@code incremental[-<schedule>]}: one coverage bigraph per mode, edited in place; see
  * {@link IncrementalCoverageAnalyzer}).
  * <p>
@@ -35,7 +35,7 @@ public class EditChainBenchmark {
     @Param({"1", "2", "3"})
     public int depth;
 
-    @Param({"worklist-prefilter-seeded", "incremental"})
+    @Param({"worklist-guards-seeded-first", "incremental"})
     public String analyzer;
 
     /** An {@link EditScript.Action}. */

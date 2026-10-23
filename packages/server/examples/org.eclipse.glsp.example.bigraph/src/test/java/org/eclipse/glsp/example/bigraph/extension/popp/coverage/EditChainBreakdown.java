@@ -24,6 +24,11 @@ import java.util.*;
  * traced for the breakdown of the same steps (tracing adds a readout per round, which is not counted in any phase, so
  * {@code traced_ms} is higher). Not a JMH benchmark; one JVM, sequential.
  * <p>
+ * Per step, also: for the incremental analyzer the states reset by the edit and the rules seeded ({@code reset},
+ * {@code seeded}; empty from scratch), the rules a failed guard skipped ({@code guard_skipped}), and per rule family
+ * (gate, lift, link rules, by the rule names) the rule calls, the hits and the matcher time of the misses. Together
+ * they show how far an edit reaches (resets) and which family the remaining failed calls come from.
+ * <p>
  * {@code EditChainBreakdown <out.csv> <analyzers> [depths=1,2,3] [actions=LINK,TYPE,MOVE,NODE,MIXED] [steps=5] [warmup=3]}
  */
 public final class EditChainBreakdown {
@@ -38,23 +43,29 @@ public final class EditChainBreakdown {
         if (out.getParent() != null) Files.createDirectories(out.getParent());
 
         try (PrintWriter csv = new PrintWriter(Files.newBufferedWriter(out))) {
-            csv.println("analyzer,depth,popp_nodes,action,steps,step_ms,traced_ms,build_ms,sync_ms,prefilter_ms,"
-                    + "hit_match_ms,miss_match_ms,guard_ms,rewrite_ms,readout_ms,rule_calls,hits,guard_calls,bound_ms");
-            System.out.printf("%-44s %5s %6s %-6s %9s %9s %8s %8s %9s %9s %9s %8s %7s %6s%n", "analyzer", "depth", "nodes",
-                    "action", "step ms", "bound ms", "sync", "filter", "hit match", "miss mtch", "rewrite", "guards",
-                    "calls", "hits");
+            csv.println("analyzer,depth,popp_nodes,action,steps,step_ms,traced_ms,build_ms,sync_ms,"
+                    + "hit_match_ms,miss_match_ms,guard_ms,rewrite_ms,readout_ms,rule_calls,hits,guard_calls,bound_ms,"
+                    + "reset,seeded,guard_skipped,gate_calls,gate_hits,gate_miss_ms,lift_calls,lift_hits,lift_miss_ms,"
+                    + "link_calls,link_hits,link_miss_ms");
+            System.out.printf("%-44s %5s %6s %-6s %9s %9s %8s %9s %9s %9s %8s %7s %6s %6s %13s %13s %13s%n", "analyzer", "depth", "nodes",
+                    "action", "step ms", "bound ms", "sync", "hit match", "miss mtch", "rewrite", "guards",
+                    "calls", "hits", "reset", "gate hit/call", "lift hit/call", "link hit/call");
             for (int depth : depths) {
                 for (String action : actions) {
                     for (String name : analyzers) {
                         Row r = run(name, depth, EditScript.Action.valueOf(action), steps, warmup, mode);
-                        csv.printf(Locale.ROOT, "%s,%d,%d,%s,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,%.3f%n",
-                                name, depth, r.nodes, action, steps, r.stepMs, r.tracedMs, r.buildMs, r.syncMs, r.prefilterMs,
+                        csv.printf(Locale.ROOT, "%s,%d,%d,%s,%d,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,%.3f,%s,%s,%.2f,%.2f,%.2f,%.3f,%.2f,%.2f,%.3f,%.2f,%.2f,%.3f%n",
+                                name, depth, r.nodes, action, steps, r.stepMs, r.tracedMs, r.buildMs, r.syncMs,
                                 r.hitMatchMs, r.missMatchMs, r.guardMs, r.rewriteMs, r.readoutMs, r.ruleCalls, r.hits,
-                                r.guardCalls, r.boundMs());
+                                r.guardCalls, r.boundMs(), r.incremental ? String.format(Locale.ROOT, "%.2f", r.reset) : "",
+                                r.incremental ? String.format(Locale.ROOT, "%.2f", r.seeded) : "", r.guardSkipped,
+                                r.calls[0], r.hitsBy[0], r.missMs[0], r.calls[1], r.hitsBy[1], r.missMs[1],
+                                r.calls[2], r.hitsBy[2], r.missMs[2]);
                         csv.flush();
-                        System.out.printf(Locale.ROOT, "%-44s %5d %6d %-6s %9.1f %9.1f %8.1f %8.1f %9.1f %9.1f %9.1f %8.1f %7.1f %6.1f%n",
-                                name, depth, r.nodes, action, r.stepMs, r.boundMs(), r.syncMs, r.prefilterMs, r.hitMatchMs,
-                                r.missMatchMs, r.rewriteMs, r.guardMs, r.ruleCalls, r.hits);
+                        System.out.printf(Locale.ROOT, "%-44s %5d %6d %-6s %9.1f %9.1f %8.1f %9.1f %9.1f %9.1f %8.1f %7.1f %6.1f %6.1f %13s %13s %13s%n",
+                                name, depth, r.nodes, action, r.stepMs, r.boundMs(), r.syncMs, r.hitMatchMs,
+                                r.missMatchMs, r.rewriteMs, r.guardMs, r.ruleCalls, r.hits, r.reset,
+                                r.family(0), r.family(1), r.family(2));
                     }
                 }
             }
@@ -64,13 +75,28 @@ public final class EditChainBreakdown {
     /** Means per step. */
     private static final class Row {
         int nodes;
-        double stepMs, tracedMs, buildMs, syncMs, prefilterMs, hitMatchMs, missMatchMs, guardMs, rewriteMs, readoutMs;
+        double stepMs, tracedMs, buildMs, syncMs, hitMatchMs, missMatchMs, guardMs, rewriteMs, readoutMs;
         double ruleCalls, hits, guardCalls;
+        /** Incremental only: states reset by the edit and rules seeded, per step. */
+        boolean incremental;
+        double reset, seeded, guardSkipped;
+        /** Per rule family ({@link #FAMILIES}): rule calls, hits and matcher time of the misses, per step. */
+        final double[] calls = new double[3], hitsBy = new double[3], missMs = new double[3];
+
+        String family(int f) { return String.format(Locale.ROOT, "%.1f/%.1f", hitsBy[f], calls[f]); }
 
         double boundMs() { return buildMs + syncMs + hitMatchMs + rewriteMs + readoutMs; }
     }
 
     private static final long SEED = 4711;
+
+    /** The rule families, by the prefix of the rule names ({@link CoverageRewriteRules}). */
+    private static final List<String> FAMILIES = List.of("gate-", "lift-", "link-");
+
+    private static int family(String rule) {
+        for (int f = 0; f < FAMILIES.size(); f++) if (rule.startsWith(FAMILIES.get(f))) return f;
+        throw new IllegalStateException("Rule of no family: " + rule);
+    }
 
     private static Row run(String name, int depth, EditScript.Action action, int steps, int warmup, CoverageMode mode) {
         Row r = new Row();
@@ -114,15 +140,18 @@ public final class EditChainBreakdown {
             stats = inc.lastEngineStats();
             trace = inc.lastTrace();
             r.syncMs += inc.lastStats().syncNanos() / 1e6 / steps;
+            r.incremental = true;
+            r.reset += (double) inc.lastStats().reset() / steps;
+            r.seeded += (double) inc.lastStats().seeded() / steps;
         } else {
             var scratch = (ScheduledRewritingCoverageAnalyzer) analyzer;
             stats = scratch.lastStats();
             trace = scratch.lastTrace();
         }
         r.buildMs += stats.buildNanos() / 1e6 / steps;
-        r.prefilterMs += stats.prefilterNanos() / 1e6 / steps;
         r.rewriteMs += stats.rewriteNanos() / 1e6 / steps;
         r.readoutMs += stats.readoutNanos() / 1e6 / steps;
+        for (RewritingTrace.Round round : trace.rounds()) r.guardSkipped += (double) round.guarded() / steps;
         for (RewritingTrace.Call c : trace.calls()) {
             double ms = c.nanos() / 1e6 / steps;
             if (c.kind() == RewritingTrace.Kind.GUARD) {
@@ -132,9 +161,13 @@ public final class EditChainBreakdown {
                 r.hitMatchMs += ms;
                 r.hits += 1.0 / steps;
                 r.ruleCalls += 1.0 / steps;
+                r.calls[family(c.name())] += 1.0 / steps;
+                r.hitsBy[family(c.name())] += 1.0 / steps;
             } else {
                 r.missMatchMs += ms;
                 r.ruleCalls += 1.0 / steps;
+                r.calls[family(c.name())] += 1.0 / steps;
+                r.missMs[family(c.name())] += ms;
             }
         }
     }

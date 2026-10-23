@@ -11,17 +11,15 @@
 #   worklist                                the rule worklist (overlap analysis), every rule queued at the start
 #   worklist-seeded                         + seed (from scratch: the link rules; incremental: the rules the edit can
 #                                          have enabled, see IncrementalCoverageAnalyzer)
-#   worklist-guards-seeded-first            + guard patterns (matchFirst)
-#   prefilter                              the structural prefilter alone (every rule every round, matcher on hits)
-#   worklist-prefilter-seeded               worklist + seed + prefilter: the default; incremental-worklist-prefilter-seeded
-#                                          is the extension's analyzer, also called "incremental"
-#   worklist-guards-seeded-first-prefilter  everything
+#   worklist-guards-seeded-first            + guard patterns (matchFirst): the default; incremental-worklist-guards-
+#                                          seeded-first is the extension's analyzer, also called "incremental"
 # References (perfect pruning: only the matcher calls that hit):
 #   oracle                                 from scratch: the default schedule's hits, replayed (JMH, schedules step)
 #   bound_ms                               incremental: computed per edit step from a traced step (breakdown step;
 #                                          a replay would fall into the measured step itself)
 # Rules: threshold gate rules and the overlap analysis (the defaults since this run). The encodings step compares
-# them with enumerated gate rules and the control-pair analysis (-Dpopp.gates, -Dpopp.enabling).
+# them with enumerated gate rules and the control-pair analysis (-Dpopp.gates, -Dpopp.enabling). Every schedule only
+# queues the rules that can match in the mode (-Dpopp.prune=mode, the default; none keeps all 147).
 #
 # Output (in benchmark-results/<variant>-<timestamp>/):
 #   run.log              everything printed by the steps, in order, plus the system settings
@@ -42,8 +40,11 @@
 #   encodings/           the worklist under the rule sets: encodings-static.csv (rules and enabled rules per encoding,
 #                        incl. the two earlier ones), and per gate rules x enabling: <c>-<e>.json (JMH inspectRoot of
 #                        ENCODING_SCHEDULES), precision-<c>-<e>/ (queued rule calls vs. hits, WorklistPrecision),
-#                        breakdown-<c>-<e>.csv (incremental worklist schedules on identical edits)
-#   trace/               one traced session per schedule and the oracle (RewritingTraceReport)
+#                        breakdown-<c>-<e>.csv (incremental worklist schedules on identical edits). The guards
+#                        depend on the encoding as well (one guard per receiver shape), so the default is included.
+#   trace/               one traced session per schedule and the oracle, one traced MIXED edit (median reach of
+#                        BREAKDOWN_STEPS) per incremental schedule and its hits-only replay (incremental-oracle)
+#                        (RewritingTraceReport)
 #   figures/             plots (benchmark-plots/*.py), if python3 with matplotlib is installed
 #
 # Models: CoverageTestModels.fullModel, all six trees balanced, 6 / 18 / 42 / 90 POPP nodes for depth 0..3.
@@ -58,7 +59,7 @@
 # Power off when done: SHUTDOWN=1 (also after a failed step, never after Ctrl-C; 60 s grace period in which Ctrl-C
 # cancels the shutdown).
 # Rough duration on a Ryzen 5800X3D: about 6.5 hours; the longest steps are edits and breakdown (the schedules without
-# the prefilter, incremental, with an untimed reset per step) and encodings (the enumerated rules without prefilter).
+# incremental, with an untimed reset per step) and encodings (the enumerated rules).
 set -euo pipefail
 
 VARIANT="${1:-final}"
@@ -80,8 +81,8 @@ BREAKDOWN_WARMUP="${BREAKDOWN_WARMUP:-2}"
 # the most important results first, so a run that overruns the night still has them
 STEPS=",${STEPS:-check,default,edits,schedules,breakdown,encodings,trace,plot},"
 step() { [[ "$STEPS" == *",$1,"* ]]; }
-DEFAULT_SCHEDULE="worklist-prefilter-seeded"
-SCHEDULES="${SCHEDULES:-rounds,worklist,worklist-seeded,worklist-guards-seeded-first,prefilter,worklist-prefilter-seeded,worklist-guards-seeded-first-prefilter}"
+DEFAULT_SCHEDULE="worklist-guards-seeded-first"
+SCHEDULES="${SCHEDULES:-rounds,worklist,worklist-seeded,worklist-guards-seeded-first}"
 DEFAULT_ANALYZERS="${DEFAULT_ANALYZERS:-$DEFAULT_SCHEDULE}"       # add domain for its numbers in summary.csv
 ORACLES="${ORACLES:-oracle}"
 prefixed() { local out="" s; for s in ${SCHEDULES//,/ }; do out="$out,$1$s"; done; echo "${out#,}"; }
@@ -90,8 +91,8 @@ OTHER_INCREMENTALS="$(echo "$INCREMENTALS" | tr ',' '\n' | grep -vx "incremental
 # the encodings step: the worklist schedules under both gate rule sets and both enabling analyses
 ENCODING_GATES="${ENCODING_GATES:-enumerated,threshold}"
 ENCODING_ENABLING="${ENCODING_ENABLING:-controls,overlap}"
-ENCODING_SCHEDULES="${ENCODING_SCHEDULES:-worklist,worklist-seeded}"   # + rounds once per gate rule set
-ENCODING_INCREMENTALS="${ENCODING_INCREMENTALS:-incremental-worklist,incremental-worklist-seeded}"
+ENCODING_SCHEDULES="${ENCODING_SCHEDULES:-worklist,worklist-seeded,worklist-guards-seeded-first}"   # + rounds once per gate rule set
+ENCODING_INCREMENTALS="${ENCODING_INCREMENTALS:-incremental-worklist,incremental-worklist-seeded,incremental-worklist-guards-seeded-first}"
 OUT="benchmark-results/${VARIANT}-$(date +%Y%m%d-%H%M%S)"
 
 SHUTDOWN="${SHUTDOWN:-0}"
@@ -228,8 +229,8 @@ fi
   fi
 
   if step trace; then
-  echo "=== trace: one traced session per schedule and the oracle, depth $TRACE_DEPTHS"
-  $RUN -cp "$CP" $PKG.RewritingTraceReport "$OUT/trace" "$TRACE_DEPTHS" VERIFY "$SCHEDULES,$ORACLES"
+  echo "=== trace: one traced session per schedule and the oracle, and one traced MIXED edit per incremental schedule, depth $TRACE_DEPTHS"
+  $RUN -cp "$CP" $PKG.RewritingTraceReport "$OUT/trace" "$TRACE_DEPTHS" VERIFY "$SCHEDULES,$ORACLES,$INCREMENTALS,incremental-oracle" 2 MIXED "$BREAKDOWN_STEPS"
   echo
   fi
 

@@ -14,8 +14,8 @@ import java.util.*;
  * {@code RewritingScheduleComparison [maxDepth=2] [runs=5] [warmup=2] [mode=VERIFY] [analyzers=...]}
  */
 public final class RewritingScheduleComparison {
-    static final List<String> DEFAULT = List.of("worklist", "worklist-seeded", "guards-first", "prefilter",
-            "worklist-guards-seeded-first", "worklist-prefilter-seeded", "worklist-guards-seeded-first-prefilter", "oracle");
+    static final List<String> DEFAULT = List.of("worklist", "worklist-seeded", "guards-first",
+            "worklist-guards-seeded-first", "oracle");
 
     public static void main(String[] args) {
         int maxDepth = args.length > 0 ? Integer.parseInt(args[0]) : 2;
@@ -46,7 +46,7 @@ public final class RewritingScheduleComparison {
                 int guards = analyzer instanceof ScheduledRewritingCoverageAnalyzer s ? s.lastGuardCalls() : 0;
                 System.out.printf("%-36s %5d %6d %10.1f %7d %13d %7d %7d %9.1f %9.1f %10.1f%n", name, depth,
                         popp.model.getAllNodes().size(), ms[runs / 2], st.rounds(), st.matcherCalls(), guards,
-                        st.successfulCalls(), st.matchNanos() / 1e6, st.buildNanos() / 1e6, st.prefilterNanos() / 1e6);
+                        st.successfulCalls(), st.matchNanos() / 1e6, st.buildNanos() / 1e6);
             }
         }
     }

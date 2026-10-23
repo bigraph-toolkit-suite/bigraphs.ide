@@ -20,6 +20,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -124,13 +125,22 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
     /** The engine's trace of the most recent session that evaluated something, if tracing was on. */
     public RewritingTrace lastTrace() { return engine.lastTrace(); }
 
+    private volatile Consumer<PureBigraph> beforeRewrite;
+
+    /**
+     * Test hook: sees each synced coverage bigraph before the engine rewrites it (after the sync is timed), e.g. to copy
+     * it for an incremental oracle that replays the hits on the same agent. {@code null} removes it.
+     */
+    void beforeRewrite(Consumer<PureBigraph> hook) { beforeRewrite = hook; }
+
     /** The coverage bigraph of {@code mode} at its last fixpoint (for inspection and tests). */
     public Optional<PureBigraph> coverageBigraph(CoverageMode mode) {
         return Optional.ofNullable(synced.get(mode)).map(Synced::coverage);
     }
 
     /**
-     * Thread-safe: sessions of the same mode run one after another, sessions of different modes in parallel. The
+     * Thread-safe: sessions of the same mode run one after another, sessions of different modes in parallel (only
+     * building a coverage bigraph from the shared structure bigraph is serialized, see {@link CoverageBigraph#build}). The
      * structure bigraph must not change during a session, which holds since edits and sessions are both handled on the
      * GLSP dispatch thread, which waits for the sessions.
      */
@@ -173,6 +183,8 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
                     ? ScheduledRewritingCoverageAnalyzer.Options.ALL_RULES : mirror::seeds;
             int seeded = (int) ScheduledRewritingCoverageAnalyzer.rules().stream().filter(seed).count();
             lastStats = new Stats(true, ops.size(), mirror.reset, seeded, syncNanos);
+            Consumer<PureBigraph> hook = beforeRewrite;
+            if (hook != null) hook.accept(synced);
             next = engine.rewriteToFixpoint(mode, synced, seed);
         }
         synced.put(mode, new Synced(input.model(), source, head, next.bigraph(), next.session()));

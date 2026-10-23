@@ -18,7 +18,7 @@ import java.util.*;
  * rule calls that found a match (guard calls are not rule calls and are dropped). {@link #session} replays it on a
  * freshly built coverage bigraph: every call hits and is followed by its rewrite, with the same matcher API as the
  * schedule ({@code matchFirst} for the {@code *-first} schedules, otherwise the first of all matches), so the replay
- * rewrites in the same order with the same matches. There are no guards, no prefilter, no worklist bookkeeping and no
+ * rewrites in the same order with the same matches. There are no guards, no worklist bookkeeping and no
  * failed calls: the time is hits x (cost of a hitting call + its rewrite), plus building the coverage bigraph and the
  * readout, i.e. a lower bound for that schedule. With rewriting the order matters (what a call costs depends on the
  * agent it runs on), so every schedule has its own oracle; the replay is checked against the recording's result once.
@@ -117,7 +117,7 @@ public final class OracleRewritingCoverageAnalyzer implements CoverageAnalyzer {
                 if (!it.hasNext()) throw new IllegalStateException("Oracle replay: " + rule.name() + " has no match");
                 PureBigraphMatch match = it.next();
                 tMatch += System.nanoTime() - t0;
-                if (trace != null) trace.call(r, RewritingTrace.Kind.RULE, rule.name(), true, true, callStart, trace.now());
+                if (trace != null) trace.call(r, RewritingTrace.Kind.RULE, rule.name(), true, callStart, trace.now());
                 t0 = System.nanoTime();
                 agent = reactions.buildParametricReaction(agent, match, rule.rule());
                 long rw = System.nanoTime() - t0;
@@ -125,14 +125,14 @@ public final class OracleRewritingCoverageAnalyzer implements CoverageAnalyzer {
                 rewriteInRound += rw;
             }
             // active = the rules the oracle lets through (all hits)
-            if (trace != null) trace.round(r, round.length, 0, 0, roundStart, trace.now(), rewriteInRound, roundAgent,
+            if (trace != null) trace.round(r, round.length, 0, roundStart, trace.now(), rewriteInRound, roundAgent,
                     RewritingReadout.ofRewritten(agent).coverage());
         }
         t0 = System.nanoTime();
         RewritingReadout readout = RewritingReadout.ofRewritten(agent);
         long tReadout = System.nanoTime() - t0;
         lastTrace = trace;
-        lastStats = new RewritingStats(s.rounds().size(), calls, calls, agentNodes, tBuild, 0, tMatch, tRewrite, tReadout);
+        lastStats = new RewritingStats(s.rounds().size(), calls, calls, agentNodes, tBuild, tMatch, tRewrite, tReadout);
         return readout;
     }
 
