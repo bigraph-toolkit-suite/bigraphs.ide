@@ -1,0 +1,28 @@
+/* Styles of the POPP side panel (coverage.html). */
+body { padding: 0 10px 12px; font-size: 12px; color: var(--vscode-foreground); }
+.empty { opacity: .7; padding: 12px 0; }
+.bar { display: flex; align-items: center; gap: 6px; padding: 8px 0 4px; flex-wrap: wrap; }
+.file { font-weight: 600; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button { font: inherit; color: var(--vscode-button-secondaryForeground); background: var(--vscode-button-secondaryBackground);
+         border: 1px solid transparent; border-radius: 3px; padding: 2px 8px; cursor: pointer; }
+button:hover { background: var(--vscode-button-secondaryHoverBackground); }
+button.on { color: var(--vscode-button-foreground); background: var(--vscode-button-background); }
+h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .8; margin: 14px 0 4px;
+     display: flex; justify-content: space-between; align-items: center; }
+.row { padding: 3px 6px; border-radius: 3px; display: flex; gap: 6px; align-items: baseline; }
+.row.click { cursor: pointer; }
+.row.click:hover { background: var(--vscode-list-hoverBackground); }
+.row .badge { flex: 0 0 auto; font-size: 10px; padding: 0 4px; border-radius: 3px; border: 1px solid currentColor; }
+.row .text { flex: 1 1 auto; overflow-wrap: anywhere; }
+.muted { opacity: .7; }
+.covered { color: var(--vscode-testing-iconPassed, #3fb950); }
+.partial, .warning { color: var(--vscode-editorWarning-foreground, #d29922); }
+.uncovered, .error { color: var(--vscode-editorError-foreground, #f85149); }
+.sub { font-size: 11px; opacity: .75; }
+select { font: inherit; color: var(--vscode-dropdown-foreground); background: var(--vscode-dropdown-background);
+         border: 1px solid var(--vscode-dropdown-border, transparent); border-radius: 2px; padding: 1px 4px; }
+.mode { border-left: 2px solid transparent; border-radius: 0 3px 3px 0; }
+.mode.current { border-left-color: var(--vscode-focusBorder); background: var(--vscode-list-inactiveSelectionBackground); }
+.mode .text b { font-weight: 600; }
+.trees { margin: 0 0 4px 14px; }
+.trees .row { padding: 1px 6px; }
