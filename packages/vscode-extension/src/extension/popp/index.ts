@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { getPanelForClientId } from '../../editor/glspClientRegistry';
 import { IClientExtension, ModelVariantDescriptor, WebviewMessageContext } from '../types';
-import { PoppSidebarState, getPoppCoverageViewProvider, revealPoppSidebar } from './coverageView';
+import { PoppSidebarState, poppCoveragePanel, revealPoppSidebar, setPoppSidebarState } from './coveragePanel';
 
 export const POPP_VARIANT_ID = 'popp';
 
@@ -19,12 +19,13 @@ export const problemOrientedProjectPlanningExtension: IClientExtension = {
     id: 'popp',
     name: 'Problem-Oriented Project Planning',
     variants: [POPP_VARIANT],
+    sidePanel: poppCoveragePanel,
 
-    /** Relays between the diagram webview and the POPP sidebar view. */
+    /** Relays between the diagram webview and the POPP side panel, and the JSON file dialogs. */
     handleWebviewMessage(context: WebviewMessageContext): boolean {
         const { message, clientId } = context;
         if (message.type === 'popp.sidebarState') {
-            getPoppCoverageViewProvider()?.setState(clientId, message.state as PoppSidebarState);
+            setPoppSidebarState(clientId, message.state as PoppSidebarState);
             return true;
         }
         if (message.type === 'popp.openSidebar') {
