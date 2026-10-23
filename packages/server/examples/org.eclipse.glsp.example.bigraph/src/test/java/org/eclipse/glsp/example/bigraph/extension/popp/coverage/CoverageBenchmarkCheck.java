@@ -47,7 +47,7 @@ public final class CoverageBenchmarkCheck {
             return;
         }
         int maxDepth = args.length > 0 ? Integer.parseInt(args[0]) : 2;
-        String[] analyzers = (args.length > 1 ? args[1] : "worklist-prefilter-seeded").split(",");
+        String[] analyzers = (args.length > 1 ? args[1] : "worklist-guards-seeded-first").split(",");
         String variant = System.getProperty("variant", "unlabelled");
         int bad = 0;
         System.out.println("[check] matchFirst works: " + ScheduledRewritingCoverageAnalyzer.FIRST_MATCH_WORKS);

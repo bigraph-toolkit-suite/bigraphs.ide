@@ -22,8 +22,18 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * edits it in place.
  */
 public class CoverageBigraph {
-    /** Builds the coverage bigraph of {@code source} at the start of the evaluation in {@code mode}. */
+    /**
+     * Builds the coverage bigraph of {@code source} at the start of the evaluation in {@code mode}. Holds the lock of
+     * {@code source} while reading it: reading a framework bigraph fills lazy caches (ports, link points) that are not
+     * thread-safe, and the modes of a report are evaluated in parallel. The result is an independent copy.
+     */
     public static PureBigraphMutable build(POPPBigraph source, CoverageMode mode) {
+        synchronized (source) {
+            return copy(source, mode);
+        }
+    }
+
+    private static PureBigraphMutable copy(POPPBigraph source, CoverageMode mode) {
        DynamicSignature sig = CoverageSignature.get();
        PureBigraphMutable src = source.getBigraph();
        PureBigraphMutable g = pureBuilder(sig).createMutable();

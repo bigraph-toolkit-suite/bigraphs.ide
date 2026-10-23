@@ -24,8 +24,7 @@ public final class CoverageTestModels {
      * The analyzer for a benchmark/check name: {@code domain} ({@link DomainCoverageAnalyzer}, the reference); a schedule
      * of {@link ScheduledRewritingCoverageAnalyzer} from scratch: {@code rounds} (no optimisation), {@code worklist},
      * {@code worklist-seeded},
-     * {@code guards-first}, {@code prefilter}, {@code worklist-guards-seeded-first}, {@code worklist-prefilter-seeded} (the
-     * default, also {@code default}), {@code worklist-guards-seeded-first-prefilter}; {@code oracle-<schedule>}, the
+     * {@code guards-first}, {@code worklist-guards-seeded-first} (the default, also {@code default}); {@code oracle-<schedule>}, the
      * hits-only replay of that schedule ({@link OracleRewritingCoverageAnalyzer}; {@code oracle} is the default
      * schedule's); or {@code incremental-<schedule>}, the {@link IncrementalCoverageAnalyzer} with that schedule
      * ({@code incremental} with the default one), registered as a listener of the bigraph. Rewriting needs the fixed
@@ -60,10 +59,7 @@ public final class CoverageTestModels {
             case "worklist" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST;
             case "worklist-seeded" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_SEEDED;
             case "guards-first" -> ScheduledRewritingCoverageAnalyzer.Options.GUARDS_FIRST;
-            case "prefilter" -> ScheduledRewritingCoverageAnalyzer.Options.PREFILTER;
             case "worklist-guards-seeded-first" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_GUARDS_SEEDED_FIRST;
-            case "worklist-prefilter-seeded" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_PREFILTER_SEEDED;
-            case "worklist-guards-seeded-first-prefilter" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_GUARDS_SEEDED_FIRST_PREFILTER;
             default -> throw new IllegalArgumentException("Unknown analyzer " + name);
         };
     }

@@ -12,7 +12,6 @@ import org.bigraphs.framework.simulation.matching.pure.PureReactiveSystem;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
-import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.StructuralPrefilter;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageRewriteRules.CompiledRule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,11 +26,11 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * bigraph ({@link CoverageBigraph}), matched with the Bigraph Framework's {@link PureBigraphMatcher} (jLibBig
  * underneath), applied by rewriting. Evaluates every session from scratch; the POPP extension uses it through
  * {@link IncrementalCoverageAnalyzer}, which keeps the fixpoint bigraph and only re-derives what an edit affected.
- * {@link Options#DEFAULT}: worklist, prefilter, seed.
+ * {@link Options#DEFAULT}: worklist, seed, guards (matchFirst).
  * <p>
  * Which rule to match when is decided from what the rules themselves say, not from tables over the model: every
  * decision not to call the matcher for a rule follows from the rule set (a static analysis), from a matcher call on a
- * smaller pattern (a guard) or from a generic structural search (the prefilter). The levers can be combined freely;
+ * smaller pattern (a guard). The levers can be combined freely;
  * with none of them every rule is matched in every round.
  * <p>
  * <b>Rule worklist</b> ({@code worklist}). A static analysis of the rules computes which rules a rule <i>enables</i>:
@@ -47,6 +46,10 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * {@code worklist}
  * every wave tries every rule (rounds).
  * <p>
+ * <b>Mode</b> ({@code -Dpopp.prune=mode}, the default; {@code none} keeps every rule). A rule whose receiver kind no
+ * coverage can reach in the mode ({@link CoverageMode#raisableKinds()}), or a link rule whose giver kind is neither
+ * intrinsic nor reachable, can never match in that mode and is never queued.
+ * <p>
  * <b>Guard patterns</b> ({@code guards}). Each rule has a guard: its receiver node with its marker children and a
  * site, e.g. {@code Goal[Unc | -]} ("some goal is still uncovered") or {@code GoalAnd[Part | -]}. The guard embeds
  * into the rule's redex, and embeddings compose, so if the guard has no match in the agent, the rule has none either.
@@ -57,11 +60,6 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * coverage only link rules can match first: the trees of intrinsic kinds start covered (gate nodes included, see
  * {@link CoverageBigraph}) and all others uncovered, so no gate or lift rule has an input until a link rule raised
  * something.
- * <p>
- * <b>Structural prefilter</b> ({@code prefilter}). Before a matcher call, a generic filter
- * ({@link StructuralPrefilter}) searches the redex's place and link structure in the agent; only if it embeds is the
- * matcher called (filter-and-refine). It never rejects a rule that matches, and for the coverage rules it is exact,
- * so the matcher is called only for hits; with it, guards and the worklist are unnecessary.
  * <p>
  * <b>Applying the rules.</b> Every match is turned into the next agent by the framework's
  * {@code PureReactiveSystem.buildParametricReaction} (context, instantiated reactum and parameters composed), and the
@@ -93,16 +91,10 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
      * @param nested      with {@code guards}: also a second-level guard that adds one child of the receiver
      * @param firstMatch  stop a guard and a rule at its first match ({@code matchFirst}; needs the fixed framework, see
      *                    {@link #FIRST_MATCH_WORKS}, otherwise all matches are enumerated)
-     * @param prefilter   call the matcher only when the {@link StructuralPrefilter} finds the redex's structure
      */
-    public record Options(boolean worklist, boolean guards, Predicate<CompiledRule> seed, boolean nested, boolean firstMatch,
-                          boolean prefilter) {
+    public record Options(boolean worklist, boolean guards, Predicate<CompiledRule> seed, boolean nested, boolean firstMatch) {
         public Options(boolean worklist, boolean guards, Predicate<CompiledRule> seed) {
-            this(worklist, guards, seed, false, false, false);
-        }
-
-        public Options(boolean worklist, boolean guards, Predicate<CompiledRule> seed, boolean nested, boolean firstMatch) {
-            this(worklist, guards, seed, nested, firstMatch, false);
+            this(worklist, guards, seed, false, false);
         }
 
         public static final Predicate<CompiledRule> ALL_RULES = r -> true;
@@ -116,15 +108,11 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
         public static final Options WORKLIST_SEEDED = new Options(true, false, LINK_RULES);
         /** Only guards (with matchFirst): every rule every round, guarded. */
         public static final Options GUARDS_FIRST = new Options(false, true, ALL_RULES, false, true);
-        /** Only the prefilter: every rule every round, the matcher only where the prefilter finds the redex. */
-        public static final Options PREFILTER = new Options(false, false, ALL_RULES, false, false, true);
+        /** Everything: worklist, seed and guards (with matchFirst). */
         public static final Options WORKLIST_GUARDS_SEEDED_FIRST = new Options(true, true, LINK_RULES, false, true);
-        public static final Options WORKLIST_PREFILTER_SEEDED = new Options(true, false, LINK_RULES, false, false, true);
-        /** Everything: worklist, seed, prefilter, then guards (redundant after an exact prefilter; shows their cost). */
-        public static final Options WORKLIST_GUARDS_SEEDED_FIRST_PREFILTER = new Options(true, true, LINK_RULES, false, true, true);
 
-        /** The analyzer's default: worklist, prefilter and seed. */
-        public static final Options DEFAULT = WORKLIST_PREFILTER_SEEDED;
+        /** The analyzer's default: worklist, seed and guards. */
+        public static final Options DEFAULT = WORKLIST_GUARDS_SEEDED_FIRST;
     }
 
     /** A rule with what the static analysis knows about it. */
@@ -175,6 +163,19 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
         }
     }
 
+    /** The kind of a link rule's giver (always a domain node); link rules only. */
+    private static final Map<CompiledRule, NodeKind> GIVER_KINDS = new IdentityHashMap<>();
+    static {
+        for (CompiledRule r : RULES) {
+            if (r.giverNode() == null) continue;
+            r.rule().getRedex().getNodes().stream()
+                    .filter(n -> n.getName().equals(r.giverNode())).findFirst()
+                    .map(POPPBigraphSignature::forNode)
+                    .filter(POPPBigraphSignature::isKindControl)
+                    .ifPresent(c -> GIVER_KINDS.put(r, POPPBigraphSignature.toNodeKind(c)));
+        }
+    }
+
     /** The kind of a rule's receiver: of the domain node, or of the tree a gate node belongs to. */
     public static Optional<NodeKind> receiverKind(CompiledRule rule) {
         return RECEIVER_KINDS.getOrDefault(rule, Optional.empty());
@@ -194,10 +195,6 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
 
     /** The trace of the most recent session, if tracing was on. */
     public RewritingTrace lastTrace() { return lastTrace; }
-
-    /** The prefilter's compiled redex per rule (by rule index). */
-    private static final List<StructuralPrefilter.Structure> PATTERNS =
-            RULES.stream().map(r -> StructuralPrefilter.compile(r.rule().getRedex())).toList();
 
     /**
      * Runs a few sessions on a small built-in model, so that class loading and JIT compilation of the matcher (the
@@ -274,7 +271,7 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
             throw new IllegalStateException("The jLibBig AgentMatcher on the classpath splits links between parameters and"
                     + " deeper context nodes; rewriting would corrupt the relation edges (see REWRITE_KEEPS_LINKS)");
         }
-        long t0, tMatch = 0, tRewrite = 0, tFilter = 0;
+        long t0, tMatch = 0, tRewrite = 0;
         int agentNodes = agent.getNodes().size();
         RewritingTrace trace = tracing ? new RewritingTrace() : null;
 
@@ -283,20 +280,20 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
         int waves = 0, ruleCalls = 0, guardCalls = 0, successful = 0;
         int budget = 2 * agentNodes + 2;            // every rewrite upgrades a state cell, at most twice per tree node
 
+        boolean[] usable = usable(mode);
         LinkedHashSet<Scheduled> queue = new LinkedHashSet<>();
-        for (Scheduled s : rules) if (seed.test(s.rule())) queue.add(s);
+        for (Scheduled s : rules) if (usable[s.index()] && seed.test(s.rule())) queue.add(s);
 
         while (!queue.isEmpty()) {
             waves++;
             List<Scheduled> wave = new ArrayList<>(queue);
             queue.clear();
             long roundStart = trace == null ? 0 : trace.now(), rewriteInRound = 0;
-            int prefiltered = 0, guarded = 0, roundAgent = agent.getNodes().size();
+            int guarded = 0, roundAgent = agent.getNodes().size();
             // Guards are cached per wave although rewrites change the agent within it: a guard that held may no longer
             // hold (the rule call then just fails), and one that did not hold can only start to hold through a rewrite
             // by a rule that enables this one, which queues it for the next wave.
             Map<String, Boolean> guardHolds = new HashMap<>();
-            StructuralPrefilter.Structure structure = null;    // recompiled after every rewrite
             boolean changed = false;
 
             for (Scheduled s : wave) {
@@ -311,7 +308,7 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
                             long callStart = trace == null ? 0 : trace.now();
                             h = exists(matcher, agent, g.rule(), options.firstMatch());
                             tMatch += System.nanoTime() - t0;
-                            if (trace != null) trace.call(waves, RewritingTrace.Kind.GUARD, g.key(), h, false, callStart, trace.now());
+                            if (trace != null) trace.call(waves, RewritingTrace.Kind.GUARD, g.key(), h, callStart, trace.now());
                             guardHolds.put(g.key(), h);
                         }
                         if (!h) { holds = false; break; }
@@ -319,19 +316,8 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
                     if (!holds) { guarded++; continue; }
                 }
                 CompiledRule rule = s.rule();
-                boolean applied = false, first = true;
+                boolean applied = false;
                 while (true) {
-                    if (options.prefilter()) {
-                        t0 = System.nanoTime();
-                        if (structure == null) structure = StructuralPrefilter.compile(agent);
-                        boolean may = StructuralPrefilter.mayMatch(PATTERNS.get(s.index()), structure);
-                        tFilter += System.nanoTime() - t0;
-                        if (!may) {
-                            if (first) prefiltered++;
-                            break;
-                        }
-                    }
-                    first = false;
                     ruleCalls++;
                     t0 = System.nanoTime();
                     long callStart = trace == null ? 0 : trace.now();
@@ -340,7 +326,7 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
                     PureBigraphMatch match = it.hasNext() ? it.next() : null;
                     boolean more = it.hasNext();
                     tMatch += System.nanoTime() - t0;
-                    if (trace != null) trace.call(waves, RewritingTrace.Kind.RULE, rule.name(), match != null, match != null, callStart, trace.now());
+                    if (trace != null) trace.call(waves, RewritingTrace.Kind.RULE, rule.name(), match != null, callStart, trace.now());
                     if (match == null) break;
                     successful++;
                     if (--budget < 0) throw new IllegalStateException("Coverage rewriting did not terminate");
@@ -349,25 +335,24 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
                     long rw = System.nanoTime() - t0;
                     tRewrite += rw;
                     rewriteInRound += rw;
-                    structure = null;
                     applied = true;
                     // all matches enumerated and this was the only one: only the rule itself could have made a new one
                     if (!more && !(options.firstMatch() && FIRST_MATCH_WORKS) && !s.enablesItself()) break;
                 }
                 if (applied) {
                     changed = true;
-                    if (options.worklist()) for (int i : s.enables()) queue.add(rules.get(i));
+                    if (options.worklist()) for (int i : s.enables()) if (usable[i]) queue.add(rules.get(i));
                 }
             }
-            if (trace != null) trace.round(waves, wave.size(), prefiltered, guarded, roundStart, trace.now(), rewriteInRound,
+            if (trace != null) trace.round(waves, wave.size(), guarded, roundStart, trace.now(), rewriteInRound,
                     roundAgent, RewritingReadout.ofRewritten(agent).coverage());
             if (!changed) break;
-            if (!options.worklist()) queue.addAll(rules);
+            if (!options.worklist()) for (Scheduled s : rules) if (usable[s.index()]) queue.add(s);
         }
         t0 = System.nanoTime();
         RewritingReadout readout = RewritingReadout.ofRewritten(agent);
         long tReadout = System.nanoTime() - t0;
-        lastStats = new RewritingStats(waves, ruleCalls + guardCalls, successful, agentNodes, tBuild, tFilter, tMatch, tRewrite, tReadout);
+        lastStats = new RewritingStats(waves, ruleCalls + guardCalls, successful, agentNodes, tBuild, tMatch, tRewrite, tReadout);
         lastGuardCalls = guardCalls;
         lastFixpoint = agent;
         lastTrace = trace;
@@ -450,7 +435,26 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
 
     /** Enabling by overlapping the rules ({@link CoverageRewriteRules#enablingByOverlap()}) or by control pairs. */
     static final boolean ENABLING_BY_OVERLAP = !"controls".equals(System.getProperty("popp.enabling", "overlap"));
+    /** Never queue a rule that cannot match in the session's mode (see the class comment). */
+    static final boolean PRUNE_BY_MODE = !"none".equals(System.getProperty("popp.prune", "mode"));
     private static final Analysis ANALYSIS = new Analysis(RULES);
+
+    /*
+     * Every rule and guard bigraph is shared by all sessions, and the modes of a report are evaluated in parallel.
+     * Reading a framework bigraph fills lazy caches (ports, link points) that are not thread-safe, so each one is read
+     * once here, the way the matcher and the rewriting read it: class initialization runs on one thread and
+     * happens-before every use of the class, so the parallel sessions only ever read filled caches.
+     */
+    static {
+        List<PureBigraph> shared = new ArrayList<>();
+        for (Scheduled s : ANALYSIS.rules) {
+            shared.add(s.rule().rule().getRedex());
+            shared.add(s.rule().rule().getReactum());
+            shared.add(s.guard().rule().getRedex());
+            if (s.nested() != null) shared.add(s.nested().rule().getRedex());
+        }
+        for (PureBigraph b : shared) new org.bigraphs.framework.converter.jlibbig.JLibBigBigraphEncoder().encode(b);
+    }
 
     private static final class Analysis {
         final List<Scheduled> rules;
@@ -498,6 +502,30 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
             this.guards = guardsByKey.size();
             this.nestedGuards = (int) nestedByKey.keySet().stream().filter(k -> !guardsByKey.containsKey(k)).count();
         }
+    }
+
+    /** Per mode, which rules can match at all ({@link #PRUNE_BY_MODE}), by rule index. */
+    private static final Map<CoverageMode, boolean[]> USABLE = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static boolean[] usable(CoverageMode mode) {
+        return USABLE.computeIfAbsent(mode, m -> {
+            Set<NodeKind> raisable = m.raisableKinds();
+            boolean[] out = new boolean[RULES.size()];
+            for (int i = 0; i < out.length; i++) {
+                CompiledRule r = RULES.get(i);
+                Optional<NodeKind> receiver = receiverKind(r), giver = Optional.ofNullable(GIVER_KINDS.get(r));
+                out[i] = !PRUNE_BY_MODE || receiver.isPresent() && raisable.contains(receiver.get())
+                        && (!r.isLinkRule() || giver.isPresent() && (raisable.contains(giver.get()) || m.isIntrinsic(giver.get())));
+            }
+            return out;
+        });
+    }
+
+    /** The number of rules that can match in {@code mode} (all of them with {@code -Dpopp.prune=none}). */
+    public static int usableRules(CoverageMode mode) {
+        int c = 0;
+        for (boolean u : usable(mode)) if (u) c++;
+        return c;
     }
 
     private static String control(BigraphEntity<?> n) {

@@ -5,6 +5,7 @@ Plots the coverage benchmarks (JMH JSON from run-benchmarks.sh) for the thesis.
     python3 plot_benchmarks.py <results-dir> [<out-dir>]
 
 Reads every *.json in <results-dir> (run-benchmarks.sh writes default.json, schedules.json, oracle.json).
+Figure 10-scaling-roundup: every optimisation step per model size, from scratch and incremental.
 Writes PDF (for LaTeX) and PNG figures plus summary.csv to <out-dir> (default: <results-dir>/figures).
 """
 import csv
@@ -205,7 +206,7 @@ def fig_cold(data, out):
         return
     fig, ax = plt.subplots(figsize=(6.2, 4.0))
     xs_all = set()
-    labelled = {"rounds", "worklist", "guards-first", "worklist-prefilter-seeded"}
+    labelled = {"rounds", "worklist", "guards-first", "worklist-guards-seeded-first"}
     for a in order:
         s = data.get(("coldFirstSession", a, True))
         if s:
@@ -227,7 +228,7 @@ def fig_fast(data, out):
     """The extension's analyzer (incremental) and the default schedule from scratch on every benchmark, with the
     hits-only oracle as the reference where it is measured (inspectRoot); solid = complete, dashed = partial model.
     The domain analyzer (a different algorithm, no rewriting) is only in summary.csv."""
-    shown = ["incremental", "worklist-prefilter-seeded", "oracle"]
+    shown = ["incremental", "worklist-guards-seeded-first", "oracle"]
     benches = ["inspectRoot", "inspectAllNodes", "editThenInspect", "editOnly"]
     if not any(data.get((b, a, c)) for b in benches for a in shown for c in (True, False)):
         return
@@ -265,7 +266,7 @@ def fig_edit_chains(out):
         return
     actions = [a for a in ["LINK", "TYPE", "MOVE", "NODE", "MIXED"] if any(k[0] == a for k in EDITS)]
     lengths = sorted({k[1] for k in EDITS})
-    order = ["worklist-prefilter-seeded", "incremental", "incremental-rounds"]
+    order = ["worklist-guards-seeded-first", "incremental", "incremental-rounds"]
     analyzers = [a for a in order if any(k[2] == a for k in EDITS)] + sorted({k[2] for k in EDITS} - set(order))
     fig, axes = plt.subplots(len(lengths), len(actions), figsize=(1.75 * len(actions) + 0.8, 2.1 * len(lengths) + 0.9),
                              sharex=True, sharey=True, squeeze=False)
@@ -300,6 +301,59 @@ def fig_edit_chains(out):
     save(fig, out, "06-edit-chains")
 
 
+DEPTH_SHADES = {6: "#c6dbf3", 18: "#7fb0e6", 42: "#2a78d6", 90: "#123f78"}  # sequential: light = small model
+
+
+def fig_scaling(data, out):
+    """Roundup: each optimisation step as a group, one bar per model size; from scratch and incremental side by side."""
+    ladder = [("rounds", "Rounds\n(baseline)"), ("worklist", "Worklist"), ("worklist-seeded", "+ seed"),
+              ("worklist-guards-seeded-first", "+ guards\n(default)")]
+    scratch = [(data.get(("inspectRoot", a, True)), l) for a, l in ladder]
+    scratch.append((data.get(("inspectRoot", "oracle", True)), "Hits only\n(perfect pruning)"))
+    inc = [(EDITS.get(("MIXED", 1, "incremental" if a == "worklist-guards-seeded-first" else "incremental-" + a)), l)
+           for a, l in ladder]
+    panels = [(p, t) for p, t in [
+        ([g for g in scratch if g[0]], "From scratch: inspect the problem root"),
+        ([g for g in inc if g[0]], "Incremental: one MIXED edit, then inspect")] if p]
+    if not panels:
+        return
+    widths = [len(p) for p, _ in panels]
+    fig, axes = plt.subplots(1, len(panels), figsize=(9.6, 3.6), sharey=True, squeeze=False,
+                             gridspec_kw={"width_ratios": widths})
+    for ax, (groups, title) in zip(axes[0], panels):
+        sizes = sorted({n for g, _ in groups for n in g})
+        w = 0.8 / len(sizes)
+        for gi, (series, _) in enumerate(groups):
+            for si, n in enumerate(sizes):
+                if n not in series:
+                    continue
+                v, e, _ = series[n]
+                x = gi - 0.4 + w * (si + 0.5)
+                ax.bar(x, v, w * 0.92, color=DEPTH_SHADES.get(n, INK2), yerr=e if e else None,
+                       error_kw={"elinewidth": 0.7, "capsize": 1.5, "ecolor": INK2},
+                       label=f"{n} POPP nodes")
+                ax.annotate(ms_label(v), (x, v + (e or 0)), xytext=(0, 2), textcoords="offset points", ha="center",
+                            va="bottom", rotation=90, fontsize=6.3, color=INK2)
+        ax.set_xticks(range(len(groups)))
+        ax.set_xticklabels([l for _, l in groups], fontsize=7.5)
+        ax.set_yscale("log")
+        ax.set_ylim(10, 60000)
+        ax.yaxis.set_major_formatter(FuncFormatter(ms_label))
+        ax.grid(axis="x", visible=False)
+        ax.axhline(500, color="#c0392b", linestyle="--", linewidth=0.9, label="NFR: < 500 ms at 42 nodes", zorder=0)
+        ax.set_title(title)
+    axes[0][0].set_ylabel("time (log)")
+    legend = {}
+    for ax in axes[0]:
+        for h, l in zip(*ax.get_legend_handles_labels()):
+            legend.setdefault(l, h)
+    fig.legend(list(legend.values()), list(legend.keys()), loc="lower center", ncol=len(legend), frameon=False,
+               bbox_to_anchor=(0.5, -0.01))
+    fig.suptitle("Each optimisation per model size, VERIFY (JMH mean, 99.9 % error)", fontsize=9.5)
+    fig.tight_layout(rect=(0, 0.07, 1, 0.97))
+    save(fig, out, "10-scaling-roundup")
+
+
 def write_summary(data, out):
     path = os.path.join(out, "summary.csv")
     with open(path, "w", newline="") as f:
@@ -330,6 +384,7 @@ def main():
     fig_cold(data, out)
     fig_fast(data, out)
     fig_edit_chains(out)
+    fig_scaling(data, out)
     write_summary(data, out)
 
 

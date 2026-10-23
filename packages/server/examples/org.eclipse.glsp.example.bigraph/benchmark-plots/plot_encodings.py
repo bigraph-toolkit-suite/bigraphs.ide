@@ -31,7 +31,9 @@ COMBOS = [  # (gate rules, enabling), label, colour
 ]
 SCHEDULE_STYLE = {"rounds": ("rounds", ":", "v"), "worklist": ("worklist", "--", "o"),
                   "worklist-seeded": ("worklist + seed", "-", "s"),
-                  "incremental-worklist": ("worklist", "--", "o"), "incremental-worklist-seeded": ("worklist + seed", "-", "s")}
+                  "worklist-guards-seeded-first": ("worklist + seed + guards", "-.", "D"),
+                  "incremental-worklist": ("worklist", "--", "o"), "incremental-worklist-seeded": ("worklist + seed", "-", "s"),
+                  "incremental-worklist-guards-seeded-first": ("worklist + seed + guards", "-.", "D")}
 
 
 def log_axes(ax, xs):
@@ -157,7 +159,7 @@ def worklist_figure(d, out):
             ax.plot(n, [s[x][1] for x in n], color=colour, ls=":", marker="x", ms=4, lw=1.2)
         n = sorted(next(iter(prec.values())))
         ax.set_xscale("log")
-        ax.set_yscale("log")
+        ax.set_ylim(bottom=0)  # linear: the gap between queued calls and hits is the point, log hid its size
         ax.set_xticks(n, [str(x) for x in n])
         ax.minorticks_off()
         ax.set_xlabel("POPP nodes")
@@ -180,9 +182,10 @@ def worklist_figure(d, out):
 
     handles = [Line2D([], [], color=c, lw=2) for _, _, c in COMBOS] + \
               [Line2D([], [], color=INK2, ls=ls, marker=m, ms=3.5) for (_, ls, m) in
-               [SCHEDULE_STYLE["rounds"], SCHEDULE_STYLE["worklist"], SCHEDULE_STYLE["worklist-seeded"]]] + \
+               [SCHEDULE_STYLE["rounds"], SCHEDULE_STYLE["worklist"], SCHEDULE_STYLE["worklist-seeded"],
+                SCHEDULE_STYLE["worklist-guards-seeded-first"]]] + \
               [Line2D([], [], color=INK, ls=":", marker="x")]
-    labels = [l for _, l, _ in COMBOS] + ["rounds (no worklist)", "worklist", "worklist + seed", "hits (per gate rule family)"]
+    labels = [l for _, l, _ in COMBOS] + ["rounds (no worklist)", "worklist", "worklist + seed", "worklist + seed + guards (default)", "hits (per gate rule family)"]
     fig.legend(handles, labels, loc="lower center", ncol=4, frameon=False, bbox_to_anchor=(0.5, -0.02), fontsize=8)
     fig.suptitle("The rule worklist depends on the rule set and the encoding", fontsize=10)
     fig.tight_layout(rect=(0, 0.13, 1, 0.95))

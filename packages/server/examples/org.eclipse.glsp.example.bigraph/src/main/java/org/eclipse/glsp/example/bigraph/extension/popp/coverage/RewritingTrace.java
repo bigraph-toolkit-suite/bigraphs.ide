@@ -21,26 +21,24 @@ public final class RewritingTrace {
     /**
      * One matcher call.
      *
-     * @param matched  the pattern had at least one match
-     * @param upgraded (rules) at least one match upgraded a node, i.e. the call was a hit; a matched call without an
-     *                 upgrade only found stale matches
+     * @param matched the pattern had a match. For a rule this is a hit: the match is rewritten at once, and every
+     *                reactum raises the state of its receiver, so a rule that matches always raises a node.
      */
-    public record Call(int round, Kind kind, String name, boolean matched, boolean upgraded, long start, long nanos) {
-        /** A hit: a rule call that upgraded something. Guards are never hits, they only avoid rule calls. */
-        public boolean hit() { return kind == Kind.RULE && upgraded; }
+    public record Call(int round, Kind kind, String name, boolean matched, long start, long nanos) {
+        /** A hit: a rule call that raised a node. Guards are never hits, they only avoid rule calls. */
+        public boolean hit() { return kind == Kind.RULE && matched; }
     }
 
     /**
      * One round (wave).
      *
      * @param queued         rules that were active (queued) at the start of the round
-     * @param prefiltered    active rules the structural prefilter ruled out without a matcher call
      * @param guarded        active rules a failed guard ruled out
      * @param buildNanos     rebuilding (or rewriting into) the agent after the round
      * @param agentNodes     nodes of the agent the round matched against
      * @param uncovered      domain nodes per state after the round
      */
-    public record Round(int round, int queued, int prefiltered, int guarded, long start, long nanos, long buildNanos,
+    public record Round(int round, int queued, int guarded, long start, long nanos, long buildNanos,
                         int agentNodes, int uncovered, int partial, int covered) {}
 
     private final long t0 = System.nanoTime();
@@ -49,11 +47,11 @@ public final class RewritingTrace {
 
     long now() { return System.nanoTime() - t0; }
 
-    void call(int round, Kind kind, String name, boolean matched, boolean upgraded, long start, long end) {
-        calls.add(new Call(round, kind, name, matched, upgraded, start, end - start));
+    void call(int round, Kind kind, String name, boolean matched, long start, long end) {
+        calls.add(new Call(round, kind, name, matched, start, end - start));
     }
 
-    void round(int round, int queued, int prefiltered, int guarded, long start, long end, long buildNanos,
+    void round(int round, int queued, int guarded, long start, long end, long buildNanos,
                int agentNodes, Map<String, Coverage> states) {
         int u = 0, p = 0, c = 0;
         for (Coverage s : states.values()) {
@@ -63,7 +61,7 @@ public final class RewritingTrace {
                 case COVERED -> c++;
             }
         }
-        rounds.add(new Round(round, queued, prefiltered, guarded, start, end - start, buildNanos, agentNodes, u, p, c));
+        rounds.add(new Round(round, queued, guarded, start, end - start, buildNanos, agentNodes, u, p, c));
     }
 
     public List<Call> calls() { return Collections.unmodifiableList(calls); }
