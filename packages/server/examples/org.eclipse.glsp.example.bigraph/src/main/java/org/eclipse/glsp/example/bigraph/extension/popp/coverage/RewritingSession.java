@@ -4,7 +4,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 
 /**
  * Session over the result of a rewriting analysis: the coverage state and the derivation (reason marker and giver)
- * of every node, as recorded by {@link ScheduledRewritingCoverageAnalyzer}.
+ * of every node, as recorded by {@link RewritingCoverageAnalyzer}.
  */
 final class RewritingSession extends AbstractCoverageSession {
     private final RewritingReadout readout;

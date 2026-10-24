@@ -68,8 +68,8 @@ public class CoverageBenchmark {
         // the oracle records its schedule outside the measurement (only meaningful with inspectRoot)
         if (coverage instanceof OracleRewritingCoverageAnalyzer oracle) oracle.prepare(coverageMode);
         System.out.printf("[benchmark] variant=%s analyzer=%s mode=%s depth=%d complete=%b popp nodes=%d matchFirst=%b rewriteKeepsLinks=%b%n",
-                variant, analyzer, mode, depth, complete, nodes.size(), ScheduledRewritingCoverageAnalyzer.FIRST_MATCH_WORKS,
-                ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS);
+                variant, analyzer, mode, depth, complete, nodes.size(), RewritingCoverageAnalyzer.FIRST_MATCH_WORKS,
+                RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS);
     }
 
     /** Inspect the problem root: the "click a node, see its coverage" action. */

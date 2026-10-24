@@ -108,7 +108,7 @@ public final class EditChainBreakdown {
             EditScript script = new EditScript(popp.model, 4711);
             r.nodes = popp.model.getAllNodes().size();
             analyzer.session(mode).coverage(root);
-            boolean stateful = analyzer instanceof IncrementalCoverageAnalyzer;
+            boolean stateful = analyzer instanceof IncrementalRewritingCoverageAnalyzer;
             for (int k = -warmup; k < steps; k++) {
                 script.undo();
                 if (stateful) analyzer.session(mode).coverage(root); // resync to the benchmark model
@@ -136,7 +136,7 @@ public final class EditChainBreakdown {
     private static void add(Row r, CoverageAnalyzer analyzer, int steps) {
         RewritingStats stats;
         RewritingTrace trace;
-        if (analyzer instanceof IncrementalCoverageAnalyzer inc) {
+        if (analyzer instanceof IncrementalRewritingCoverageAnalyzer inc) {
             stats = inc.lastEngineStats();
             trace = inc.lastTrace();
             r.syncMs += inc.lastStats().syncNanos() / 1e6 / steps;
@@ -144,7 +144,7 @@ public final class EditChainBreakdown {
             r.reset += (double) inc.lastStats().reset() / steps;
             r.seeded += (double) inc.lastStats().seeded() / steps;
         } else {
-            var scratch = (ScheduledRewritingCoverageAnalyzer) analyzer;
+            var scratch = (RewritingCoverageAnalyzer) analyzer;
             stats = scratch.lastStats();
             trace = scratch.lastTrace();
         }
@@ -173,8 +173,8 @@ public final class EditChainBreakdown {
     }
 
     private static void setTracing(CoverageAnalyzer analyzer, boolean on) {
-        if (analyzer instanceof IncrementalCoverageAnalyzer inc) inc.setTracing(on);
-        else if (analyzer instanceof ScheduledRewritingCoverageAnalyzer s) s.setTracing(on);
+        if (analyzer instanceof IncrementalRewritingCoverageAnalyzer inc) inc.setTracing(on);
+        else if (analyzer instanceof RewritingCoverageAnalyzer s) s.setTracing(on);
         else throw new IllegalArgumentException("no breakdown for " + analyzer.getClass().getSimpleName());
     }
 }

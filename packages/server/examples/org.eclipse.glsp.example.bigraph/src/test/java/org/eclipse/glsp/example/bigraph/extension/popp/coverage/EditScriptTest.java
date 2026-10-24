@@ -62,7 +62,7 @@ class EditScriptTest {
 
     @Test
     void incrementalAgreesAfterUndo() {
-        assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         Synced popp = new Synced();
         CoverageTestModels.fullModel(popp.model, 2, true);
         CoverageAnalyzer analyzer = CoverageTestModels.analyzer("incremental", popp);

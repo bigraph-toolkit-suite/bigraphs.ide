@@ -24,7 +24,7 @@ public final class RewritingScheduleComparison {
         CoverageMode mode = args.length > 3 ? CoverageMode.valueOf(args[3]) : CoverageMode.VERIFY;
         List<String> analyzers = args.length > 4 ? List.of(args[4].split(",")) : DEFAULT;
 
-        System.out.println(ScheduledRewritingCoverageAnalyzer.analysisSummary());
+        System.out.println(RewritingCoverageAnalyzer.analysisSummary());
         System.out.printf("%-36s %5s %6s %10s %7s %13s %7s %7s %9s %9s %10s%n",
                 "analyzer", "depth", "nodes", "median ms", "waves", "matcher calls", "guards", "matched",
                 "match ms", "build ms", "filter ms");
@@ -42,8 +42,8 @@ public final class RewritingScheduleComparison {
                 }
                 Arrays.sort(ms);
                 RewritingStats st = analyzer instanceof OracleRewritingCoverageAnalyzer o ? o.lastStats()
-                        : ((ScheduledRewritingCoverageAnalyzer) analyzer).lastStats();
-                int guards = analyzer instanceof ScheduledRewritingCoverageAnalyzer s ? s.lastGuardCalls() : 0;
+                        : ((RewritingCoverageAnalyzer) analyzer).lastStats();
+                int guards = analyzer instanceof RewritingCoverageAnalyzer s ? s.lastGuardCalls() : 0;
                 System.out.printf("%-36s %5d %6d %10.1f %7d %13d %7d %7d %9.1f %9.1f %10.1f%n", name, depth,
                         popp.model.getAllNodes().size(), ms[runs / 2], st.rounds(), st.matcherCalls(), guards,
                         st.successfulCalls(), st.matchNanos() / 1e6, st.buildNanos() / 1e6);

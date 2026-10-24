@@ -10,11 +10,11 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 /** The whole-agent rules scheduled by worklist and guards agree with the domain analyzer and save matcher calls. */
-class ScheduledRewritingCoverageAnalyzerTest {
+class RewritingCoverageAnalyzerTest {
 
     @Test
     void theStaticAnalysisFindsFewGuardsAndSparseDependencies() {
-        String summary = ScheduledRewritingCoverageAnalyzer.analysisSummary();
+        String summary = RewritingCoverageAnalyzer.analysisSummary();
         assertTrue(summary.contains(" 36 guards"), summary); // per kind and state, gate controls included
         assertTrue(summary.contains("enables 5.8 rules"), summary);
     }
@@ -29,7 +29,7 @@ class ScheduledRewritingCoverageAnalyzerTest {
 
     @Test
     void rewritingAgreesWithTheDomainAnalyzerOnRandomModels() {
-        assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         StringBuilder report = new StringBuilder();
         for (String variant : new String[]{"worklist-guards-seeded-first"}) {
             assertEquals(0, CoverageRandomModels.mismatches(variant, 12, 8, 4400, report), variant + "\n" + report);
@@ -38,11 +38,11 @@ class ScheduledRewritingCoverageAnalyzerTest {
 
     @Test
     void theFixpointBigraphKeepsEveryRelationEdgeAndRecordsTheGiverOnIt() {
-        assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         Synced popp = new Synced();
         CoverageTestModels.fullModel(popp.model, 2, true);
         CoverageInput input = CoverageInput.of(popp.model, popp.bigraph);
-        var rewriting = new ScheduledRewritingCoverageAnalyzer(input);
+        var rewriting = new RewritingCoverageAnalyzer(input);
         CoverageSession session = rewriting.session(CoverageMode.VERIFY);
         CoverageSession expected = new DomainCoverageAnalyzer(input).session(CoverageMode.VERIFY);
         for (var node : popp.model.getAllNodes()) {
@@ -56,15 +56,15 @@ class ScheduledRewritingCoverageAnalyzerTest {
 
     @Test
     void eachLeverSavesMatcherCalls() {
-        assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         Synced popp = new Synced();
         Tree tree = CoverageTestModels.balancedTree(popp.model, 2, true);
         CoverageInput input = CoverageInput.of(popp.model, popp.bigraph);
-        var rounds = new ScheduledRewritingCoverageAnalyzer(input,
-                new ScheduledRewritingCoverageAnalyzer.Options(false, false, ScheduledRewritingCoverageAnalyzer.Options.ALL_RULES));
-        var seeded = new ScheduledRewritingCoverageAnalyzer(input,
-                ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_SEEDED);
-        var guarded = new ScheduledRewritingCoverageAnalyzer(input);
+        var rounds = new RewritingCoverageAnalyzer(input,
+                new RewritingCoverageAnalyzer.Options(false, false, RewritingCoverageAnalyzer.Options.ALL_RULES));
+        var seeded = new RewritingCoverageAnalyzer(input,
+                RewritingCoverageAnalyzer.Options.WORKLIST_SEEDED);
+        var guarded = new RewritingCoverageAnalyzer(input);
 
         for (var analyzer : List.of(rounds, seeded, guarded)) {
             assertEquals(Coverage.COVERED, analyzer.coverage(tree.root(), CoverageMode.VERIFY));

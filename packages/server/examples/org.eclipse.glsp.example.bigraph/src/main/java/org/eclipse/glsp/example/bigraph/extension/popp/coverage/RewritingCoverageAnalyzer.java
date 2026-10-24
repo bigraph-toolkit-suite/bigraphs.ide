@@ -1,6 +1,5 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
-import it.uniud.mads.jlibbig.core.std.Match;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraph;
 import org.bigraphs.framework.core.impl.pure.PureBigraphBuilder;
@@ -25,7 +24,7 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * Coverage analysis by forward chaining with the coverage rules ({@link CoverageRewriteRules}) over the whole coverage
  * bigraph ({@link CoverageBigraph}), matched with the Bigraph Framework's {@link PureBigraphMatcher} (jLibBig
  * underneath), applied by rewriting. Evaluates every session from scratch; the POPP extension uses it through
- * {@link IncrementalCoverageAnalyzer}, which keeps the fixpoint bigraph and only re-derives what an edit affected.
+ * {@link IncrementalRewritingCoverageAnalyzer}, which keeps the fixpoint bigraph and only re-derives what an edit affected.
  * {@link Options#DEFAULT}: worklist, seed, guards (matchFirst).
  * <p>
  * Which rule to match when is decided from what the rules themselves say, not from tables over the model: every
@@ -70,8 +69,8 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * parameters and deeper context nodes (the bundled 0.0.4 splits them; see {@link #REWRITE_KEEPS_LINKS}), otherwise
  * rewriting is refused.
  */
-public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyzer {
-    private static final Logger logger = LoggerFactory.getLogger(ScheduledRewritingCoverageAnalyzer.class);
+public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
+    private static final Logger logger = LoggerFactory.getLogger(RewritingCoverageAnalyzer.class);
 
     private static final List<CompiledRule> RULES = CoverageRewriteRules.compile();
     private static final DynamicSignature SIGNATURE = RULES.getFirst().rule().getRedex().getSignature();
@@ -134,11 +133,11 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
     private volatile int lastGuardCalls;
 
     /** With {@link Options#DEFAULT}. */
-    public ScheduledRewritingCoverageAnalyzer(CoverageInput input) {
+    public RewritingCoverageAnalyzer(CoverageInput input) {
         this(input, Options.DEFAULT);
     }
 
-    public ScheduledRewritingCoverageAnalyzer(CoverageInput input, Options options) {
+    public RewritingCoverageAnalyzer(CoverageInput input, Options options) {
         this.input = input;
         this.options = options;
         Analysis a = ANALYSIS;
@@ -219,7 +218,7 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
         for (TreeNode<?> n : List.<TreeNode<?>>of(left, right, root, solution, proof)) bigraph.addTreeNode(n);
         bigraph.createRelation(new Relation(solution, RelationType.PRODUCES, proof));
         bigraph.createRelation(new Relation(proof, RelationType.VALIDATES, left));
-        ScheduledRewritingCoverageAnalyzer analyzer = new ScheduledRewritingCoverageAnalyzer(CoverageInput.of(model, bigraph));
+        RewritingCoverageAnalyzer analyzer = new RewritingCoverageAnalyzer(CoverageInput.of(model, bigraph));
         for (int i = 0; i < 20; i++) {
             for (CoverageMode mode : CoverageMode.presets()) analyzer.session(mode).coverage(root);
         }
@@ -257,7 +256,7 @@ public final class ScheduledRewritingCoverageAnalyzer implements CoverageAnalyze
     /**
      * Rewrites {@code agent}, a coverage bigraph, until no queued rule matches, starting with the rules {@code seed}
      * accepts, and reads states and reasons off the fixpoint bigraph. {@link #session} calls it on a
-     * freshly built coverage bigraph; {@link IncrementalCoverageAnalyzer} on its synced bigraph, edited in place since
+     * freshly built coverage bigraph; {@link IncrementalRewritingCoverageAnalyzer} on its synced bigraph, edited in place since
      * the last fixpoint. Sound as long as no state in {@code agent} is above the least fixpoint and every rule that
      * may match is seeded or enabled by a seeded one. Needs a jLibBig whose AgentMatcher keeps links (see
      * {@link #REWRITE_KEEPS_LINKS}).

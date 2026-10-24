@@ -13,7 +13,7 @@ import java.util.concurrent.TimeUnit;
  * steps of "edit ({@link #action}), then the coverage of the problem root". Compares recomputing every session from
  * scratch (a schedule, e.g. {@code worklist-guards-seeded-first}) with continuing from the last fixpoint
  * ({@code incremental[-<schedule>]}: one coverage bigraph per mode, edited in place; see
- * {@link IncrementalCoverageAnalyzer}).
+ * {@link IncrementalRewritingCoverageAnalyzer}).
  * <p>
  * Fair by construction: every operation starts from the benchmark model. Before each operation (untimed,
  * {@link Level#Invocation}) the script undoes the previous chain and the incremental analyzer resyncs to the start
@@ -68,13 +68,13 @@ public class EditChainBenchmark {
         coverageMode = CoverageMode.valueOf(mode);
         edit = EditScript.Action.valueOf(action);
         coverage = CoverageTestModels.analyzer(analyzer, popp);
-        stateful = coverage instanceof IncrementalCoverageAnalyzer;
+        stateful = coverage instanceof IncrementalRewritingCoverageAnalyzer;
         coverage.session(coverageMode).coverage(root); // the incremental analyzer's first fixpoint, untimed
         script = new EditScript(popp.model, SEED);
         operation = 0;
         System.out.printf("[edit-chain] variant=%s analyzer=%s mode=%s depth=%d action=%s length=%d popp nodes=%d rewriteKeepsLinks=%b%n",
                 variant, analyzer, mode, depth, action, length, popp.model.getAllNodes().size(),
-                ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS);
+                RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS);
     }
 
     /** Back to the benchmark model, and the next seed (untimed). */

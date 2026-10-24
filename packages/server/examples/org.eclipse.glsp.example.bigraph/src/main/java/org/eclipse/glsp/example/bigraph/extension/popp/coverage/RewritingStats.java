@@ -1,7 +1,7 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
 /**
- * Counters of one session of {@link ScheduledRewritingCoverageAnalyzer}, for profiling and for the thesis' cost
+ * Counters of one session of {@link RewritingCoverageAnalyzer}, for profiling and for the thesis' cost
  * breakdown.
  *
  * @param rounds          evaluation rounds (waves)

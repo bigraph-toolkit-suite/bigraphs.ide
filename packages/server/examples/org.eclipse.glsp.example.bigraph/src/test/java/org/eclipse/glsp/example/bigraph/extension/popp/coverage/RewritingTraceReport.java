@@ -67,7 +67,7 @@ public final class RewritingTraceReport {
 
             for (int depth : depths) {
                 for (String variant : variants) {
-                    if (!variant.equals("domain") && !ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS) {
+                    if (!variant.equals("domain") && !RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS) {
                         System.out.println("skipped " + variant + " (needs the fixed jLibBig AgentMatcher)");
                         continue;
                     }
@@ -79,13 +79,13 @@ public final class RewritingTraceReport {
                     double sessionMs;
                     RewritingTrace trace;
                     if (incOracle) {
-                        Traced replayed = incrementalOracle((IncrementalCoverageAnalyzer) analyzer, popp, root, mode,
+                        Traced replayed = incrementalOracle((IncrementalRewritingCoverageAnalyzer) analyzer, popp, root, mode,
                                 action, warmup, steps);
                         sessionMs = replayed.ms;
                         trace = replayed.trace;
                         System.out.println("  " + variant + ", depth " + depth + ": replayed edit " + replayed.edit
                                 + " (step " + replayed.k + ", " + replayed.reset + " states reset)");
-                    } else if (analyzer instanceof IncrementalCoverageAnalyzer inc) {
+                    } else if (analyzer instanceof IncrementalRewritingCoverageAnalyzer inc) {
                         Traced median = medianEdit(inc, popp, root, mode, action, warmup, steps);
                         sessionMs = median.ms;
                         trace = median.trace;
@@ -146,12 +146,12 @@ public final class RewritingTraceReport {
     private static final long SEED = 4711;
 
     /** The traced inspection after each of {@code steps} edits (seeds as in {@link EditChainBreakdown}); the one of median reach. */
-    private static Traced medianEdit(IncrementalCoverageAnalyzer inc, Synced popp, TreeNode<?> root, CoverageMode mode,
+    private static Traced medianEdit(IncrementalRewritingCoverageAnalyzer inc, Synced popp, TreeNode<?> root, CoverageMode mode,
                                      EditScript.Action action, int warmup, int steps) {
         return medianEdit(inc, popp, root, mode, action, warmup, steps, false);
     }
 
-    private static Traced medianEdit(IncrementalCoverageAnalyzer inc, Synced popp, TreeNode<?> root, CoverageMode mode,
+    private static Traced medianEdit(IncrementalRewritingCoverageAnalyzer inc, Synced popp, TreeNode<?> root, CoverageMode mode,
                                      EditScript.Action action, int warmup, int steps, boolean keepStart) {
         EditScript script = new EditScript(popp.model, SEED);
         inc.session(mode).coverage(root);
@@ -186,14 +186,14 @@ public final class RewritingTraceReport {
      * The incremental oracle of the default schedule for the edit {@link #medianEdit} picks: its hitting rule calls,
      * replayed on a copy of the synced bigraph that edit started from. Times and traces the replay only.
      */
-    private static Traced incrementalOracle(IncrementalCoverageAnalyzer inc, Synced popp, TreeNode<?> root,
+    private static Traced incrementalOracle(IncrementalRewritingCoverageAnalyzer inc, Synced popp, TreeNode<?> root,
                                             CoverageMode mode, EditScript.Action action, int warmup, int steps) {
         Traced recorded = medianEdit(inc, popp, root, mode, action, warmup, steps, true);
         if (recorded.start == null) throw new IllegalStateException("The traced edit synced nothing: " + recorded.edit);
         Map<String, CoverageRewriteRules.CompiledRule> rules = new HashMap<>();
-        for (CoverageRewriteRules.CompiledRule r : ScheduledRewritingCoverageAnalyzer.rules()) rules.put(r.name(), r);
-        boolean firstMatch = ScheduledRewritingCoverageAnalyzer.Options.DEFAULT.firstMatch()
-                && ScheduledRewritingCoverageAnalyzer.FIRST_MATCH_WORKS;
+        for (CoverageRewriteRules.CompiledRule r : RewritingCoverageAnalyzer.rules()) rules.put(r.name(), r);
+        boolean firstMatch = RewritingCoverageAnalyzer.Options.DEFAULT.firstMatch()
+                && RewritingCoverageAnalyzer.FIRST_MATCH_WORKS;
         PureBigraphMatcher matcher = new PureBigraphMatcher();
         PureReactiveSystem reactions = new PureReactiveSystem();
         RewritingTrace trace = new RewritingTrace();
@@ -238,13 +238,13 @@ public final class RewritingTraceReport {
     }
 
     static void setTracing(CoverageAnalyzer a, boolean on) {
-        if (a instanceof ScheduledRewritingCoverageAnalyzer s) s.setTracing(on);
+        if (a instanceof RewritingCoverageAnalyzer s) s.setTracing(on);
         else if (a instanceof OracleRewritingCoverageAnalyzer o) o.setTracing(on);
         else throw new IllegalArgumentException("Not a traceable whole-agent analyzer: " + a.getClass().getSimpleName());
     }
 
     static RewritingTrace lastTrace(CoverageAnalyzer a) {
-        if (a instanceof ScheduledRewritingCoverageAnalyzer s) return s.lastTrace();
+        if (a instanceof RewritingCoverageAnalyzer s) return s.lastTrace();
         return ((OracleRewritingCoverageAnalyzer) a).lastTrace();
     }
 }

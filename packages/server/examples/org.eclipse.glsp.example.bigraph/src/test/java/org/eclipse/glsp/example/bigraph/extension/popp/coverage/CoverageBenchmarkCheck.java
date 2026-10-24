@@ -25,7 +25,7 @@ public final class CoverageBenchmarkCheck {
                 int mismatches = 0;
                 long start = System.nanoTime();
                 for (long seed = 1; seed <= 6; seed++) {
-                    mismatches += IncrementalCoverageAnalyzerTest.mismatches(analyzer, 1 + (int) (seed % 2), 40, seed, report);
+                    mismatches += IncrementalRewritingCoverageAnalyzerTest.mismatches(analyzer, 1 + (int) (seed % 2), 40, seed, report);
                 }
                 System.out.printf("[check] analyzer=%-24s 6 edit sequences of 40 steps, all modes: %d mismatches (%d ms)%n%s",
                         analyzer, mismatches, (System.nanoTime() - start) / 1_000_000, report);
@@ -37,21 +37,21 @@ public final class CoverageBenchmarkCheck {
         }
         if (args.length > 0 && args[0].equals("--rules")) {
             System.out.println("gates=" + (CoverageRewriteRules.THRESHOLD_GATES ? "threshold" : "enumerated")
-                    + " enabling=" + (ScheduledRewritingCoverageAnalyzer.ENABLING_BY_OVERLAP ? "overlap" : "controls")
-                    + ": " + ScheduledRewritingCoverageAnalyzer.analysisSummary());
+                    + " enabling=" + (RewritingCoverageAnalyzer.ENABLING_BY_OVERLAP ? "overlap" : "controls")
+                    + ": " + RewritingCoverageAnalyzer.analysisSummary());
             return;
         }
         if (args.length > 0 && args[0].equals("--capabilities")) {
-            System.out.println("firstMatch=" + ScheduledRewritingCoverageAnalyzer.FIRST_MATCH_WORKS
-                    + " rewrite=" + ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS);
+            System.out.println("firstMatch=" + RewritingCoverageAnalyzer.FIRST_MATCH_WORKS
+                    + " rewrite=" + RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS);
             return;
         }
         int maxDepth = args.length > 0 ? Integer.parseInt(args[0]) : 2;
         String[] analyzers = (args.length > 1 ? args[1] : "worklist-guards-seeded-first").split(",");
         String variant = System.getProperty("variant", "unlabelled");
         int bad = 0;
-        System.out.println("[check] matchFirst works: " + ScheduledRewritingCoverageAnalyzer.FIRST_MATCH_WORKS);
-        System.out.println("[check] rewriting keeps links (fixed jLibBig AgentMatcher): " + ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS);
+        System.out.println("[check] matchFirst works: " + RewritingCoverageAnalyzer.FIRST_MATCH_WORKS);
+        System.out.println("[check] rewriting keeps links (fixed jLibBig AgentMatcher): " + RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS);
         for (String analyzer : analyzers) {
             for (int depth = 0; depth <= maxDepth; depth++) {
                 for (boolean complete : new boolean[]{true, false}) {
