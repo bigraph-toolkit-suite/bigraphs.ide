@@ -20,15 +20,13 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationType;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 /**
  * Coverage kept in sync with the structure bigraph instead of recomputed: one coverage bigraph per mode, rewritten to
  * its fixpoint once and from then on edited in place. A listener of {@link POPPBigraph} (next to the synchronizer's
  * view mirror) records the structural operations; the next session of a mode replays them on that mode's coverage
  * bigraph, resets the states that rested on what changed, rewrites the bigraph to its fixpoint again (with
- * {@link RewritingCoverageAnalyzer#rewriteToFixpoint}, scheduled by the engine's options) and reads the
+ * {@link RewritingCoverageAnalyzer#rewriteToFixpoint}, seeded as below) and reads the
  * session off it. There is no state table besides the bigraph: states are the state cells, reasons the reason markers
  * the rewrites left, and what a state rests on is read off the bigraph.
  * <p>
@@ -95,48 +93,12 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
      */
     private final Map<CoverageMode, Synced> synced = new ConcurrentHashMap<>();
     private final Map<CoverageMode, Object> modeLocks = new ConcurrentHashMap<>();
-    private volatile Stats lastStats;
 
-    /**
-     * What the last finished session did (of any mode, when sessions run in parallel): from scratch or incremental, operations replayed, states reset, rules seeded, and the
-     * time to replay the operations and reset (the rewriting is in {@link #lastEngineStats()}).
-     */
-    public record Stats(boolean incremental, int operations, int reset, int seeded, long syncNanos) {}
-
-    /** {@code options}: the engine's schedule. */
-    public IncrementalRewritingCoverageAnalyzer(CoverageInput input, RewritingCoverageAnalyzer.Options options) {
-        this.input = input;
-        this.engine = new RewritingCoverageAnalyzer(input, options);
-    }
-
-    /** With the default schedule ({@link RewritingCoverageAnalyzer.Options#DEFAULT}). */
     public IncrementalRewritingCoverageAnalyzer(CoverageInput input) {
-        this(input, RewritingCoverageAnalyzer.Options.DEFAULT);
+        this.input = input;
+        this.engine = new RewritingCoverageAnalyzer(input);
     }
 
-    public Stats lastStats() { return lastStats; }
-
-    /** The engine's counters of the last session. */
-    public RewritingStats lastEngineStats() { return engine.lastStats(); }
-
-    /** Record a {@link RewritingTrace} of the engine in every following session (slower; not for benchmarks). */
-    public void setTracing(boolean on) { engine.setTracing(on); }
-
-    /** The engine's trace of the most recent session that evaluated something, if tracing was on. */
-    public RewritingTrace lastTrace() { return engine.lastTrace(); }
-
-    private volatile Consumer<PureBigraph> beforeRewrite;
-
-    /**
-     * Test hook: sees each synced coverage bigraph before the engine rewrites it (after the sync is timed), e.g. to copy
-     * it for an incremental oracle that replays the hits on the same agent. {@code null} removes it.
-     */
-    void beforeRewrite(Consumer<PureBigraph> hook) { beforeRewrite = hook; }
-
-    /** The coverage bigraph of {@code mode} at its last fixpoint (for inspection and tests). */
-    public Optional<PureBigraph> coverageBigraph(CoverageMode mode) {
-        return Optional.ofNullable(synced.get(mode)).map(Synced::coverage);
-    }
 
     /**
      * Thread-safe: sessions of the same mode run one after another, sessions of different modes in parallel (only
@@ -166,26 +128,14 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
         }
         RewritingCoverageAnalyzer.Fixpoint next;
         if (fromScratch) {
-            next = engine.rewriteToFixpoint(mode, CoverageBigraph.build(source, mode), engine.options().seed());
-            lastStats = new Stats(false, 0, 0, -1, 0);
+            next = engine.rewriteToFixpoint(mode, CoverageBigraph.build(source, mode), RewritingCoverageAnalyzer.LINK_RULES);
         } else if (previous.cursor() == head) {
-            lastStats = new Stats(true, 0, 0, 0, 0);
             return previous.session();
         } else {
-            long t0 = System.nanoTime();
             Mirror mirror = new Mirror(previous.coverage(), mode);
             for (Op op : ops) mirror.apply(op);
-            PureBigraph synced = mirror.forMatching();
-            long syncNanos = System.nanoTime() - t0;
-            // a seeded schedule starts from the rules the edit can have enabled; an unseeded one queues every rule,
-            // as from scratch (for comparing the seed; without a worklist every round tries every rule anyway)
-            Predicate<CompiledRule> seed = engine.options().seed() == RewritingCoverageAnalyzer.Options.ALL_RULES
-                    ? RewritingCoverageAnalyzer.Options.ALL_RULES : mirror::seeds;
-            int seeded = (int) RewritingCoverageAnalyzer.rules().stream().filter(seed).count();
-            lastStats = new Stats(true, ops.size(), mirror.reset, seeded, syncNanos);
-            Consumer<PureBigraph> hook = beforeRewrite;
-            if (hook != null) hook.accept(synced);
-            next = engine.rewriteToFixpoint(mode, synced, seed);
+            // start from the rules the edit can have enabled (see the class comment)
+            next = engine.rewriteToFixpoint(mode, mirror.forMatching(), mirror::seeds);
         }
         synced.put(mode, new Synced(input.model(), source, head, next.bigraph(), next.session()));
         trimLog();
@@ -216,7 +166,6 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
         final Set<NodeKind> seeds = EnumSet.noneOf(NodeKind.class);
         /** Added relations, as (relation type, receiver kind): only the link rules for those are seeded. */
         final Set<String> seededLinks = new HashSet<>();
-        int reset;
 
         Mirror(PureBigraph coverage, CoverageMode mode) {
             this.sig = coverage.getSignature();
@@ -359,7 +308,6 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
             List<BigraphEntity.NodeEntity<DynamicControl>> receivers = receiversOf(n);
             markers(n).forEach(this::removeSubtree);
             cell(n, CoverageMarker.UNC);
-            reset++;
             invalidate(g.getParent(n));
             receivers.forEach(this::reset);
         }

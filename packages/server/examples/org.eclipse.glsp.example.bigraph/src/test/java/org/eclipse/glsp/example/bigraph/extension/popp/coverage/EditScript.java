@@ -5,7 +5,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 import java.util.*;
 
 /**
- * Reproducible edits on a model, for the incremental-coverage tests and the edit-chain benchmark. Every action is a
+ * Reproducible edits on a model, for the incremental-coverage tests. Every action is a
  * toggle within the model's own structure, so a long sequence stays near the starting model:
  * <ul>
  *   <li>{@link Action#LINK}: remove one of the model's relations, or put a removed one back;</li>

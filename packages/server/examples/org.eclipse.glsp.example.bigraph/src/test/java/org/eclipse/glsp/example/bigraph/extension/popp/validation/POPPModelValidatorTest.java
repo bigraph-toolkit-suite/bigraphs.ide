@@ -120,17 +120,12 @@ class POPPModelValidatorTest {
     }
 
     @Test
-    void timingAtTheBenchmarkSizes() {
+    void balancedModelsAreValid() {
         for (int depth = 1; depth <= 4; depth++) {
             CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
             CoverageTestModels.balancedTree(popp.model, depth, true);
-            validate(popp); // warm-up
-            long t0 = System.nanoTime();
             ValidationReport report = validate(popp);
-            System.out.printf("validation depth %d (%d nodes): %.1f ms, %d patterns matched, %d skipped, %d issues%n",
-                    depth, popp.model.getAllNodes().size(), (System.nanoTime() - t0) / 1e6,
-                    report.patternsMatched(), report.patternsSkipped(), report.issues().size());
-            assertTrue(report.valid());
+            assertTrue(report.valid(), report.issues()::toString);
         }
     }
 

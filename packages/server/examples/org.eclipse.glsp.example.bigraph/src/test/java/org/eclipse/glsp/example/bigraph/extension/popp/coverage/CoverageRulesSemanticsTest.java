@@ -226,7 +226,7 @@ class CoverageRulesSemanticsTest {
     // ---- agreement with the domain analyzer, which is the oracle
     //
     // These tests are about correctness of the coverage rules as the extension evaluates them
-    // (ScheduledRewritingCoverageAnalyzer with its default schedule); timing is measured by CoverageBenchmark.
+    // (RewritingCoverageAnalyzer).
 
     private static void assertAgree(SyncedPOPP popp, CoverageMode mode, String context) {
         CoverageSession expected = new DomainCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph)).session(mode);

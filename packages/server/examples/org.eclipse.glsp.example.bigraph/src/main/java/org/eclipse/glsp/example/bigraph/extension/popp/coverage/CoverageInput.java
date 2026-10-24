@@ -36,7 +36,7 @@ public interface CoverageInput {
         };
     }
 
-    /** A fixed model and bigraph, e.g. in tests and benchmarks. */
+    /** A fixed model and bigraph, e.g. in tests. */
     static CoverageInput of(POPPModel model, POPPBigraph bigraph) {
         return lazy(() -> model, () -> bigraph);
     }
