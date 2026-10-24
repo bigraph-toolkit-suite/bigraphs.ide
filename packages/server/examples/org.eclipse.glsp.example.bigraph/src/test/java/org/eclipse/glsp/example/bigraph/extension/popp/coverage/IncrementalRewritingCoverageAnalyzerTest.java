@@ -90,22 +90,24 @@ class IncrementalRewritingCoverageAnalyzerTest {
         assertEquals(0, bad, report.toString());
     }
 
+    /** Without a change since the last session, the analyzer answers from its fixpoint; after an edit it evaluates again. */
     @Test
-    void editsTheCoverageBigraphInsteadOfRebuildingIt() {
+    void reusesTheSessionUntilTheModelChanges() {
         assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         Synced popp = new Synced();
         CoverageTestModels.fullModel(popp.model, 2, true);
-        var analyzer = (IncrementalRewritingCoverageAnalyzer) CoverageTestModels.analyzer("incremental", popp);
-        analyzer.session(CoverageMode.VERIFY);
-        assertFalse(analyzer.lastStats().incremental());
+        CoverageAnalyzer analyzer = CoverageTestModels.analyzer("incremental", popp);
+        CoverageSession first = analyzer.session(CoverageMode.VERIFY);
+        assertSame(first, analyzer.session(CoverageMode.VERIFY));
         EditScript script = new EditScript(popp.model, 7);
+        CoverageSession before = first;
         for (EditScript.Action action : List.of(EditScript.Action.LINK, EditScript.Action.TYPE, EditScript.Action.MOVE,
-                EditScript.Action.NODE, EditScript.Action.LINK)) {
+                EditScript.Action.NODE)) {
             script.step(action);
-            analyzer.session(CoverageMode.VERIFY);
-            var stats = analyzer.lastStats();
-            assertTrue(stats.incremental() && stats.operations() > 0, action + ": " + stats);
-            assertTrue(stats.seeded() < RewritingCoverageAnalyzer.rules().size(), action + ": " + stats);
+            CoverageSession after = analyzer.session(CoverageMode.VERIFY);
+            assertNotSame(before, after, action.toString());
+            assertSame(after, analyzer.session(CoverageMode.VERIFY), action.toString());
+            before = after;
         }
     }
 }

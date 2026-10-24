@@ -35,14 +35,12 @@ const RELATION_TEXT: Record<string, string> = {
     'popp:validates': 'validates'
 };
 
-const AND_ARC_RADIUS = 30;
 
 const POPP_NODE_CLASS = 'popp-node';
 const POPP_NODE_BOX_CLASS = 'popp-node-box';
 const POPP_NODE_ICON_CLASS = 'popp-node-icon';
 const POPP_ARROW_CLASS = 'popp-arrow';
 const POPP_RELATION_LABEL_CLASS = 'popp-relation-label';
-const POPP_AND_ARC_CLASS = 'popp-and-arc';
 
 // ---------------------------------------------------------------------------
 // Tree nodes: rounded box + codicon in the top-left corner + description label

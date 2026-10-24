@@ -74,7 +74,6 @@ public final class CoverageRewriteRules {
         return m;
     }
 
-    private static final List<Coverage> ALL = List.of(Coverage.UNCOVERED, Coverage.PARTIAL, Coverage.COVERED);
     private static final List<Coverage> UPGRADABLE = List.of(Coverage.UNCOVERED, Coverage.PARTIAL);
     private static final List<Coverage> PARTIAL_OR_COVERED = List.of(Coverage.PARTIAL, Coverage.COVERED);
 
@@ -83,29 +82,17 @@ public final class CoverageRewriteRules {
      * node", so every pattern that mentions a tree node is written once per control that node can have. The
      * expansions are the minimal sound set, i.e. only combinations that can occur in a model:
      * <ul>
-     *   <li><b>gate rules</b>: a gate node holds its state, {@code PartDecomp} when it is PARTIAL, and its slots
-     *       exactly (no site, so the slot count is exact). A slot is a domain node of kind K ({@link NodeKind}) or the next gate node;
-     *       all domain slots of one decomposition chain share the kind K of the decomposed node (a tree holds a single kind), so per
-     *       kind: one K slot, two K slots, or one K slot and one gate node slot;</li>
+     *   <li><b>gate rules</b> ({@link #thresholdGateRules}): a gate node holds its state, {@code PartDecomp} when it is
+     *       PARTIAL, and its slots. A slot is a domain node of kind K ({@link NodeKind}) or the next gate node; all domain
+     *       slots of one decomposition chain share the kind K of the decomposed node (a tree holds a single kind);</li>
      *   <li><b>lift rules</b>: a domain node of kind K ({@link NodeKind}) takes the state of its gate node. The gate node directly
      *       under a domain node is always the topmost gate node of the chain, so no extra marker is needed;</li>
      *   <li><b>link rules</b>: per supported (from, to) kind pair of the {@link RelationType}.</li>
      * </ul>
      */
     static List<RuleSpecification> specs() {
-        return specs(THRESHOLD_GATES);
-    }
-
-    /**
-     * Gate rules as thresholds ({@link #thresholdGateRules}) or with every combination of slot states
-     * ({@link #gateRules}); both give the same fixpoint.
-     */
-    static final boolean THRESHOLD_GATES = !"enumerated".equals(System.getProperty("popp.gates", "threshold"));
-
-    static List<RuleSpecification> specs(boolean thresholdGates) {
         List<RuleSpecification> out = new ArrayList<>();
-        if (thresholdGates) thresholdGateRules(out);
-        else gateRules(out);
+        thresholdGateRules(out);
         liftRules(out);
         linkRules(out);
         return out;
@@ -133,34 +120,13 @@ public final class CoverageRewriteRules {
     /** One slot of a gate node: a node with {@code control} in {@code state}, and whatever else it contains. */
     private record Slot(String control, Coverage state) {}
 
-    private static void gateRules(List<RuleSpecification> out) {
-        for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR)) {
-            for (Coverage cur : UPGRADABLE) {
-                for (NodeKind nk : NodeKind.values()) {
-                    String k = kind(nk);
-                    String g = gate(type, nk);
-                    // one child
-                    for (Coverage s : ALL) addGate(out, type, cur, nk, List.of(new Slot(k, s)));
-                    // two domain children
-                    for (int i = 0; i < ALL.size(); i++)
-                        for (int j = i; j < ALL.size(); j++)
-                            addGate(out, type, cur, nk, List.of(new Slot(k, ALL.get(i)), new Slot(k, ALL.get(j))));
-                    // one domain child and the next gate node
-                    for (Coverage a : ALL)
-                        for (Coverage b : ALL)
-                            addGate(out, type, cur, nk, List.of(new Slot(k, a), new Slot(g, b)));
-                }
-            }
-        }
-    }
-
     /**
      * The gate rules as thresholds. The aggregation is monotone, so a gate node can be upgraded as soon as enough of
      * its slots are: OR is COVERED once one slot is, PARTIAL once one slot is PARTIAL (or better); AND is PARTIAL once
      * one slot is PARTIAL or COVERED. Those rules name the one slot and leave the rest of the gate node to a site,
      * instead of one rule per combination of all slot states. Only AND to COVERED needs every slot and keeps the exact
-     * shapes (one K slot, two K slots, a K slot and the next gate node). Same fixpoint as {@link #gateRules}; fewer
-     * rules, and a slot that changes state enables only the thresholds of its new state.
+     * shapes (one K slot, two K slots, a K slot and the next gate node). The same fixpoint as one rule per combination of
+     * slot states, with fewer rules, and a slot that changes state enables only the thresholds of its new state.
      */
     private static void thresholdGateRules(List<RuleSpecification> out) {
         for (NodeKind nk : NodeKind.values()) {

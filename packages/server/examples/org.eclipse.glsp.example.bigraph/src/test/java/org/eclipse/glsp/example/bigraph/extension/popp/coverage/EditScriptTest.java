@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.*;
 
-/** {@link EditScript#undo()} restores the benchmark model, and the incremental analyzer follows it back. */
+/** {@link EditScript#undo()} restores the starting model, and the incremental analyzer follows it back. */
 class EditScriptTest {
 
     /** The model as text: nodes with parent and decomposition type, and the relations (ids of created nodes vary). */

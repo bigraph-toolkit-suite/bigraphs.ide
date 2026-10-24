@@ -16,52 +16,28 @@ import java.util.Map;
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Model generators shared by the coverage analyzer tests and benchmarks. Not a test class. */
+/** Model generators shared by the coverage analyzer tests. Not a test class. */
 public final class CoverageTestModels {
     private CoverageTestModels() {}
 
     /**
-     * The analyzer for a benchmark/check name: {@code domain} ({@link DomainCoverageAnalyzer}, the reference); a schedule
-     * of {@link RewritingCoverageAnalyzer} from scratch: {@code rounds} (no optimisation), {@code worklist},
-     * {@code worklist-seeded},
-     * {@code guards-first}, {@code worklist-guards-seeded-first} (the default, also {@code default}); {@code oracle-<schedule>}, the
-     * hits-only replay of that schedule ({@link OracleRewritingCoverageAnalyzer}; {@code oracle} is the default
-     * schedule's); or {@code incremental-<schedule>}, the {@link IncrementalRewritingCoverageAnalyzer} with that schedule
-     * ({@code incremental} with the default one), registered as a listener of the bigraph. Rewriting needs the fixed
-     * jLibBig {@code AgentMatcher}, see {@link RewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}.
+     * The analyzer for a name: {@code domain} ({@link DomainCoverageAnalyzer}, the reference), {@code default}
+     * ({@link RewritingCoverageAnalyzer}, from scratch) or {@code incremental} ({@link IncrementalRewritingCoverageAnalyzer},
+     * registered as a listener of the bigraph). Rewriting needs the fixed jLibBig {@code AgentMatcher}, see
+     * {@link RewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}.
      */
     public static CoverageAnalyzer analyzer(String name, Synced popp) {
         CoverageInput input = CoverageInput.of(popp.model, popp.bigraph);
-        return switch (name) {
-            case "domain" -> new DomainCoverageAnalyzer(input);
-            case "oracle" -> new OracleRewritingCoverageAnalyzer(input);
-            case "default" -> new RewritingCoverageAnalyzer(input);
-            case "incremental" -> incremental(popp, input, RewritingCoverageAnalyzer.Options.DEFAULT);
-            default -> name.startsWith("oracle-")
-                    ? new OracleRewritingCoverageAnalyzer(input, options(name.substring("oracle-".length())))
-                    : name.startsWith("incremental-")
-                    ? incremental(popp, input, options(name.substring("incremental-".length())))
-                    : new RewritingCoverageAnalyzer(input, options(name));
-        };
-    }
-
-    /** An {@link IncrementalRewritingCoverageAnalyzer}, registered as a listener of the model's bigraph. */
-    private static CoverageAnalyzer incremental(Synced popp, CoverageInput input, RewritingCoverageAnalyzer.Options options) {
-        var analyzer = new IncrementalRewritingCoverageAnalyzer(input, options);
-        popp.bigraph.addListener(analyzer);
-        return analyzer;
-    }
-
-    /** The schedule for a variant name (see {@link #analyzer}). */
-    static RewritingCoverageAnalyzer.Options options(String name) {
-        return switch (name) {
-            case "rounds" -> RewritingCoverageAnalyzer.Options.ROUNDS;
-            case "worklist" -> RewritingCoverageAnalyzer.Options.WORKLIST;
-            case "worklist-seeded" -> RewritingCoverageAnalyzer.Options.WORKLIST_SEEDED;
-            case "guards-first" -> RewritingCoverageAnalyzer.Options.GUARDS_FIRST;
-            case "worklist-guards-seeded-first" -> RewritingCoverageAnalyzer.Options.WORKLIST_GUARDS_SEEDED_FIRST;
-            default -> throw new IllegalArgumentException("Unknown analyzer " + name);
-        };
+        switch (name) {
+            case "domain": return new DomainCoverageAnalyzer(input);
+            case "default": return new RewritingCoverageAnalyzer(input);
+            case "incremental": {
+                var analyzer = new IncrementalRewritingCoverageAnalyzer(input);
+                popp.bigraph.addListener(analyzer);
+                return analyzer;
+            }
+            default: throw new IllegalArgumentException("Unknown analyzer " + name);
+        }
     }
 
     /** A POPP model together with the {@link POPPBigraph} that is kept in sync with it by the model's events. */
@@ -131,7 +107,7 @@ public final class CoverageTestModels {
     }
 
     /**
-     * A balanced model with all six trees, used by the benchmarks: every tree is a balanced binary decomposition of
+     * A balanced model with all six trees: every tree is a balanced binary decomposition of
      * the given depth (AND and OR alternating by level, root = AND), so each has 2^depth leaves and the model has
      * 6 * (2^(depth+1) - 1) nodes (6, 18, 42, 90 for depth 0..3). Leaf i of each tree is connected to leaf i of the
      * next one: problem -inverts-> goal, goal -causes-> criterion, proof -validates-> criterion, solution -produces->
