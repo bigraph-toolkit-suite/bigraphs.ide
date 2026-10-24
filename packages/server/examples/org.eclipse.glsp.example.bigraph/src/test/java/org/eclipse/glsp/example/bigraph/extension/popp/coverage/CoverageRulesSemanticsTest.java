@@ -34,7 +34,7 @@ class CoverageRulesSemanticsTest {
 
     /** The analyzer under test: the extension's analyzer with its default schedule. */
     protected CoverageAnalyzer createAnalyzer(CoverageInput input) {
-        return new ScheduledRewritingCoverageAnalyzer(input);
+        return new RewritingCoverageAnalyzer(input);
     }
 
     @Test

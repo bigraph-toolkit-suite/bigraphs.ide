@@ -45,7 +45,7 @@ class POPPJsonTest {
 
     @Test
     void importReplacesTheModelAndTheIncrementalAnalysisFollows() {
-        assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         Synced target = fullModel(1);
         Set<String> oldIds = new HashSet<>();
         target.model.getAllNodes().forEach(n -> oldIds.add(n.getId()));

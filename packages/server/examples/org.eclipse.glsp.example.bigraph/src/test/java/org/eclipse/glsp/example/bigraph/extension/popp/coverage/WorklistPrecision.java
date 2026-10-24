@@ -35,7 +35,7 @@ public final class WorklistPrecision {
         int[] depths = Arrays.stream((args.length > 1 ? args[1] : "0,1,2").split(",")).mapToInt(Integer::parseInt).toArray();
         String[] completes = (args.length > 2 ? args[2] : "true,false").split(",");
         Files.createDirectories(out);
-        Map<String, List<String>> enables = ScheduledRewritingCoverageAnalyzer.enablingGraph();
+        Map<String, List<String>> enables = RewritingCoverageAnalyzer.enablingGraph();
 
         List<Session> sessions = new ArrayList<>();
         for (int depth : depths) {
@@ -43,8 +43,8 @@ public final class WorklistPrecision {
                 for (CoverageMode mode : CoverageMode.presets()) {
                     Synced popp = new Synced();
                     var trees = CoverageTestModels.fullModel(popp.model, depth, Boolean.parseBoolean(complete));
-                    var analyzer = new ScheduledRewritingCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph),
-                            ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_SEEDED);
+                    var analyzer = new RewritingCoverageAnalyzer(CoverageInput.of(popp.model, popp.bigraph),
+                            RewritingCoverageAnalyzer.Options.WORKLIST_SEEDED);
                     analyzer.setTracing(true);
                     analyzer.session(mode).coverage(trees.root(NodeKind.PROBLEM));
                     RewritingTrace trace = analyzer.lastTrace();

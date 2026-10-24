@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 
 /** After every edit of random edit sequences, the incremental analyzer agrees with the domain analyzer in every mode. */
-class IncrementalCoverageAnalyzerTest {
+class IncrementalRewritingCoverageAnalyzerTest {
 
     /** Number of (step, mode) pairs with a disagreement; the first few are described in {@code report}. */
     static int mismatches(String variant, int depth, int steps, long seed, StringBuilder report) {
@@ -42,7 +42,7 @@ class IncrementalCoverageAnalyzerTest {
 
     @Test
     void agreesAfterEveryEdit() {
-        assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         StringBuilder report = new StringBuilder();
         int bad = 0;
         for (long seed = 1; seed <= 6; seed++) bad += mismatches("incremental", 1 + (int) (seed % 2), 40, seed, report);
@@ -55,7 +55,7 @@ class IncrementalCoverageAnalyzerTest {
      */
     @Test
     void agreesWhenTheModesRunInParallel() throws Exception {
-        assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         List<CoverageMode> modes = CoverageMode.presets();
         java.util.concurrent.ForkJoinPool pool = new java.util.concurrent.ForkJoinPool(modes.size());
         StringBuilder report = new StringBuilder();
@@ -92,10 +92,10 @@ class IncrementalCoverageAnalyzerTest {
 
     @Test
     void editsTheCoverageBigraphInsteadOfRebuildingIt() {
-        assumeTrue(ScheduledRewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
         Synced popp = new Synced();
         CoverageTestModels.fullModel(popp.model, 2, true);
-        var analyzer = (IncrementalCoverageAnalyzer) CoverageTestModels.analyzer("incremental", popp);
+        var analyzer = (IncrementalRewritingCoverageAnalyzer) CoverageTestModels.analyzer("incremental", popp);
         analyzer.session(CoverageMode.VERIFY);
         assertFalse(analyzer.lastStats().incremental());
         EditScript script = new EditScript(popp.model, 7);
@@ -105,7 +105,7 @@ class IncrementalCoverageAnalyzerTest {
             analyzer.session(CoverageMode.VERIFY);
             var stats = analyzer.lastStats();
             assertTrue(stats.incremental() && stats.operations() > 0, action + ": " + stats);
-            assertTrue(stats.seeded() < ScheduledRewritingCoverageAnalyzer.rules().size(), action + ": " + stats);
+            assertTrue(stats.seeded() < RewritingCoverageAnalyzer.rules().size(), action + ": " + stats);
         }
     }
 }

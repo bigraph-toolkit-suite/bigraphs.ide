@@ -28,7 +28,7 @@ import java.util.function.Predicate;
  * its fixpoint once and from then on edited in place. A listener of {@link POPPBigraph} (next to the synchronizer's
  * view mirror) records the structural operations; the next session of a mode replays them on that mode's coverage
  * bigraph, resets the states that rested on what changed, rewrites the bigraph to its fixpoint again (with
- * {@link ScheduledRewritingCoverageAnalyzer#rewriteToFixpoint}, scheduled by the engine's options) and reads the
+ * {@link RewritingCoverageAnalyzer#rewriteToFixpoint}, scheduled by the engine's options) and reads the
  * session off it. There is no state table besides the bigraph: states are the state cells, reasons the reason markers
  * the rewrites left, and what a state rests on is read off the bigraph.
  * <p>
@@ -68,9 +68,9 @@ import java.util.function.Predicate;
  * <p>
  * The coverage analyzer of the POPP extension. Register it with {@link POPPBigraph#addListener}; the first session of a
  * mode, and a session on a different {@link POPPBigraph} or model (a reloaded file), evaluates from scratch. Needs a jLibBig whose AgentMatcher keeps links
- * ({@link ScheduledRewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}).
+ * ({@link RewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}).
  */
-public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPPBigraphListener {
+public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnalyzer, POPPBigraphListener {
 
     /** A structural operation on the structure bigraph, by node names (a {@link POPPBigraphEvent} without entities). */
     private sealed interface Op {}
@@ -85,7 +85,7 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
     private record Synced(POPPModel model, POPPBigraph source, int cursor, PureBigraph coverage, CoverageSession session) {}
 
     private final CoverageInput input;
-    private final ScheduledRewritingCoverageAnalyzer engine;
+    private final RewritingCoverageAnalyzer engine;
     /** The operations not yet replayed by every mode. {@code log} and {@code logOffset} are guarded by {@code this}. */
     private final List<Op> log = new ArrayList<>();
     private int logOffset; // index of log.get(0) in the whole history
@@ -104,14 +104,14 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
     public record Stats(boolean incremental, int operations, int reset, int seeded, long syncNanos) {}
 
     /** {@code options}: the engine's schedule. */
-    public IncrementalCoverageAnalyzer(CoverageInput input, ScheduledRewritingCoverageAnalyzer.Options options) {
+    public IncrementalRewritingCoverageAnalyzer(CoverageInput input, RewritingCoverageAnalyzer.Options options) {
         this.input = input;
-        this.engine = new ScheduledRewritingCoverageAnalyzer(input, options);
+        this.engine = new RewritingCoverageAnalyzer(input, options);
     }
 
-    /** With the default schedule ({@link ScheduledRewritingCoverageAnalyzer.Options#DEFAULT}). */
-    public IncrementalCoverageAnalyzer(CoverageInput input) {
-        this(input, ScheduledRewritingCoverageAnalyzer.Options.DEFAULT);
+    /** With the default schedule ({@link RewritingCoverageAnalyzer.Options#DEFAULT}). */
+    public IncrementalRewritingCoverageAnalyzer(CoverageInput input) {
+        this(input, RewritingCoverageAnalyzer.Options.DEFAULT);
     }
 
     public Stats lastStats() { return lastStats; }
@@ -164,7 +164,7 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
                     || previous.cursor() < logOffset;
             if (!fromScratch) ops = List.copyOf(log.subList(previous.cursor() - logOffset, log.size()));
         }
-        ScheduledRewritingCoverageAnalyzer.Fixpoint next;
+        RewritingCoverageAnalyzer.Fixpoint next;
         if (fromScratch) {
             next = engine.rewriteToFixpoint(mode, CoverageBigraph.build(source, mode), engine.options().seed());
             lastStats = new Stats(false, 0, 0, -1, 0);
@@ -179,9 +179,9 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
             long syncNanos = System.nanoTime() - t0;
             // a seeded schedule starts from the rules the edit can have enabled; an unseeded one queues every rule,
             // as from scratch (for comparing the seed; without a worklist every round tries every rule anyway)
-            Predicate<CompiledRule> seed = engine.options().seed() == ScheduledRewritingCoverageAnalyzer.Options.ALL_RULES
-                    ? ScheduledRewritingCoverageAnalyzer.Options.ALL_RULES : mirror::seeds;
-            int seeded = (int) ScheduledRewritingCoverageAnalyzer.rules().stream().filter(seed).count();
+            Predicate<CompiledRule> seed = engine.options().seed() == RewritingCoverageAnalyzer.Options.ALL_RULES
+                    ? RewritingCoverageAnalyzer.Options.ALL_RULES : mirror::seeds;
+            int seeded = (int) RewritingCoverageAnalyzer.rules().stream().filter(seed).count();
             lastStats = new Stats(true, ops.size(), mirror.reset, seeded, syncNanos);
             Consumer<PureBigraph> hook = beforeRewrite;
             if (hook != null) hook.accept(synced);
@@ -229,7 +229,7 @@ public final class IncrementalCoverageAnalyzer implements CoverageAnalyzer, POPP
         }
 
         boolean seeds(CompiledRule r) {
-            Optional<NodeKind> kind = ScheduledRewritingCoverageAnalyzer.receiverKind(r);
+            Optional<NodeKind> kind = RewritingCoverageAnalyzer.receiverKind(r);
             if (kind.isEmpty()) return false;
             return seeds.contains(kind.get())
                     || r.isLinkRule() && seededLinks.contains(r.relation() + ":" + kind.get());

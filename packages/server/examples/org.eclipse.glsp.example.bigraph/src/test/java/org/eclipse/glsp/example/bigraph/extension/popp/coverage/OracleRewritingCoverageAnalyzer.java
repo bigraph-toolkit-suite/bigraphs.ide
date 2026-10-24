@@ -10,7 +10,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 import java.util.*;
 
 /**
- * Reference point for one schedule of {@link ScheduledRewritingCoverageAnalyzer}, not an analyzer: the cost of its
+ * Reference point for one schedule of {@link RewritingCoverageAnalyzer}, not an analyzer: the cost of its
  * matcher calls that <i>hit</i> and their rewrites, as if a perfect pruning oracle skipped every call of that schedule
  * that finds no match.
  * <p>
@@ -34,17 +34,17 @@ public final class OracleRewritingCoverageAnalyzer implements CoverageAnalyzer {
     private record Schedule(String fingerprint, List<int[]> rounds, Map<String, Coverage> expected) {}
 
     private final CoverageInput input;
-    private final ScheduledRewritingCoverageAnalyzer.Options recorded;
+    private final RewritingCoverageAnalyzer.Options recorded;
     private final Map<CoverageMode, Schedule> schedules = new HashMap<>();
     private volatile RewritingStats lastStats;
 
     /** The oracle of the default schedule. */
     public OracleRewritingCoverageAnalyzer(CoverageInput input) {
-        this(input, ScheduledRewritingCoverageAnalyzer.Options.DEFAULT);
+        this(input, RewritingCoverageAnalyzer.Options.DEFAULT);
     }
 
     /** The oracle of the schedule {@code recorded}. */
-    public OracleRewritingCoverageAnalyzer(CoverageInput input, ScheduledRewritingCoverageAnalyzer.Options recorded) {
+    public OracleRewritingCoverageAnalyzer(CoverageInput input, RewritingCoverageAnalyzer.Options recorded) {
         this.input = input;
         this.recorded = recorded;
     }
@@ -101,7 +101,7 @@ public final class OracleRewritingCoverageAnalyzer implements CoverageAnalyzer {
         PureBigraphMatcher matcher = new PureBigraphMatcher();
         PureReactiveSystem reactions = new PureReactiveSystem();
         RewritingTrace trace = tracing ? new RewritingTrace() : null;
-        boolean firstMatch = recorded.firstMatch() && ScheduledRewritingCoverageAnalyzer.FIRST_MATCH_WORKS;
+        boolean firstMatch = recorded.firstMatch() && RewritingCoverageAnalyzer.FIRST_MATCH_WORKS;
 
         for (int[] round : s.rounds()) {
             r++;
@@ -138,7 +138,7 @@ public final class OracleRewritingCoverageAnalyzer implements CoverageAnalyzer {
 
     /** The schedule's real evaluation, traced; its hitting rule calls, round by round, are the recording. */
     private Schedule record(CoverageMode mode, String fp) {
-        var rounds = new ScheduledRewritingCoverageAnalyzer(input, recorded);
+        var rounds = new RewritingCoverageAnalyzer(input, recorded);
         rounds.setTracing(true);
         CoverageSession session = rounds.session(mode);
         RewritingTrace trace = rounds.lastTrace();

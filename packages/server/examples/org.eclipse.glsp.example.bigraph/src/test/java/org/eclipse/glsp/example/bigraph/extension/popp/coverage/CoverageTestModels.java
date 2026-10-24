@@ -22,44 +22,44 @@ public final class CoverageTestModels {
 
     /**
      * The analyzer for a benchmark/check name: {@code domain} ({@link DomainCoverageAnalyzer}, the reference); a schedule
-     * of {@link ScheduledRewritingCoverageAnalyzer} from scratch: {@code rounds} (no optimisation), {@code worklist},
+     * of {@link RewritingCoverageAnalyzer} from scratch: {@code rounds} (no optimisation), {@code worklist},
      * {@code worklist-seeded},
      * {@code guards-first}, {@code worklist-guards-seeded-first} (the default, also {@code default}); {@code oracle-<schedule>}, the
      * hits-only replay of that schedule ({@link OracleRewritingCoverageAnalyzer}; {@code oracle} is the default
-     * schedule's); or {@code incremental-<schedule>}, the {@link IncrementalCoverageAnalyzer} with that schedule
+     * schedule's); or {@code incremental-<schedule>}, the {@link IncrementalRewritingCoverageAnalyzer} with that schedule
      * ({@code incremental} with the default one), registered as a listener of the bigraph. Rewriting needs the fixed
-     * jLibBig {@code AgentMatcher}, see {@link ScheduledRewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}.
+     * jLibBig {@code AgentMatcher}, see {@link RewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}.
      */
     public static CoverageAnalyzer analyzer(String name, Synced popp) {
         CoverageInput input = CoverageInput.of(popp.model, popp.bigraph);
         return switch (name) {
             case "domain" -> new DomainCoverageAnalyzer(input);
             case "oracle" -> new OracleRewritingCoverageAnalyzer(input);
-            case "default" -> new ScheduledRewritingCoverageAnalyzer(input);
-            case "incremental" -> incremental(popp, input, ScheduledRewritingCoverageAnalyzer.Options.DEFAULT);
+            case "default" -> new RewritingCoverageAnalyzer(input);
+            case "incremental" -> incremental(popp, input, RewritingCoverageAnalyzer.Options.DEFAULT);
             default -> name.startsWith("oracle-")
                     ? new OracleRewritingCoverageAnalyzer(input, options(name.substring("oracle-".length())))
                     : name.startsWith("incremental-")
                     ? incremental(popp, input, options(name.substring("incremental-".length())))
-                    : new ScheduledRewritingCoverageAnalyzer(input, options(name));
+                    : new RewritingCoverageAnalyzer(input, options(name));
         };
     }
 
-    /** An {@link IncrementalCoverageAnalyzer}, registered as a listener of the model's bigraph. */
-    private static CoverageAnalyzer incremental(Synced popp, CoverageInput input, ScheduledRewritingCoverageAnalyzer.Options options) {
-        var analyzer = new IncrementalCoverageAnalyzer(input, options);
+    /** An {@link IncrementalRewritingCoverageAnalyzer}, registered as a listener of the model's bigraph. */
+    private static CoverageAnalyzer incremental(Synced popp, CoverageInput input, RewritingCoverageAnalyzer.Options options) {
+        var analyzer = new IncrementalRewritingCoverageAnalyzer(input, options);
         popp.bigraph.addListener(analyzer);
         return analyzer;
     }
 
     /** The schedule for a variant name (see {@link #analyzer}). */
-    static ScheduledRewritingCoverageAnalyzer.Options options(String name) {
+    static RewritingCoverageAnalyzer.Options options(String name) {
         return switch (name) {
-            case "rounds" -> ScheduledRewritingCoverageAnalyzer.Options.ROUNDS;
-            case "worklist" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST;
-            case "worklist-seeded" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_SEEDED;
-            case "guards-first" -> ScheduledRewritingCoverageAnalyzer.Options.GUARDS_FIRST;
-            case "worklist-guards-seeded-first" -> ScheduledRewritingCoverageAnalyzer.Options.WORKLIST_GUARDS_SEEDED_FIRST;
+            case "rounds" -> RewritingCoverageAnalyzer.Options.ROUNDS;
+            case "worklist" -> RewritingCoverageAnalyzer.Options.WORKLIST;
+            case "worklist-seeded" -> RewritingCoverageAnalyzer.Options.WORKLIST_SEEDED;
+            case "guards-first" -> RewritingCoverageAnalyzer.Options.GUARDS_FIRST;
+            case "worklist-guards-seeded-first" -> RewritingCoverageAnalyzer.Options.WORKLIST_GUARDS_SEEDED_FIRST;
             default -> throw new IllegalArgumentException("Unknown analyzer " + name);
         };
     }

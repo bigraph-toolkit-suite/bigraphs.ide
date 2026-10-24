@@ -11,7 +11,7 @@ import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPBigraphLoader;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPBigraphSynchronizer;
-import org.eclipse.glsp.example.bigraph.extension.popp.coverage.ScheduledRewritingCoverageAnalyzer;
+import org.eclipse.glsp.example.bigraph.extension.popp.coverage.RewritingCoverageAnalyzer;
 import org.eclipse.glsp.example.bigraph.extension.popp.handler.POPPEdgeCreationChecker;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import org.eclipse.glsp.example.bigraph.extension.popp.sync.POPPGModelSynchronizer;
@@ -133,7 +133,7 @@ public class POPPExtension implements IdeExtension {
         injector.getInstance(POPPValidationService.class)
                 .follow(injector.getInstance(POPPExtensionContext.class).getOwnState().getPoppModel());
         if (WARMED_UP.compareAndSet(false, true)) {
-            Thread warmUp = new Thread(ScheduledRewritingCoverageAnalyzer::warmUp, "popp-warmup");
+            Thread warmUp = new Thread(RewritingCoverageAnalyzer::warmUp, "popp-warmup");
             warmUp.setDaemon(true);
             warmUp.start();
         }
