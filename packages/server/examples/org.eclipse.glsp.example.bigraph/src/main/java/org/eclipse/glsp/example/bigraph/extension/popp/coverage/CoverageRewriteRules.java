@@ -306,7 +306,7 @@ public final class CoverageRewriteRules {
 
     static boolean[][] enablingByOverlap(List<RuleSpecification> specs) {
         int n = specs.size();
-        boolean[][] out = new boolean[n][n];
+        boolean[][] enablesMatrix = new boolean[n][n]; // [i][j]: rule i enables rule j
         for (int i = 0; i < n; i++) {
             RuleSpecification r = specs.get(i);
             Term before = r.effect().receiver(), after = r.pairs().get(before);
@@ -316,28 +316,29 @@ public final class CoverageRewriteRules {
             for (int j = 0; j < n; j++) {
                 List<Term> nodes = new ArrayList<>();
                 for (Term root : specs.get(j).redex()) allNodes(root, nodes);
-                for (Term b : nodes) {
-                    boolean needsNew = b.kids().stream().anyMatch(k -> !k.isSite() && created.containsKey(k.control()));
-                    if (needsNew && overlaps(after, b)) {
-                        out[i][j] = true;
+                for (Term candidate : nodes) {
+                    boolean usesCreated = candidate.kids().stream().anyMatch(k -> !k.isSite() && created.containsKey(k.control()));
+                    if (usesCreated && overlaps(after, candidate)) {
+                        enablesMatrix[i][j] = true;
                         break;
                     }
                 }
             }
         }
-        return out;
+        return enablesMatrix;
     }
 
     private static final Set<String> STATES = Set.of(CoverageMarker.UNC.controlName(), CoverageMarker.PART.controlName(),
             CoverageMarker.COV.controlName());
 
+    /** Collects every node term of {@code t} and below it, skipping sites (on a redex: the nodes a receiver could be identified with). */
     private static void allNodes(Term t, List<Term> out) {
         if (t.isSite()) return;
         out.add(t);
         for (Term k : t.kids()) allNodes(k, out);
     }
 
-    /** Whether two node terms can denote the same node of some agent (see {@link #enablingByOverlap()}). */
+    /** Whether two node terms can denote the same node of some agent, i.e. whether they can be glued at this node (see {@link #enablingByOverlap()}). */
     static boolean overlaps(Term a, Term b) {
         if (!a.control().equals(b.control())) return false;
         List<Term> as = new ArrayList<>(), bs = new ArrayList<>();
@@ -352,7 +353,7 @@ public final class CoverageRewriteRules {
             as.remove(sa);
             bs.remove(sb);
         } else if (sa != null && !siteB || sb != null && !siteA) {
-            return false;       // the exact side has no state, the other names one
+            return false; // the exact side has no state, the other names one
         }
         return glue(as, 0, bs, new boolean[bs.size()], siteA, siteB);
     }
@@ -361,7 +362,7 @@ public final class CoverageRewriteRules {
     private static boolean glue(List<Term> as, int i, List<Term> bs, boolean[] used, boolean siteA, boolean siteB) {
         if (i == as.size()) {
             if (siteA) return true;
-            for (boolean u : used) if (!u) return false;   // b has a child a cannot have
+            for (boolean u : used) if (!u) return false; // b has a child a cannot have
             return true;
         }
         for (int j = 0; j < bs.size(); j++) {
@@ -370,7 +371,7 @@ public final class CoverageRewriteRules {
             if (glue(as, i + 1, bs, used, siteA, siteB)) return true;
             used[j] = false;
         }
-        return siteB && glue(as, i + 1, bs, used, siteA, siteB);   // a's child lies in b's site
+        return siteB && glue(as, i + 1, bs, used, siteA, siteB); // a's child lies in b's site
     }
 
     /** The coverage rules, each with where to find receiver and giver in a match; used by both rewriting analyzers. */
