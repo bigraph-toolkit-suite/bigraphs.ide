@@ -4,11 +4,13 @@ import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelFactory;
 import org.eclipse.glsp.example.bigraph.extension.popp.gmodel.POPPGModelTypes;
 import com.google.inject.Singleton;
 import com.google.inject.Inject;
+import org.eclipse.glsp.example.bigraph.handler.support.BigraphNotifications;
 import org.eclipse.glsp.example.bigraph.extension.popp.state.POPPExtensionContext;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.RelationGraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.graph.GModelElement;
+import org.eclipse.glsp.server.actions.ActionDispatcher;
 import org.eclipse.glsp.server.features.typehints.EdgeCreationChecker;
 
 import java.util.Optional;
@@ -21,6 +23,9 @@ import java.util.Optional;
 public class POPPEdgeCreationChecker implements EdgeCreationChecker {
     private final POPPExtensionContext context;
     private final POPPGModelFactory factory = new POPPGModelFactory();
+
+    @Inject
+    private ActionDispatcher actionDispatcher;
 
     @Inject
     public POPPEdgeCreationChecker(final POPPExtensionContext context){
@@ -43,6 +48,12 @@ public class POPPEdgeCreationChecker implements EdgeCreationChecker {
         if (source.getKind() == target.getKind()) {
             return true; // same-kind nodes can be linked as a decomposition parent/child
         }
-        return RelationGraph.canRelate(source, target);
+        
+        boolean result = RelationGraph.canRelate(source, target);
+        if (!result) {
+            BigraphNotifications.notifyError(actionDispatcher,
+                    "There is no relation defined between " + source.getKind() + " and " + target.getKind());
+        }
+        return result;
     }
 }
