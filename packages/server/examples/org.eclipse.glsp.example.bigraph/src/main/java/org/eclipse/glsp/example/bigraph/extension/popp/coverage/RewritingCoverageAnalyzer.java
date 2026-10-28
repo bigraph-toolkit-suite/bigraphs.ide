@@ -86,9 +86,28 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
     static final Predicate<CompiledRule> LINK_RULES = CompiledRule::isLinkRule;
 
     private final CoverageInput input;
+    private final MonotoneFixpointRewriter rewriter;
 
     public RewritingCoverageAnalyzer(CoverageInput input) {
+        this(input, REWRITER);
+    }
+
+    /**
+     * An analyzer on another configuration of the rewriter (benchmarks compare them). Its rules must be
+     * {@link #rewriterRules} (with or without guards), in that order.
+     */
+    RewritingCoverageAnalyzer(CoverageInput input, MonotoneFixpointRewriter rewriter) {
+        if (rewriter.rules().size() != RULES.size()) {
+            throw new IllegalArgumentException("The rewriter does not run the coverage rules");
+        }
+        for (int i = 0; i < RULES.size(); i++) {
+            if (!rewriter.rules().get(i).name().equals(RULES.get(i).name())) {
+                throw new IllegalArgumentException("The rewriter's rules are not in the order of rules(): "
+                        + rewriter.rules().get(i).name());
+            }
+        }
         this.input = input;
+        this.rewriter = rewriter;
     }
 
     /** The coverage rules, in the order the analyzer uses. */
@@ -190,11 +209,11 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
         boolean[] usable = usable(mode);
         List<Rule> initialWorklist = new ArrayList<>();
         for (int i = 0; i < RULES.size(); i++) {
-            if (usable[i] && seed.test(RULES.get(i))) initialWorklist.add(REWRITER.rules().get(i));
+            if (usable[i] && seed.test(RULES.get(i))) initialWorklist.add(rewriter.rules().get(i));
         }
         int maxRewrites = 2 * agent.getNodes().size() + 2; // every rewrite upgrades a state cell, at most twice per tree node
-        MonotoneFixpointRewriter.Result result = REWRITER.rewriteToFixpoint(agent, initialWorklist,
-                rule -> usable[REWRITER.indexOf(rule)], maxRewrites);
+        MonotoneFixpointRewriter.Result result = rewriter.rewriteToFixpoint(agent, initialWorklist,
+                rule -> usable[rewriter.indexOf(rule)], maxRewrites);
         RewritingReadout readout = RewritingReadout.ofRewritten(result.agent());
         return new Fixpoint(result.agent(), new RewritingSession(mode, input.model().getRelations(), readout));
     }
