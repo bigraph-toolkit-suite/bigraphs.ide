@@ -14,7 +14,7 @@ import java.util.*;
 /**
  * The JSON exchange format of POPP models (version 1), see {@code popp.schema.json} in the resources. It contains the
  * POPP metamodel and nothing else: the forest of homogeneous trees per node kind and the typed relations between
- * them. Layout positions are optional; coverage is not part of it (it is computed). Example:
+ * them. Layout positions are optional. Coverage is not part of it (it is computed). Example:
  * <pre>{@code
  * {
  *   "format": "popp",
@@ -31,9 +31,9 @@ import java.util.*;
  *   "relations": [ { "type": "inverts", "source": "p1", "target": "g1" } ]
  * }
  * }</pre>
- * Rules beyond the syntax: ids are unique across the whole model; {@code decomposition} ({@code and} or {@code or})
- * is given exactly for nodes with children (an inner node without it is decomposed with {@code and}); a node's
- * children are nodes of the same tree, so homogeneity follows from the nesting; a relation's {@code type} must be the
+ * Rules beyond the syntax: ids are unique across the whole model. {@code decomposition} ({@code and} or {@code or})
+ * is given exactly for nodes with children (an inner node without it is decomposed with {@code and}). A node's
+ * children are nodes of the same tree, so homogeneity follows from the nesting. A relation's {@code type} must be the
  * one the metamodel defines for the kinds of its source and target ({@link RelationType}).
  */
 public final class POPPJson {
@@ -55,7 +55,7 @@ public final class POPPJson {
 
     private POPPJson() {}
 
-    /** A file that is not a valid POPP JSON document; {@link #problems()} lists every problem found. */
+    /** A file that is not a valid POPP JSON document. {@link #problems()} lists every problem found. */
     public static final class InvalidDocumentException extends RuntimeException {
         private final List<String> problems;
 
@@ -140,7 +140,7 @@ public final class POPPJson {
     // ------------------------------------------------------------------------------------------------------------
     // Import
 
-    /** Parses and checks a POPP JSON document; throws {@link InvalidDocumentException} with every problem found. */
+    /** Parses and checks a POPP JSON document. Throws {@link InvalidDocumentException} with every problem found. */
     public static Document read(String json) {
         List<String> problems = new ArrayList<>();
         JsonElement parsed;

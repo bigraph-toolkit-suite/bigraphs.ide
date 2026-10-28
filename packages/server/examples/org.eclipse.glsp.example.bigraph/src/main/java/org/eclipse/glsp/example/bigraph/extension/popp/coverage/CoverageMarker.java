@@ -9,8 +9,8 @@ import java.util.Optional;
 /**
  * The controls the coverage analysis adds to {@link POPPBigraphSignature} (see {@link CoverageSignature}), all markers:
  * <ul>
- *   <li>UNC, PART, COV: the state cell of a tree node, one per {@link Coverage} value;</li>
- *   <li>COV_INTRINSIC, COV_DECOMP, COV_LINK: reason markers for COVERED;</li>
+ *   <li>UNC, PART, COV: the state cell of a tree node, one per {@link Coverage} value.</li>
+ *   <li>COV_INTRINSIC, COV_DECOMP, COV_LINK: reason markers for COVERED.</li>
  *   <li>PART_DECOMP, PART_LINK: reason markers for PARTIAL.</li>
  * </ul>
  * The reason markers appear in the rules' reactums and name a rule's reason ({@code Derivation}). In an agent only

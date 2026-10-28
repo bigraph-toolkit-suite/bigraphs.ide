@@ -5,7 +5,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.DecompositionType;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
-/** Switches a node's decomposition between AND and OR; only nodes with children have one. */
+/** Switches a node's decomposition between AND and OR. Only nodes with children have one. */
 public class SwitchDecompositionTypeHandler extends AbstractPOPPActionHandler<SwitchDecompositionTypeOperation> {
 
     @Override

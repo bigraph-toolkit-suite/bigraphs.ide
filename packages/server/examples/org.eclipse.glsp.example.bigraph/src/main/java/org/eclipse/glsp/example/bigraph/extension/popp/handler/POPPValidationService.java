@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *   <li>When the timer fires, it dispatches a {@link ValidateModelAction} to the session's own dispatcher. Actions are
  *       handled one after another on the dispatch thread, so {@link #runNow()} takes its snapshot between operations,
  *       never during one.</li>
- *   <li>The matching runs on a background thread against the snapshot; the result is dispatched as a
+ *   <li>The matching runs on a background thread against the snapshot. The result is dispatched as a
  *       {@link ValidationResultAction}. Runs that were overtaken by a newer one are dropped.</li>
  * </ol>
  */

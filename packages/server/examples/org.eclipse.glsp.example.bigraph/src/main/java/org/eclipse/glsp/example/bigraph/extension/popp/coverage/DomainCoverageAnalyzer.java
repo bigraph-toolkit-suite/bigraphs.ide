@@ -6,8 +6,8 @@ import java.util.*;
 
 /**
  * Three-valued coverage computed directly on the domain model (trees and {@link RelationGraph}), without the bigraph.
- * The analyzer keeps no results; memoization lives in the {@link CoverageSession}. A node's coverage is the best of its
- * decomposition and its candidate relations; on a tie the explanation prefers the decomposition. The metamodel's
+ * The analyzer keeps no results. Memoization lives in the {@link CoverageSession}. A node's coverage is the best of its
+ * decomposition and its candidate relations. On a tie the explanation prefers the decomposition. The metamodel's
  * relations cannot form a dependency cycle, so the cycle check is only a safeguard.
  */
 public final class DomainCoverageAnalyzer implements CoverageAnalyzer {

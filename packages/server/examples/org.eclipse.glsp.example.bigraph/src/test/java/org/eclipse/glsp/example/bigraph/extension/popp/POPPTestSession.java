@@ -31,7 +31,7 @@ import org.eclipse.glsp.server.actions.ActionDispatcher;
 /**
  * A POPP editor session without GLSP's runtime: a real {@link BigraphModelState} for a POPP file, the extension
  * context and state, both synchronizers, the validation service and the loader, wired as {@code POPPExtension} and
- * Guice wire them. {@link #model()} is the loaded model; editing it updates the GModel and the bigraph.
+ * Guice wire them. {@link #model()} is the loaded model. Editing it updates the GModel and the bigraph.
  */
 public final class POPPTestSession {
     public final PureBigraphMutable bigraph;

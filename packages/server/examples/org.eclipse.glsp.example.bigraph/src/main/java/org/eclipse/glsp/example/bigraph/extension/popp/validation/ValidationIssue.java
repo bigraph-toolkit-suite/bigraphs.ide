@@ -8,7 +8,7 @@ import java.util.List;
  * @param code     what is wrong, see {@link Code}
  * @param severity {@code ERROR} makes the model invalid, {@code WARNING} does not
  * @param message  human-readable, already specific to the matched nodes
- * @param nodeIds  ids of the POPP nodes involved (also their GModel ids), for highlighting; may be empty when the
+ * @param nodeIds  ids of the POPP nodes involved (also their GModel ids), for highlighting. May be empty when the
  *                 offending bigraph node belongs to no domain node
  * @param elements names of the offending nodes in the bigraph (gate nodes, stubs, domain nodes)
  * @param pattern  name of the validation pattern whose match produced this issue

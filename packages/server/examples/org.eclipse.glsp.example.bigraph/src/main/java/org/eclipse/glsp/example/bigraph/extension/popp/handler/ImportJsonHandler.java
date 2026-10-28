@@ -6,7 +6,7 @@ import org.eclipse.glsp.example.bigraph.handler.support.BigraphNotifications;
 
 /**
  * Replaces the current POPP model with a POPP JSON document. The document is read and checked completely first, so an
- * invalid file changes nothing; the problems are reported (the first few) as an error notification.
+ * invalid file changes nothing. The problems are reported (the first few) as an error notification.
  */
 public class ImportJsonHandler extends AbstractPOPPActionHandler<ImportJsonOperation> {
     private static final int REPORTED_PROBLEMS = 5;

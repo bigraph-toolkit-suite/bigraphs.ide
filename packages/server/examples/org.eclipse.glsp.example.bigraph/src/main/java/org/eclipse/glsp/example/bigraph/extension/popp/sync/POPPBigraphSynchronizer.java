@@ -17,8 +17,8 @@ import java.util.Optional;
 
 /**
  * Reacts to {@link POPPEvent}s and forwards each one to the matching
- * {@link POPPBigraph} operation. All bigraph shape/mutation logic lives in {@link POPPBigraph};
- * this class only decides which operation to call for which event.
+ * {@link POPPBigraph} operation. All bigraph shape/mutation logic lives in {@link POPPBigraph}.
+ * This class only decides which operation to call for which event.
  */
 @Singleton
 public class POPPBigraphSynchronizer implements POPPEventListener {

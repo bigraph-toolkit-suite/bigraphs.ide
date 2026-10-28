@@ -20,6 +20,8 @@ import java.util.stream.Stream;
  *   types        the domain model and its events     (nothing)
  *   io           JSON format, meta-file data          types, Gson
  *   bigraph      the bigraph encoding                 types, Bigraph Framework
+ *   rewriting    fixpoint rewriting engine, generic   Bigraph Framework
+ *                produce-use (overlap) analysis
  *   gmodel       the GLSP graph model                 types, GLSP
  *   coverage     coverage semantics and analyzers     types, bigraph, Bigraph Framework
  *   validation   validation patterns                  types, bigraph, Bigraph Framework
@@ -37,14 +39,15 @@ class PackageLayeringTest {
     private static final String BASE = "org.eclipse.glsp.example.bigraph.extension.popp";
     private static final Path SOURCES = Path.of("src/main/java", BASE.split("\\."));
 
-    private static final List<String> ORDER = List.of("types", "io", "bigraph", "gmodel", "coverage", "validation",
+    private static final List<String> ORDER = List.of("types", "io", "bigraph", "rewriting", "gmodel", "coverage", "validation",
             "state", "actions", "sync", "handler", "");
 
-    /** External libraries the inner packages may use; packages not listed may use any. */
+    /** External libraries the inner packages may use. Packages not listed may use any. */
     private static final Map<String, Set<String>> LIBRARIES = Map.of(
             "types", Set.of(),
             "io", Set.of("com.google.gson"),
             "bigraph", Set.of("org.bigraphs", "it.uniud", "org.eclipse.emf"),
+            "rewriting", Set.of("org.bigraphs", "it.uniud", "org.eclipse.emf"),
             "gmodel", Set.of("org.eclipse.glsp.graph", "org.eclipse.glsp.server", "org.eclipse.glsp.example.bigraph.extensions"),
             "coverage", Set.of("org.bigraphs", "it.uniud", "org.eclipse.emf"),
             "validation", Set.of("org.bigraphs", "it.uniud", "org.eclipse.emf"));

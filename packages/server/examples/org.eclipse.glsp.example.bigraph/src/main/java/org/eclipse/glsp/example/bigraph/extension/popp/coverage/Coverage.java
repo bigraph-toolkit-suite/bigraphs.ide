@@ -7,7 +7,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Set;
 
-/** Ordered UNCOVERED &lt; PARTIAL &lt; COVERED, so {@link #best} is just a max. */
+/** Ordered {@code UNCOVERED < PARTIAL < COVERED}, so {@link #best} is just a max. */
 public enum Coverage {
     UNCOVERED,
     PARTIAL,

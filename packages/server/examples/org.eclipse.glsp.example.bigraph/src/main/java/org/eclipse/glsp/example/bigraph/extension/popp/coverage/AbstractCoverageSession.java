@@ -22,8 +22,8 @@ public abstract class AbstractCoverageSession implements CoverageSession {
     protected record Candidate(Relation relation, TreeNode<?> node) {}
 
     /**
-     * Three-valued AND/OR over the children's coverage. AND is COVERED if all children are, OR if any child is;
-     * otherwise PARTIAL if some child is at least PARTIAL, else UNCOVERED. NONE is UNCOVERED.
+     * Three-valued AND/OR over the children's coverage. AND is COVERED if all children are, OR if any child is.
+     * Otherwise PARTIAL if some child is at least PARTIAL, else UNCOVERED. NONE is UNCOVERED.
      * <p>
      * {@code children} must not be empty: for an empty list both AND and OR yield COVERED (vacuous truth). Callers
      * only aggregate nodes that have children, and the gate rules never list an empty gate node.
@@ -51,7 +51,7 @@ public abstract class AbstractCoverageSession implements CoverageSession {
         return out;
     }
 
-    /** A decomposition reason; for a COVERED node only the contributing children are explained. */
+    /** A decomposition reason. For a COVERED node only the contributing children are explained. */
     protected final CoverageReason decompositionReason(TreeNode<?> node, Coverage decomposition) {
         List<? extends TreeNode<?>> children = node.getChildren();
         Predicate<TreeNode<?>> isCovered = n -> coverage(n) == Coverage.COVERED;

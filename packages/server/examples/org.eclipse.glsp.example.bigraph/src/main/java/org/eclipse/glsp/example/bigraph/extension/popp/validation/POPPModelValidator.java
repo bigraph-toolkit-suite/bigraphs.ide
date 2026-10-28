@@ -18,7 +18,7 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * Checks a POPP bigraph against {@link POPPValidationPatterns} with the Bigraph Framework matcher.
  *
  * <p>Two phases, so that only the first one has to run on the GLSP dispatch thread: {@link #snapshot} copies the
- * live bigraph (place graph and links; descriptions only as labels) into an independent bigraph over the patterns'
+ * live bigraph (place graph and links, descriptions only as labels) into an independent bigraph over the patterns'
  * signature, and
  * {@link #validate} matches every pattern against that copy, which is safe on any thread. A census of the
  * snapshot's controls skips patterns that cannot occur, so a model without, say, any stubs never pays for the stub
@@ -49,7 +49,7 @@ public final class POPPModelValidator {
      * @param modelVersion {@code POPPModel#getVersion()} at the time of the copy, passed on to the report
      * @param bigraph  the copy, over {@link POPPValidationPatterns#SIGNATURE}
      * @param ownerOf  bigraph node name to the id of the nearest enclosing domain node (the node itself for domain
-     *                 nodes); absent for the container and for nodes outside any domain node
+     *                 nodes). Absent for the container and for nodes outside any domain node
      * @param labelOf  bigraph node name to a readable label (domain kind and description)
      * @param census   control name to number of nodes
      * @param unknown  names of nodes whose control is not in the POPP signature (not copied)
@@ -58,7 +58,7 @@ public final class POPPModelValidator {
                            Map<String, String> labelOf, Map<String, Integer> census, List<String> unknown) {
     }
 
-    /** Copies {@code source}; cheap (linear in the bigraph), but must run where {@code source} is not being mutated. */
+    /** Copies {@code source}. Cheap (linear in the bigraph), but must run where {@code source} is not being mutated. */
     @SuppressWarnings("unchecked")
     public static Snapshot snapshot(PureBigraph source, long modelVersion) {
         PureBigraphMutable copy = pureBuilder(POPPValidationPatterns.SIGNATURE).createMutable();

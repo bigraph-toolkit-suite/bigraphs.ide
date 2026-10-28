@@ -16,10 +16,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *
  * <p>Encoding: every domain node is a node whose control is its kind ({@code Problem}, {@code Goal}, ...). An AND/OR
  * decomposition with n children becomes a decomposition chain of n-1 binary gate nodes ({@code GoalAnd}, {@code ProblemOr}, ...) under the
- * decomposed node (one empty gate node without children, one gate node for a single child); the gate node
+ * decomposed node (one empty gate node without children, one gate node for a single child). The gate node
  * directly under a domain node is the first one. A relation is an edge between two arity-1 stub nodes, one under each
  * endpoint. Every node is addressable by its id ({@code nodesById}): domain nodes by their model id, gate nodes by
- * {@code <id>_DECOMP[_i]}, stubs by {@code <STUB_CONSTANT>:<source id>-><target id>}; the edge is named
+ * {@code <id>_DECOMP[_i]}, stubs by {@code <STUB_CONSTANT>:<source id>-><target id>}. The edge is named
  * {@code <TYPE>:<source id>-><target id>} (so ids must not contain {@code ->}).</p>
  */
 @SuppressWarnings("unchecked")
@@ -85,13 +85,13 @@ public class POPPBigraph {
         return POPPBigraphSignature.isDecompControl(POPPBigraphSignature.forNode(node));
     }
 
-    /** The domain kind of a node; empty for gate nodes, stubs and the container. */
+    /** The domain kind of a node. Empty for gate nodes, stubs and the container. */
     public Optional<NodeKind> kindOf(BigraphEntity.NodeEntity<?> node) {
         POPPBigraphSignature c = POPPBigraphSignature.forNode(node);
         return POPPBigraphSignature.isKindControl(c) ? Optional.of(POPPBigraphSignature.toNodeKind(c)) : Optional.empty();
     }
 
-    /** The decomposition type of a gate node; {@code NONE} for every other node. */
+    /** The decomposition type of a gate node. {@code NONE} for every other node. */
     public DecompositionType decompositionTypeOf(BigraphEntity.NodeEntity<?> node) {
         return POPPBigraphSignature.decompositionTypeOf(POPPBigraphSignature.forNode(node));
     }
@@ -189,7 +189,7 @@ public class POPPBigraph {
 
     /**
      * Merges {@code values} into the node's attributes. {@code NodeEntity.getAttributes()} returns a copy of the
-     * EMF-backed list, so writing to it is lost; only {@code setAttributes} persists.
+     * EMF-backed list, so writing to it is lost. Only {@code setAttributes} persists.
      */
     private static void putAttributes(BigraphEntity.NodeEntity<DynamicControl> entity, Map<String, Object> values) {
         Map<String, Object> merged = new HashMap<>(entity.getAttributes());
@@ -197,7 +197,7 @@ public class POPPBigraph {
         entity.setAttributes(merged);
     }
 
-    /** Removes a domain node and its chain; its relations and children must already be gone (see the model). */
+    /** Removes a domain node and its chain. Its relations and children must already be gone (see the model). */
     public void deleteTreeNode(String id) {
         clearDecompositionChain(id);
         removeNode(id).ifPresent(n -> emit(new POPPBigraphEvent.NodeRemoved(n)));
@@ -322,7 +322,7 @@ public class POPPBigraph {
 
     /**
      * Replaces the chain under {@code node} by one for its current decomposition type and children, minus
-     * {@code excludeChildId} and plus {@code includeChildId} (either may be {@code null}); needed while a reparenting
+     * {@code excludeChildId} and plus {@code includeChildId} (either may be {@code null}). Needed while a reparenting
      * is half-applied in the model. Children of {@code NONE} are put directly under the node.
      */
     public void rebuildDecomposition(TreeNode<?> node, String excludeChildId, String includeChildId) {
@@ -448,7 +448,7 @@ public class POPPBigraph {
             BigraphEntity.NodeEntity<DynamicControl> target) {
     }
 
-    /** The source and target domain nodes named by a relation edge; empty for edges not named like a relation. */
+    /** The source and target domain nodes named by a relation edge. Empty for edges not named like a relation. */
     public Optional<RelationEndpoints> decodeRelation(BigraphEntity.Edge edge) {
         String name = edge.getName();
         int colon = name.indexOf(':');

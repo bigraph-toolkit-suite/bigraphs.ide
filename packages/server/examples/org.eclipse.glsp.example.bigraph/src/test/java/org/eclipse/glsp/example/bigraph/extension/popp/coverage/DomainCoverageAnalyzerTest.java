@@ -216,7 +216,7 @@ class DomainCoverageAnalyzerTest {
         });
     }
 
-    /** One warm-up run (JIT), then the median of {@link #SAMPLES}; fails when the median exceeds the budget. */
+    /** One warm-up run (JIT), then the median of {@link #SAMPLES}. Fails when the median exceeds the budget. */
     private static void stage(int depth, String name, Runnable action) {
         action.run();
         double[] ms = new double[SAMPLES];

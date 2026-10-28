@@ -5,7 +5,7 @@ import java.util.Map;
 
 /**
  * What the client needs to highlight the evidence behind one node's coverage. All ids are GModel element ids (a POPP
- * node's id is also its GModel id). {@code label} is the node's description; {@code coverage} is a {@link Coverage}
+ * node's id is also its GModel id). {@code label} is the node's description. {@code coverage} is a {@link Coverage}
  * name, or {@code UNKNOWN} when the node does not exist (see {@link #unknown}).
  */
 public record InspectionResult(String nodeId, String label, String coverage, String mode,

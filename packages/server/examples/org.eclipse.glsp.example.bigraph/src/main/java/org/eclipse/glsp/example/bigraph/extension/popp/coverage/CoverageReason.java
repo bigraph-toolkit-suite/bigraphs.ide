@@ -17,7 +17,7 @@ public sealed interface CoverageReason {
     }
 
     /**
-     * AND/OR decomposition. When COVERED, {@code children} are only the contributing ones; otherwise all
+     * AND/OR decomposition. When COVERED, {@code children} are only the contributing ones. Otherwise all
      * children are listed so the gaps underneath stay visible.
      */
     record Decomposition(TreeNode<?> node, Coverage coverage, DecompositionType type, List<CoverageReason> children)
@@ -25,7 +25,7 @@ public sealed interface CoverageReason {
     }
 
     /**
-     * Covered (or not) through a propagating relation; {@code coveringReason} explains the giving neighbour. When the
+     * Covered (or not) through a propagating relation. {@code coveringReason} explains the giving neighbour. When the
      * node is not covered at all, this is the first candidate relation, so the explanation still leads somewhere.
      */
     record Link(TreeNode<?> node, Coverage coverage, Relation relation, CoverageReason coveringReason)

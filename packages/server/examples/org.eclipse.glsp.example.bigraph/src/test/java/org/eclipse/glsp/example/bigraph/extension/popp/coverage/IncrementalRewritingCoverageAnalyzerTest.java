@@ -12,7 +12,7 @@ import java.util.*;
 /** After every edit of random edit sequences, the incremental analyzer agrees with the domain analyzer in every mode. */
 class IncrementalRewritingCoverageAnalyzerTest {
 
-    /** Number of (step, mode) pairs with a disagreement; the first few are described in {@code report}. */
+    /** Number of (step, mode) pairs with a disagreement. The first few are described in {@code report}. */
     static int mismatches(String variant, int depth, int steps, long seed, StringBuilder report) {
         Synced popp = new Synced();
         CoverageTestModels.fullModel(popp.model, depth, seed % 2 == 0);
@@ -90,7 +90,7 @@ class IncrementalRewritingCoverageAnalyzerTest {
         assertEquals(0, bad, report.toString());
     }
 
-    /** Without a change since the last session, the analyzer answers from its fixpoint; after an edit it evaluates again. */
+    /** Without a change since the last session, the analyzer answers from its fixpoint. After an edit it evaluates again. */
     @Test
     void reusesTheSessionUntilTheModelChanges() {
         assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");

@@ -6,7 +6,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignat
 
 import java.util.*;
 
-/** State and derivation per domain node id; gate nodes are internal and not included. */
+/** State and derivation per domain node id. Gate nodes are internal and not included. */
 record RewritingReadout(Map<String, Coverage> coverage, Map<String, Derivation> derivation) {
     /** Why a node has its state: the reason marker of the rule that set it, and the giver for link rules. */
     record Derivation(CoverageMarker marker, String giverId) {}
@@ -15,7 +15,7 @@ record RewritingReadout(Map<String, Coverage> coverage, Map<String, Derivation> 
      * Reads states and reasons off a bigraph the rules were <i>applied</i> to (the fixpoint of a rewriting
      * session), by one walk over its nodes. It carries {@code CovIntrinsic} from the start and the reason markers the
      * reactums added: per domain node the marker that belongs to its state ({@code CovDecomp}, {@code PartLink},
-     * ...; a node upgraded twice keeps both, only the one for the final state counts). A link marker
+     * ..., a node upgraded twice keeps both, only the one for the final state counts). A link marker
      * ({@code CovLink}/{@code PartLink}) is connected to the relation edge it was derived over, so the giver is the
      * domain node owning the other relation stub on that link.
      */

@@ -21,7 +21,7 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureSignatureBu
  * <p>Every domain node is a node whose control is its kind ({@code Problem}, {@code Goal}, ...). The place graph
  * carries the hierarchies and decompositions: an n-ary AND/OR decomposition becomes a decomposition chain of binary gate nodes
  * under the decomposed node, with one gate control per kind and type ({@code GoalAnd}, {@code ProblemOr}, ...), so
- * a gate node says which tree it belongs to. The topmost gate node is the one directly under a domain node; every
+ * a gate node says which tree it belongs to. The topmost gate node is the one directly under a domain node. Every
  * further gate node is under a gate node. Cross-tree relations are a pair of arity-1 stub
  * nodes (one per relation type and direction) under their endpoints, connected by an edge.
  *
@@ -69,7 +69,7 @@ public enum POPPBigraphSignature {
 
     private final String controlName;
     private final int arity;
-    /** For gate controls: the kind of the decomposed node and the type; {@code null} for every other control. */
+    /** For gate controls: the kind of the decomposed node and the type. {@code null} for every other control. */
     private final NodeKind gateKind;
     private final DecompositionType gateType;
 
@@ -105,7 +105,7 @@ public enum POPPBigraphSignature {
                 .getControl().getNamedType().stringValue().equals(controlName);
     }
 
-    /** The control of {@code node}; {@code null} if it is not in this signature (e.g. a coverage marker). */
+    /** The control of {@code node}. {@code null} if it is not in this signature (e.g. a coverage marker). */
     public static POPPBigraphSignature forNode(BigraphEntity.NodeEntity<?> node) {
         for (POPPBigraphSignature control : values()) {
             if (control.matches(node)) {
@@ -115,7 +115,7 @@ public enum POPPBigraphSignature {
         return null;
     }
 
-    /** The control with this name; {@code null} if it is not in this signature. */
+    /** The control with this name. {@code null} if it is not in this signature. */
     public static POPPBigraphSignature valueOfControl(String controlName) {
         for (POPPBigraphSignature c : values()) if (c.controlName.equals(controlName)) return c;
         return null;
@@ -126,12 +126,12 @@ public enum POPPBigraphSignature {
         return control != null && control.gateType != null;
     }
 
-    /** The kind of the tree a gate control belongs to; empty for every other control. */
+    /** The kind of the tree a gate control belongs to. Empty for every other control. */
     public static Optional<NodeKind> gateKindOf(POPPBigraphSignature control) {
         return control == null ? Optional.empty() : Optional.ofNullable(control.gateKind);
     }
 
-    /** The gate control for a decomposition of a node of {@code kind}; {@code null} for {@code NONE}. */
+    /** The gate control for a decomposition of a node of {@code kind}. {@code null} for {@code NONE}. */
     public static POPPBigraphSignature getGateControl(NodeKind kind, DecompositionType type) {
         if (type == DecompositionType.NONE) return null;
         for (POPPBigraphSignature c : values()) {
@@ -164,7 +164,7 @@ public enum POPPBigraphSignature {
         }
     }
 
-    /** The node kind of a domain-node control; throws for every other control. */
+    /** The node kind of a domain-node control. Throws for every other control. */
     public static NodeKind toNodeKind(POPPBigraphSignature control) {
         return switch (control) {
             case PROBLEM -> NodeKind.PROBLEM;
@@ -177,7 +177,7 @@ public enum POPPBigraphSignature {
         };
     }
 
-    /** The decomposition type of a gate control; {@code NONE} for every other control. */
+    /** The decomposition type of a gate control. {@code NONE} for every other control. */
     public static DecompositionType decompositionTypeOf(POPPBigraphSignature control) {
         return control == null || control.gateType == null ? DecompositionType.NONE : control.gateType;
     }

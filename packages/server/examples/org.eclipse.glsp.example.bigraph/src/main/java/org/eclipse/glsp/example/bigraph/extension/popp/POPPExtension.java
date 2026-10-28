@@ -219,7 +219,7 @@ public class POPPExtension implements IdeExtension {
         meta.setExtensionSection(getId(), new POPPExtensionMeta(data).toJson());
     }
 
-    /** Called before {@link #onModelLoaded}; the node data is applied by the loader once the model exists. */
+    /** Called before {@link #onModelLoaded}. The node data is applied by the loader once the model exists. */
     @Override
     public void readExtensionMeta(BigraphMetaInformation meta, Injector injector) {
         POPPExtensionState state = injector.getInstance(POPPExtensionContext.class).getOwnState();

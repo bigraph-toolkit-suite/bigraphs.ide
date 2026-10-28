@@ -74,6 +74,6 @@ public abstract class AbstractPOPPActionHandler<A extends Action> extends Abstra
         return List.of();
     }
 
-    /** Applies the action to the model; returns whether something changed (then the client is updated). */
+    /** Applies the action to the model. Returns whether something changed (then the client is updated). */
     protected abstract boolean applyMutation(A action);
 }

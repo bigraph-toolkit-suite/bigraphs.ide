@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Coverage kept in sync with the structure bigraph instead of recomputed: one coverage bigraph per mode, rewritten to
  * its fixpoint once and from then on edited in place. A listener of {@link POPPBigraph} (next to the synchronizer's
- * view mirror) records the structural operations; the next session of a mode replays them on that mode's coverage
+ * view mirror) records the structural operations. The next session of a mode replays them on that mode's coverage
  * bigraph, resets the states that rested on what changed, rewrites the bigraph to its fixpoint again (with
  * {@link RewritingCoverageAnalyzer#rewriteToFixpoint}, seeded as below) and reads the
  * session off it. There is no state table besides the bigraph: states are the state cells, reasons the reason markers
@@ -34,8 +34,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * relation, in order (see {@link POPPBigraphEvent}). The coverage bigraph keeps the structure bigraph's node names
  * through rewriting, so the operations are replayed by name: a node is added (a tree node with a fresh state cell,
  * {@code Unc}, or {@code Cov} and {@code CovIntrinsic} if its kind is intrinsic in the mode, see
- * {@link CoverageBigraph}), removed or moved; a relation edge is
- * added between its stubs, or removed together with them. Rewriting renames edges, so a relation is found through its
+ * {@link CoverageBigraph}), removed or moved. A relation edge is added between its stubs, or removed together with
+ * them. Rewriting renames edges, so a relation is found through its
  * stubs, not by its edge name.
  * <p>
  * <b>Reset.</b> Coverage is the least fixpoint of monotone rules. A change that only adds (a relation, a node, an OR
@@ -43,8 +43,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * node, an AND child, AND instead of OR) can lower states, so every state that rested on the removed part goes back to
  * UNCOVERED first. What a state rests on is in the bigraph:
  * <ul>
- *   <li>a gate node rests on its slots (its children);</li>
- *   <li>a domain node whose reason marker is {@code CovDecomp}/{@code PartDecomp} rests on its topmost gate node;</li>
+ *   <li>a gate node rests on its slots (its children).</li>
+ *   <li>a domain node whose reason marker is {@code CovDecomp}/{@code PartDecomp} rests on its topmost gate node.</li>
  *   <li>a domain node whose reason marker is {@code CovLink}/{@code PartLink} rests on the giver at the other end of
  *       the relation edge that marker is linked to.</li>
  * </ul>
@@ -52,21 +52,21 @@ import java.util.concurrent.ConcurrentHashMap;
  * that rests on it: its parent if that is a gate node or a domain node with a decomposition reason, and every domain
  * node whose reason marker sits on one of its relation edges. Derivations were established in order, so they form a
  * DAG, and this leaves only states that are still derivable. A node added, removed or moved below a tree node resets
- * that node by the first two rules; a relation removed resets the receivers whose reason marker is linked to its edge.
+ * that node by the first two rules. A relation removed resets the receivers whose reason marker is linked to its edge.
  * Intrinsic nodes (domain and gate nodes of an intrinsically covered kind) are never reset.
  * <p>
  * <b>Seed.</b> A reset or new node can only be upgraded by rules whose receiver has its kind (gate, lift and link
- * rules for that kind); a node whose children changed likewise; a new relation first only by the link rules of its
- * type into its receiver's kind. Those rules are queued; the worklist queues whatever their upgrades enable. Every other rule had no
- * match at the old fixpoint, and nothing it needs has changed.
+ * rules for that kind), and so can a node whose children changed. A new relation can first only be used by the link
+ * rules of its type into its receiver's kind. Those rules are queued, and the rewriter queues whatever their upgrades
+ * enable. Every other rule had no match at the old fixpoint, and nothing it needs has changed.
  * <p>
  * The coverage bigraph is wrapped for editing ({@link PureBigraphMutable} over the same EMF instance model) and wrapped
  * again, with empty caches, for matching: the framework caches a link's points and does not invalidate the cache on
  * link edits ({@code getPointsFromLink}), so links are read from the EMF model directly here.
  * <p>
- * The coverage analyzer of the POPP extension. Register it with {@link POPPBigraph#addListener}; the first session of a
- * mode, and a session on a different {@link POPPBigraph} or model (a reloaded file), evaluates from scratch. Needs a jLibBig whose AgentMatcher keeps links
- * ({@link RewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}).
+ * The coverage analyzer of the POPP extension. Register it with {@link POPPBigraph#addListener}. The first session of a
+ * mode, and a session on a different {@link POPPBigraph} or model (a reloaded file), evaluates from scratch. Needs a
+ * jLibBig whose AgentMatcher keeps links ({@link RewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}).
  */
 public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnalyzer, POPPBigraphListener {
 
@@ -99,7 +99,6 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
         this.engine = new RewritingCoverageAnalyzer(input);
     }
 
-
     /**
      * Thread-safe: sessions of the same mode run one after another, sessions of different modes in parallel (only
      * building a coverage bigraph from the shared structure bigraph is serialized, see {@link CoverageBigraph#build}). The
@@ -108,7 +107,7 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
      */
     @Override
     public CoverageSession session(CoverageMode mode) {
-        synchronized (modeLocks.computeIfAbsent(mode, m -> new Object())) {
+        synchronized (modeLocks.computeIfAbsent(mode, key -> new Object())) {
             return sessionOf(mode);
         }
     }
@@ -153,12 +152,13 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
     }
 
     // Replaying the operations on a coverage bigraph, with the resets
+
     /** One sync of a mode's coverage bigraph: edits it in place, through a mutable wrapper of its EMF model. */
     private static final class Mirror {
-        final PureBigraphMutable g;
-        final DynamicSignature sig;
+        final PureBigraphMutable bigraph;
+        final DynamicSignature signature;
         final CoverageMode mode;
-        /** The structure nodes (container, tree nodes, stubs) by name: an index into {@link #g}, not state. */
+        /** The structure nodes (container, tree nodes, stubs) by name: an index into {@link #bigraph}, not state. */
         final Map<String, BigraphEntity.NodeEntity<DynamicControl>> byName = new HashMap<>();
         /** Every node by its EMF object, to resolve the link points read from the EMF model. */
         final Map<EObject, BigraphEntity.NodeEntity<DynamicControl>> byObject = new HashMap<>();
@@ -168,240 +168,244 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
         final Set<String> seededLinks = new HashSet<>();
 
         Mirror(PureBigraph coverage, CoverageMode mode) {
-            this.sig = coverage.getSignature();
-            this.g = PureBigraphBuilder.create(sig, coverage.getMetaModel(), coverage.getInstanceModel()).createMutable();
+            this.signature = coverage.getSignature();
+            this.bigraph = PureBigraphBuilder.create(signature, coverage.getMetaModel(), coverage.getInstanceModel())
+                    .createMutable();
             this.mode = mode;
-            for (BigraphEntity.NodeEntity<DynamicControl> n : g.getNodes()) {
-                byObject.put(n.getInstance(), n);
-                if (marker(n).isEmpty()) byName.put(n.getName(), n);
+            for (BigraphEntity.NodeEntity<DynamicControl> node : bigraph.getNodes()) {
+                byObject.put(node.getInstance(), node);
+                if (marker(node).isEmpty()) byName.put(node.getName(), node);
             }
         }
 
-        boolean seeds(CompiledRule r) {
-            Optional<NodeKind> kind = RewritingCoverageAnalyzer.receiverKind(r);
+        boolean seeds(CompiledRule rule) {
+            Optional<NodeKind> kind = RewritingCoverageAnalyzer.receiverKind(rule);
             if (kind.isEmpty()) return false;
             return seeds.contains(kind.get())
-                    || r.isLinkRule() && seededLinks.contains(r.relation() + ":" + kind.get());
+                    || rule.isLinkRule() && seededLinks.contains(rule.relation() + ":" + kind.get());
         }
 
         /** The edited bigraph, wrapped anew (empty caches) for matching and rewriting. */
         PureBigraph forMatching() {
-            return PureBigraphBuilder.create(sig, g.getMetaModel(), g.getInstanceModel()).create();
+            return PureBigraphBuilder.create(signature, bigraph.getMetaModel(), bigraph.getInstanceModel()).create();
         }
 
         void apply(Op op) {
             // If language standard is updated to 21 replace with switch casting
-            if (op instanceof Added a) added(a);
-            else if (op instanceof Removed r) removed(r);
-            else if (op instanceof Moved m) moved(m);
-            else if (op instanceof RelationAdded r) relationAdded(r);
-            else if (op instanceof RelationRemoving r) relationRemoving(r);
+            if (op instanceof Added added) added(added);
+            else if (op instanceof Removed removed) removed(removed);
+            else if (op instanceof Moved moved) moved(moved);
+            else if (op instanceof RelationAdded relationAdded) relationAdded(relationAdded);
+            else if (op instanceof RelationRemoving relationRemoving) relationRemoving(relationRemoving);
             else throw new IllegalStateException("Unhandled operation: " + op);
         }
 
-        private void added(Added a) {
-            if (byName.containsKey(a.node())) return; // repeated announcement (the container)
-            BigraphEntity<?> parent = a.parent() == null ? g.getRoots().getFirst() : byName.get(a.parent());
-            var n = add(parent, a.control(), a.node());
-            byName.put(a.node(), n);
-            if (!isTree(n)) return; // container, stubs: no state
-            NodeKind kind = kind(n);
+        private void added(Added op) {
+            if (byName.containsKey(op.node())) return; // repeated announcement (the container)
+            BigraphEntity<?> parent = op.parent() == null ? bigraph.getRoots().getFirst() : byName.get(op.parent());
+            var node = add(parent, op.control(), op.node());
+            byName.put(op.node(), node);
+            if (!isTree(node)) return; // container, stubs: no state
+            NodeKind kind = kind(node);
             seeds.add(kind);
-            if (CoverageBigraph.isIntrinsic(POPPBigraphSignature.forNode(n), mode)) {
-                cell(n, CoverageMarker.COV);
-                cell(n, CoverageMarker.COV_INTRINSIC);
+            if (CoverageBigraph.isIntrinsic(POPPBigraphSignature.forNode(node), mode)) {
+                cell(node, CoverageMarker.COV);
+                cell(node, CoverageMarker.COV_INTRINSIC);
             } else {
-                cell(n, CoverageMarker.UNC);
+                cell(node, CoverageMarker.UNC);
             }
             invalidate(parent); // a new gate node is a new slot of its parent
         }
 
-        private void removed(Removed r) {
-            var n = byName.get(r.node());
-            if (n == null) return;
-            BigraphEntity<?> parent = g.getParent(n);
-            if (isTree(n)) receiversOf(n).forEach(this::reset); // none in practice: relations are removed first
+        private void removed(Removed op) {
+            var node = byName.get(op.node());
+            if (node == null) return;
+            BigraphEntity<?> parent = bigraph.getParent(node);
+            if (isTree(node)) receiversOf(node).forEach(this::reset); // none in practice: relations are removed first
             // A domain node still below it was moved out without an announcement (the structure bigraph moves a node
-            // to the container before rebuilding the chain it leaves); it is announced again at its final place.
-            for (BigraphEntity<?> c : new ArrayList<>(g.getChildrenOf(n))) {
-                if (c instanceof BigraphEntity.NodeEntity<?> child && isTree(child)
+            // to the container before rebuilding the chain it leaves). It is announced again at its final place.
+            for (BigraphEntity<?> entity : new ArrayList<>(bigraph.getChildrenOf(node))) {
+                if (entity instanceof BigraphEntity.NodeEntity<?> child && isTree(child)
                         && POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(child))) {
-                    g.moveNode((BigraphEntity.NodeEntity<DynamicControl>) child, container());
+                    bigraph.moveNode((BigraphEntity.NodeEntity<DynamicControl>) child, container());
                 }
             }
-            removeSubtree(n);
+            removeSubtree(node);
             invalidate(parent);
         }
 
-        private void moved(Moved m) {
-            var n = byName.get(m.node());
-            var target = byName.get(m.newParent());
-            BigraphEntity<?> old = g.getParent(n);
+        private void moved(Moved op) {
+            var node = byName.get(op.node());
+            var target = byName.get(op.newParent());
+            BigraphEntity<?> old = bigraph.getParent(node);
             if (Objects.equals(old, target)) return;
-            g.moveNode(n, target);
+            bigraph.moveNode(node, target);
             invalidate(old);
             invalidate(target);
         }
 
-        private void relationAdded(RelationAdded r) {
-            BigraphEntity.Edge edge = g.addEdge(r.edge());
-            for (String stub : r.stubs()) g.connectNodeToLink(byName.get(stub), edge);
-            // only the link rules of this relation type into the receiver's kind can match first; what they raise
+        private void relationAdded(RelationAdded op) {
+            BigraphEntity.Edge edge = bigraph.addEdge(op.edge());
+            for (String stub : op.stubs()) bigraph.connectNodeToLink(byName.get(stub), edge);
+            // only the link rules of this relation type into the receiver's kind can match first, what they raise
             // enables the rest
-            String type = r.edge().substring(0, Math.max(0, r.edge().indexOf(':')));
-            receiverOf(r.edge()).map(byName::get).ifPresent(n -> seededLinks.add(type + ":" + kind(n)));
+            String type = op.edge().substring(0, Math.max(0, op.edge().indexOf(':')));
+            receiverOf(op.edge()).map(byName::get).ifPresent(receiver -> seededLinks.add(type + ":" + kind(receiver)));
         }
 
-        private void relationRemoving(RelationRemoving r) {
-            List<BigraphEntity.NodeEntity<DynamicControl>> stubs = r.stubs().stream().map(byName::get).filter(Objects::nonNull).toList();
-            EObject link = stubs.stream().flatMap(s -> ports(s).stream()).map(Mirror::linkOf).filter(Objects::nonNull)
-                    .findFirst().orElse(null);
+        private void relationRemoving(RelationRemoving op) {
+            List<BigraphEntity.NodeEntity<DynamicControl>> stubs =
+                    op.stubs().stream().map(byName::get).filter(Objects::nonNull).toList();
+            EObject link = stubs.stream().flatMap(stub -> ports(stub).stream()).map(Mirror::linkOf)
+                    .filter(Objects::nonNull).findFirst().orElse(null);
             if (link != null) {
                 // markers on the edge: their owner's reason (reset the owner), or left over from a lower state (drop it)
                 List<BigraphEntity.NodeEntity<DynamicControl>> receivers = new ArrayList<>();
-                for (var m : nodesOn(link)) {
-                    Optional<CoverageMarker> marker = marker(m);
+                for (var markerNode : nodesOn(link)) {
+                    Optional<CoverageMarker> marker = marker(markerNode);
                     if (marker.isEmpty()) continue;
-                    var owner = parentNode(m);
+                    var owner = parentNode(markerNode);
                     if (isReason(owner, marker.get())) receivers.add(owner);
-                    else removeSubtree(m);
+                    else removeSubtree(markerNode);
                 }
                 receivers.forEach(this::reset);
             }
             stubs.forEach(this::removeSubtree);
             if (link != null) {
-                g.getEdges().stream().filter(e -> e.getInstance() == link).findFirst().ifPresent(g::removeEdge);
+                bigraph.getEdges().stream().filter(edge -> edge.getInstance() == link).findFirst()
+                        .ifPresent(bigraph::removeEdge);
             }
         }
 
         private BigraphEntity.NodeEntity<DynamicControl> container() {
-            return byName.values().stream().filter(n -> POPPBigraphSignature.forNode(n) == POPPBigraphSignature.POPP)
+            return byName.values().stream()
+                    .filter(node -> POPPBigraphSignature.forNode(node) == POPPBigraphSignature.POPP)
                     .findFirst().orElseThrow();
         }
 
         /**
-         * Something {@code p}'s state may rest on changed (a child added, removed, moved or reset): reset {@code p}
+         * Something the state of {@code entity} may rest on changed (a child added, removed, moved or reset): reset it
          * if its state rests on its children, i.e. if it is a gate node, or a domain node with a decomposition reason.
          */
-        private void invalidate(BigraphEntity<?> p) {
-            if (!(p instanceof BigraphEntity.NodeEntity<?> raw) || !isTree(raw)) return;
-            var n = (BigraphEntity.NodeEntity<DynamicControl>) raw;
-            seeds.add(kind(n));
-            if (POPPBigraphSignature.isDecompControl(POPPBigraphSignature.forNode(n))) {
-                reset(n);
+        private void invalidate(BigraphEntity<?> entity) {
+            if (!(entity instanceof BigraphEntity.NodeEntity<?> raw) || !isTree(raw)) return;
+            var node = (BigraphEntity.NodeEntity<DynamicControl>) raw;
+            seeds.add(kind(node));
+            if (POPPBigraphSignature.isDecompControl(POPPBigraphSignature.forNode(node))) {
+                reset(node);
                 return;
             }
-            for (var m : markers(n)) {
-                CoverageMarker k = marker(m).orElseThrow();
-                if ((k == CoverageMarker.COV_DECOMP || k == CoverageMarker.PART_DECOMP) && isReason(n, k)) {
-                    reset(n);
+            for (var markerNode : markers(node)) {
+                CoverageMarker marker = marker(markerNode).orElseThrow();
+                if ((marker == CoverageMarker.COV_DECOMP || marker == CoverageMarker.PART_DECOMP) && isReason(node, marker)) {
+                    reset(node);
                     return;
                 }
             }
         }
 
-        /** Back to UNCOVERED, and everything that rests on {@code n} (see the class comment). */
-        private void reset(BigraphEntity.NodeEntity<DynamicControl> n) {
-            seeds.add(kind(n));
-            if (CoverageBigraph.isIntrinsic(POPPBigraphSignature.forNode(n), mode)) return; // covered by definition
-            if (state(n) == Coverage.UNCOVERED) return; // nothing rests on an uncovered node
-            List<BigraphEntity.NodeEntity<DynamicControl>> receivers = receiversOf(n);
-            markers(n).forEach(this::removeSubtree);
-            cell(n, CoverageMarker.UNC);
-            invalidate(g.getParent(n));
+        /** Back to UNCOVERED, and everything that rests on {@code node} (see the class comment). */
+        private void reset(BigraphEntity.NodeEntity<DynamicControl> node) {
+            seeds.add(kind(node));
+            if (CoverageBigraph.isIntrinsic(POPPBigraphSignature.forNode(node), mode)) return; // covered by definition
+            if (state(node) == Coverage.UNCOVERED) return; // nothing rests on an uncovered node
+            List<BigraphEntity.NodeEntity<DynamicControl>> receivers = receiversOf(node);
+            markers(node).forEach(this::removeSubtree);
+            cell(node, CoverageMarker.UNC);
+            invalidate(bigraph.getParent(node));
             receivers.forEach(this::reset);
         }
 
-        /** The domain nodes whose reason marker sits on a relation edge of {@code n}, i.e. whose giver {@code n} is. */
-        private List<BigraphEntity.NodeEntity<DynamicControl>> receiversOf(BigraphEntity.NodeEntity<DynamicControl> n) {
+        /** The domain nodes whose reason marker sits on a relation edge of {@code giver}, i.e. whose giver it is. */
+        private List<BigraphEntity.NodeEntity<DynamicControl>> receiversOf(BigraphEntity.NodeEntity<DynamicControl> giver) {
             List<BigraphEntity.NodeEntity<DynamicControl>> out = new ArrayList<>();
-            for (BigraphEntity<?> c : g.getChildrenOf(n)) {
-                if (!(c instanceof BigraphEntity.NodeEntity<?> stub) || marker(stub).isPresent() || isTree(stub)) continue;
+            for (BigraphEntity<?> child : bigraph.getChildrenOf(giver)) {
+                if (!(child instanceof BigraphEntity.NodeEntity<?> stub) || marker(stub).isPresent() || isTree(stub)) continue;
                 for (EObject port : ports(stub)) {
                     EObject link = linkOf(port);
                     if (link == null) continue;
-                    for (var m : nodesOn(link)) {
-                        Optional<CoverageMarker> marker = marker(m);
+                    for (var markerNode : nodesOn(link)) {
+                        Optional<CoverageMarker> marker = marker(markerNode);
                         if (marker.isEmpty()) continue;
-                        var owner = parentNode(m);
-                        if (owner != n && isReason(owner, marker.get())) out.add(owner);
+                        var owner = parentNode(markerNode);
+                        if (owner != giver && isReason(owner, marker.get())) out.add(owner);
                     }
                 }
             }
             return out;
         }
 
-        /** Whether {@code m} is the reason marker of {@code owner}'s current state. */
-        private boolean isReason(BigraphEntity.NodeEntity<DynamicControl> owner, CoverageMarker m) {
-            return m.belongsTo(state(owner));
+        /** Whether {@code marker} is the reason marker of the current state of {@code owner}. */
+        private boolean isReason(BigraphEntity.NodeEntity<DynamicControl> owner, CoverageMarker marker) {
+            return marker.belongsTo(state(owner));
         }
 
-        private Coverage state(BigraphEntity.NodeEntity<DynamicControl> n) {
-            for (var m : markers(n)) {
-                Optional<Coverage> s = marker(m).flatMap(CoverageMarker::state);
-                if (s.isPresent()) return s.get();
+        private Coverage state(BigraphEntity.NodeEntity<DynamicControl> node) {
+            for (var markerNode : markers(node)) {
+                Optional<Coverage> state = marker(markerNode).flatMap(CoverageMarker::state);
+                if (state.isPresent()) return state.get();
             }
-            throw new IllegalStateException("Tree node " + n.getName() + " has no state cell");
+            throw new IllegalStateException("Tree node " + node.getName() + " has no state cell");
         }
 
         /** The marker children of a tree node: its state cell and reason markers. */
-        private List<BigraphEntity.NodeEntity<DynamicControl>> markers(BigraphEntity.NodeEntity<DynamicControl> n) {
+        private List<BigraphEntity.NodeEntity<DynamicControl>> markers(BigraphEntity.NodeEntity<DynamicControl> node) {
             List<BigraphEntity.NodeEntity<DynamicControl>> out = new ArrayList<>();
-            for (BigraphEntity<?> c : g.getChildrenOf(n)) {
-                if (c instanceof BigraphEntity.NodeEntity<?> m && marker(m).isPresent()) {
-                    out.add((BigraphEntity.NodeEntity<DynamicControl>) m);
+            for (BigraphEntity<?> child : bigraph.getChildrenOf(node)) {
+                if (child instanceof BigraphEntity.NodeEntity<?> markerNode && marker(markerNode).isPresent()) {
+                    out.add((BigraphEntity.NodeEntity<DynamicControl>) markerNode);
                 }
             }
             return out;
         }
 
         @SuppressWarnings("unchecked")
-        private BigraphEntity.NodeEntity<DynamicControl> parentNode(BigraphEntity.NodeEntity<DynamicControl> n) {
-            return (BigraphEntity.NodeEntity<DynamicControl>) g.getParent(n);
+        private BigraphEntity.NodeEntity<DynamicControl> parentNode(BigraphEntity.NodeEntity<DynamicControl> node) {
+            return (BigraphEntity.NodeEntity<DynamicControl>) bigraph.getParent(node);
         }
 
         private BigraphEntity.NodeEntity<DynamicControl> add(BigraphEntity<?> parent, String control, String name) {
-            var n = g.addNode(parent, sig.getControlByName(control), name);
-            byObject.put(n.getInstance(), n);
-            return n;
+            var node = bigraph.addNode(parent, signature.getControlByName(control), name);
+            byObject.put(node.getInstance(), node);
+            return node;
         }
 
-        private void cell(BigraphEntity.NodeEntity<DynamicControl> owner, CoverageMarker m) {
-            add(owner, m.controlName(), owner.getName() + "." + m.controlName());
+        private void cell(BigraphEntity.NodeEntity<DynamicControl> owner, CoverageMarker marker) {
+            add(owner, marker.controlName(), owner.getName() + "." + marker.controlName());
         }
 
-        /** Removes {@code n} with everything below it, disconnecting their ports first. */
-        private void removeSubtree(BigraphEntity.NodeEntity<DynamicControl> n) {
-            for (BigraphEntity<?> c : new ArrayList<>(g.getChildrenOf(n))) {
-                if (c instanceof BigraphEntity.NodeEntity<?> child) removeSubtree((BigraphEntity.NodeEntity<DynamicControl>) child);
+        /** Removes {@code node} with everything below it, disconnecting their ports first. */
+        private void removeSubtree(BigraphEntity.NodeEntity<DynamicControl> node) {
+            for (BigraphEntity<?> entity : new ArrayList<>(bigraph.getChildrenOf(node))) {
+                if (entity instanceof BigraphEntity.NodeEntity<?> child) removeSubtree((BigraphEntity.NodeEntity<DynamicControl>) child);
             }
-            for (EObject port : ports(n)) {
-                if (linkOf(port) != null) g.disconnectPort(BigraphEntity.create(port, BigraphEntity.Port.class));
+            for (EObject port : ports(node)) {
+                if (linkOf(port) != null) bigraph.disconnectPort(BigraphEntity.create(port, BigraphEntity.Port.class));
             }
-            g.removeNode(n);
-            byObject.remove(n.getInstance());
-            if (byName.get(n.getName()) == n) byName.remove(n.getName());
+            bigraph.removeNode(node);
+            byObject.remove(node.getInstance());
+            if (byName.get(node.getName()) == node) byName.remove(node.getName());
         }
 
         // Links, read from the EMF model (the framework's getPointsFromLink cache goes stale on link edits)
 
         @SuppressWarnings("unchecked")
-        private static List<EObject> ports(BigraphEntity.NodeEntity<?> n) {
-            EStructuralFeature f = n.getInstance().eClass().getEStructuralFeature(BigraphMetaModelConstants.REFERENCE_PORT);
-            return f == null ? List.of() : List.copyOf((List<EObject>) n.getInstance().eGet(f));
+        private static List<EObject> ports(BigraphEntity.NodeEntity<?> node) {
+            EStructuralFeature feature = node.getInstance().eClass().getEStructuralFeature(BigraphMetaModelConstants.REFERENCE_PORT);
+            return feature == null ? List.of() : List.copyOf((List<EObject>) node.getInstance().eGet(feature));
         }
 
         private static EObject linkOf(EObject point) {
-            EStructuralFeature f = point.eClass().getEStructuralFeature(BigraphMetaModelConstants.REFERENCE_LINK);
-            return f == null ? null : (EObject) point.eGet(f);
+            EStructuralFeature feature = point.eClass().getEStructuralFeature(BigraphMetaModelConstants.REFERENCE_LINK);
+            return feature == null ? null : (EObject) point.eGet(feature);
         }
 
         /** The nodes with a port on {@code link}. */
         @SuppressWarnings("unchecked")
         private List<BigraphEntity.NodeEntity<DynamicControl>> nodesOn(EObject link) {
-            EStructuralFeature f = link.eClass().getEStructuralFeature(BigraphMetaModelConstants.REFERENCE_POINT);
+            EStructuralFeature feature = link.eClass().getEStructuralFeature(BigraphMetaModelConstants.REFERENCE_POINT);
             List<BigraphEntity.NodeEntity<DynamicControl>> out = new ArrayList<>();
-            for (EObject point : List.copyOf((List<EObject>) link.eGet(f))) {
+            for (EObject point : List.copyOf((List<EObject>) link.eGet(feature))) {
                 EStructuralFeature nodeRef = point.eClass().getEStructuralFeature(BigraphMetaModelConstants.REFERENCE_NODE);
                 if (nodeRef == null) continue; // an inner name
                 var node = byObject.get((EObject) point.eGet(nodeRef));
@@ -410,19 +414,19 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
             return out;
         }
 
-        private static Optional<CoverageMarker> marker(BigraphEntity.NodeEntity<?> n) {
-            return CoverageMarker.forNode(n);
+        private static Optional<CoverageMarker> marker(BigraphEntity.NodeEntity<?> node) {
+            return CoverageMarker.forNode(node);
         }
 
-        private static boolean isTree(BigraphEntity.NodeEntity<?> n) {
-            return marker(n).isEmpty() && POPPBigraphSignature.isTreeControl(POPPBigraphSignature.forNode(n));
+        private static boolean isTree(BigraphEntity.NodeEntity<?> node) {
+            return marker(node).isEmpty() && POPPBigraphSignature.isTreeControl(POPPBigraphSignature.forNode(node));
         }
 
         /** The kind of a tree node: of the domain node, or of the tree a gate node belongs to. */
-        private static NodeKind kind(BigraphEntity.NodeEntity<?> n) {
-            POPPBigraphSignature c = POPPBigraphSignature.forNode(n);
-            return POPPBigraphSignature.isKindControl(c) ? POPPBigraphSignature.toNodeKind(c)
-                    : POPPBigraphSignature.gateKindOf(c).orElseThrow();
+        private static NodeKind kind(BigraphEntity.NodeEntity<?> node) {
+            POPPBigraphSignature control = POPPBigraphSignature.forNode(node);
+            return POPPBigraphSignature.isKindControl(control) ? POPPBigraphSignature.toNodeKind(control)
+                    : POPPBigraphSignature.gateKindOf(control).orElseThrow();
         }
 
         /** The receiver of a relation edge named {@code TYPE:source->target} (see {@link POPPBigraph#createRelation}). */
@@ -450,22 +454,22 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
     @Override
     public synchronized void onBigraphEvent(POPPBigraphEvent event) {
         // If language standard is updated to 21 replace with switch casting
-        if (event instanceof POPPBigraphEvent.NodeAdded e) {
-            String parentName = e.parent() instanceof BigraphEntity.NodeEntity<?> p ? p.getName() : null;
-            log.add(new Added(e.node().getName(), e.node().getControl().getNamedType().stringValue(), parentName));
-        } else if (event instanceof POPPBigraphEvent.NodeRemoved e) {
-            log.add(new Removed(e.node().getName()));
-        } else if (event instanceof POPPBigraphEvent.NodeReparented e) {
-            log.add(new Moved(e.child().getName(), e.newParent().getName()));
-        } else if (event instanceof POPPBigraphEvent.RelationAdded e) {
-            log.add(new RelationAdded(e.edge().getName(), names(e.stubs())));
-        } else if (event instanceof POPPBigraphEvent.RelationRemoving e) {
-            log.add(new RelationRemoving(names(e.stubs())));
+        if (event instanceof POPPBigraphEvent.NodeAdded nodeAdded) {
+            String parentName = nodeAdded.parent() instanceof BigraphEntity.NodeEntity<?> parent ? parent.getName() : null;
+            log.add(new Added(nodeAdded.node().getName(), nodeAdded.node().getControl().getNamedType().stringValue(), parentName));
+        } else if (event instanceof POPPBigraphEvent.NodeRemoved nodeRemoved) {
+            log.add(new Removed(nodeRemoved.node().getName()));
+        } else if (event instanceof POPPBigraphEvent.NodeReparented reparented) {
+            log.add(new Moved(reparented.child().getName(), reparented.newParent().getName()));
+        } else if (event instanceof POPPBigraphEvent.RelationAdded relationAdded) {
+            log.add(new RelationAdded(relationAdded.edge().getName(), names(relationAdded.stubs())));
+        } else if (event instanceof POPPBigraphEvent.RelationRemoving relationRemoving) {
+            log.add(new RelationRemoving(names(relationRemoving.stubs())));
         }
         // PositionChanged: does not matter for coverage
     }
 
     private static List<String> names(List<? extends BigraphEntity<?>> stubs) {
-        return stubs.stream().map(s -> ((BigraphEntity.NodeEntity<?>) s).getName()).toList();
+        return stubs.stream().map(stub -> ((BigraphEntity.NodeEntity<?>) stub).getName()).toList();
     }
 }
