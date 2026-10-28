@@ -35,19 +35,19 @@ public final class CoverageReportBuilder {
     public record TreeMetrics(int roots, int nodes, int height, int width) {}
 
     /**
-     * How well the trees a mode asks about are covered in that mode; one per {@link CoverageMode#presets() preset}.
+     * How well the trees a mode asks about are covered in that mode. One per {@link CoverageMode#presets() preset}.
      *
      * @param mode     {@link CoverageMode#name()}
      * @param kind     {@link NodeKind} name of the tree the mode asks about, {@code null} for a mode about all coverable
      *                 trees (planning, verify)
-     * @param coverage coverage of the roots of those trees, the lowest one; {@code null} without any such tree
+     * @param coverage coverage of the roots of those trees, the lowest one. {@code null} without any such tree
      * @param counts   number of nodes of those kinds per {@link Coverage} name
      */
     public record ModeSummary(String mode, String kind, String coverage, Map<String, Integer> counts) {}
 
     /**
-     * {@code modes} summarises every preset, independent of the selected {@code mode}; {@code roots} are the roots in the
-     * selected mode. {@code trees} is keyed by {@link NodeKind} name; kinds without nodes are absent.
+     * {@code modes} summarises every preset, independent of the selected {@code mode}. {@code roots} are the roots in the
+     * selected mode. {@code trees} is keyed by {@link NodeKind} name. Kinds without nodes are absent.
      */
     public record CoverageReport(String mode, List<ModeSummary> modes, List<RootStatus> roots,
                                  Map<String, TreeMetrics> trees) {
@@ -85,7 +85,7 @@ public final class CoverageReportBuilder {
         return new CoverageReport(mode.name(), summaries(nodes, sessions), roots, metrics(nodes));
     }
 
-    /** A {@link ModeSummary} per preset; one session each (cached per model revision by the analyzer). */
+    /** A {@link ModeSummary} per preset. One session each (cached per model revision by the analyzer). */
     public static List<ModeSummary> summaries(List<TreeNode<?>> nodes, CoverageAnalyzer analyzer) {
         return summaries(nodes, analyzer.sessions(CoverageMode.presets()));
     }

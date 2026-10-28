@@ -15,7 +15,7 @@ import java.util.List;
  * @param rootCause true if no child and no candidate relation partner of the node is itself not covered. For a node
  *                  that is not covered this means it has neither: nothing below or behind it has to be fixed first,
  *                  so this is where to act
- * @param missing   the ways this node could be covered; only filled for root causes
+ * @param missing   the ways this node could be covered. Only filled for root causes
  */
 public record CoverageGap(TreeNode<?> node, Coverage coverage, boolean rootCause, List<CoverageGap.CoverageRemedy> missing) {
     /**

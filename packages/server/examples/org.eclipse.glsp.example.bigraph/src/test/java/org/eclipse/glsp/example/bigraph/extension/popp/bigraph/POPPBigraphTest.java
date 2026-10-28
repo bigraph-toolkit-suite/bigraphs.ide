@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests of the encoding {@link POPPBigraph} keeps in sync with a {@link POPPModel}. The model is used only to create
- * domain nodes and relations; its events are deliberately not forwarded, every test drives the bigraph by hand so it
+ * domain nodes and relations. Its events are deliberately not forwarded, every test drives the bigraph by hand so it
  * sees exactly one change at a time.
  */
 class POPPBigraphTest {
@@ -84,7 +84,7 @@ class POPPBigraphTest {
         throw new AssertionError("No relation " + source + " -> " + target);
     }
 
-    /** A proof produced by a solution, and a criteria proven by the proof; all added to the bigraph. */
+    /** A proof produced by a solution, and a criteria proven by the proof. All added to the bigraph. */
     private record Chain(Solution solution, SuccessProof proof, SuccessCriteria criteria) {}
 
     private Chain chain() {

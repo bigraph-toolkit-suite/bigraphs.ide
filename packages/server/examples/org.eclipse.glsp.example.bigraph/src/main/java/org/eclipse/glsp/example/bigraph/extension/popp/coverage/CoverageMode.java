@@ -17,7 +17,7 @@ import java.util.Set;
 /**
  * What coverage is computed for: the node kinds that count as covered by themselves (the <i>emitters</i>, from which
  * coverage propagates through decompositions and relations), and the node kinds the question is about (the
- * <i>targets</i>, which the gaps are reported for). The coverage definition is the same for every mode; only the set
+ * <i>targets</i>, which the gaps are reported for). The coverage definition is the same for every mode. Only the set
  * of intrinsically covered kinds differs.
  * <p>
  * The {@link #presets() presets} are the questions the extension answers. {@link #PLANNING} and {@link #VERIFY} cover
@@ -92,7 +92,7 @@ public record CoverageMode(String name, String label, Set<NodeKind> emitters, Se
     /**
      * The kinds gaps are reported for: those that coverage can flow through on its way from an emitter to a target
      * (the targets included, the emitters excluded). For "problems by proofs" these are success criteria, goals and
-     * problems, so the gaps show where the chain breaks; kinds no emitter can reach (e.g. success criteria when only
+     * problems, so the gaps show where the chain breaks. Kinds no emitter can reach (e.g. success criteria when only
      * goals are emitters) are left out, since they could only ever be reported as uncovered.
      */
     public Set<NodeKind> gapKinds() {

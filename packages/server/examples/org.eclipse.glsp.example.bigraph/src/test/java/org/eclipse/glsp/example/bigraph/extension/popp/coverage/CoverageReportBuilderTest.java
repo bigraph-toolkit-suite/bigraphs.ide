@@ -111,7 +111,7 @@ class CoverageReportBuilderTest {
                 CoverageReportBuilder.build(model, analyzer, CoverageMode.PLANNING).trees().keySet());
     }
 
-    /** P = AND(p1, p2); g1 inverts p1 and causes c1, which proof r1 validates; g2 inverts p2 and has no criterion. */
+    /** P = AND(p1, p2). g1 inverts p1 and causes c1, which proof r1 validates. g2 inverts p2 and has no criterion. */
     private TreeNode<?> objectivesModel() {
         TreeNode<?> p = node(NodeKind.PROBLEM, "P");
         TreeNode<?> p1 = node(NodeKind.PROBLEM, "p1");

@@ -18,7 +18,7 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * covered kind start covered and hold {@code CovIntrinsic}: the domain nodes by definition, and their gate nodes
  * because the gate controls are per kind, so all their slots are covered domain nodes of that kind or gate nodes of
  * that tree. Every other tree node starts with {@code Unc}. Stubs and relation edges are copied unchanged. Rewriting
- * adds the reason markers of the upgrades; {@code IncrementalRewritingCoverageAnalyzer} keeps one such bigraph per mode and
+ * adds the reason markers of the upgrades. {@code IncrementalRewritingCoverageAnalyzer} keeps one such bigraph per mode and
  * edits it in place.
  */
 public class CoverageBigraph {

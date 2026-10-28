@@ -31,7 +31,7 @@ public final class InspectionTracer {
                 List.copyOf(nodes), List.copyOf(edges), coverage, gaps);
     }
 
-    /** Pre-order depth-first walk over the reason DAG; each node is visited once, every edge on the way is kept. */
+    /** Pre-order depth-first walk over the reason DAG. Each node is visited once, every edge on the way is kept. */
     private void walk(CoverageReason reason, Set<String> nodes, Set<String> edges,
                       Map<String, String> coverage, List<InspectionResult.GapInfo> gaps) {
         String id = reason.node().getId();

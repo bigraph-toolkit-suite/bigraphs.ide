@@ -8,13 +8,13 @@ import java.util.*;
  * Reproducible edits on a model, for the incremental-coverage tests. Every action is a
  * toggle within the model's own structure, so a long sequence stays near the starting model:
  * <ul>
- *   <li>{@link Action#LINK}: remove one of the model's relations, or put a removed one back;</li>
- *   <li>{@link Action#TYPE}: switch a decomposed node between AND and OR;</li>
- *   <li>{@link Action#MOVE}: detach a decomposition child from its parent, or attach a detached one again;</li>
- *   <li>{@link Action#NODE}: create a node under a decomposed node of its kind, or delete one created before;</li>
+ *   <li>{@link Action#LINK}: remove one of the model's relations, or put a removed one back.</li>
+ *   <li>{@link Action#TYPE}: switch a decomposed node between AND and OR.</li>
+ *   <li>{@link Action#MOVE}: detach a decomposition child from its parent, or attach a detached one again.</li>
+ *   <li>{@link Action#NODE}: create a node under a decomposed node of its kind, or delete one created before.</li>
  *   <li>{@link Action#MIXED}: one of the four, at random.</li>
  * </ul>
- * The candidates are taken from the model when the script is created; {@link #undo()} brings the model back to that
+ * The candidates are taken from the model when the script is created. {@link #undo()} brings the model back to that
  * state, and {@link #reseed} starts another reproducible sequence from it.
  */
 public final class EditScript {
@@ -67,7 +67,7 @@ public final class EditScript {
         types.forEach((n, t) -> { if (n.getDecompositionType() != t) n.setDecompositionType(t); });
     }
 
-    /** Performs one edit of {@code action}; returns what it did (for failure reports). */
+    /** Performs one edit of {@code action}. Returns what it did (for failure reports). */
     public String step(Action action) {
         Action a = action == Action.MIXED ? Action.values()[rnd.nextInt(4)] : action;
         return switch (a) {

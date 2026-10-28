@@ -74,7 +74,7 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
         emitEvent(event);
     }
 
-    /** Hook for node types with extra state to persist (see {@code POPPExtensionMeta}); no node type uses it yet. */
+    /** Hook for node types with extra state to persist (see {@code POPPExtensionMeta}). No node type uses it yet. */
     public Map<String, String> exportProperties() {
         return Map.of();
     }
@@ -91,8 +91,8 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
     }
 
     /**
-     * Attaches {@code child} below this node and returns whether it did. Moves the child away from a previous parent;
-     * if {@code child} is this node's own parent, the two are flipped (this node first becomes a root). Refuses
+     * Attaches {@code child} below this node and returns whether it did. Moves the child away from a previous parent.
+     * If {@code child} is this node's own parent, the two are flipped (this node first becomes a root). Refuses
      * {@code null}, this node itself, an existing child or other descendant, and any other ancestor (a cycle). The
      * first child gives this node the default decomposition type {@code AND}.
      */
@@ -129,7 +129,7 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
         return true;
     }
 
-    /** Detaches {@code child}, which becomes a root; the last child takes the decomposition type with it. */
+    /** Detaches {@code child}, which becomes a root. The last child takes the decomposition type with it. */
     public boolean removeChild(T child) {
         if (child == null || !children.contains(child)) {
             return false;
@@ -171,8 +171,8 @@ public abstract sealed class TreeNode<T extends TreeNode<T>> extends POPPEventEm
 
     /**
      * Moves this node below {@code parent} (as {@code parent.addChild(this)}), or makes it a root for {@code null}
-     * (as {@code removeChild} on the old parent); either way exactly one {@link POPPEvent.NodeChangedParent} is
-     * emitted. Refuses this node itself and its own descendants; setting the current parent again is a successful
+     * (as {@code removeChild} on the old parent). Either way exactly one {@link POPPEvent.NodeChangedParent} is
+     * emitted. Refuses this node itself and its own descendants. Setting the current parent again is a successful
      * no-op.
      */
     public boolean setParent(T parent) {

@@ -14,7 +14,7 @@ public enum RelationType {
     /** Problem to Goal: the goal is the problem inverted into a desired state. */
     INVERTS(CoveragePropagation.BACKWARD,
         new NodeTypePair(NodeKind.PROBLEM, NodeKind.GOAL)),
-    /** Solution to Goal: the solution is a means to the goal; provenance only, does not propagate coverage. */
+    /** Solution to Goal: the solution is a means to the goal. Provenance only, does not propagate coverage. */
     REALIZES(CoveragePropagation.NONE, new NodeTypePair(NodeKind.SOLUTION, NodeKind.GOAL));
 
 

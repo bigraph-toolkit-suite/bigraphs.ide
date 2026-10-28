@@ -292,6 +292,7 @@ class POPPActionHandlersTest {
     @Test
     void theCheckerAcceptsExactlyWhatTheHandlerCanConnect() {
         POPPEdgeCreationChecker checker = new POPPEdgeCreationChecker(session.context);
+        inject(checker, "actionDispatcher", session.dispatcher); // a refused relation is reported as a notification
         TreeNode<?> goal = node(NodeKind.GOAL, "goal");
         TreeNode<?> otherGoal = node(NodeKind.GOAL, "other");
         TreeNode<?> criterion = node(NodeKind.SUCCESS_CRITERIA, "criterion");

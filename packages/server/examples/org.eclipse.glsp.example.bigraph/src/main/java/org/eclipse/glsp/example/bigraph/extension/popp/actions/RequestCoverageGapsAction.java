@@ -3,7 +3,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.actions;
 import org.eclipse.glsp.server.actions.RequestAction;
 
 /**
- * Asks for every node of a coverable kind that is currently not covered in the given mode; each gap says whether it
+ * Asks for every node of a coverable kind that is currently not covered in the given mode. Each gap says whether it
  * is a root cause.
  *
  * @see org.eclipse.glsp.example.bigraph.extension.popp.actions.CoverageGapsAction

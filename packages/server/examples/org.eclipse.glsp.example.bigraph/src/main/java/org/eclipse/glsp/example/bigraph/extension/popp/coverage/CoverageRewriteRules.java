@@ -40,7 +40,7 @@ public final class CoverageRewriteRules {
      * What a rule does, stated once and explicitly: the redex node whose state cell is upgraded
      * ({@code receiver}), the redex node it takes the coverage from over a link ({@code giver}, only link rules),
      * the state it is upgraded to and the reason marker that justifies it.
-     * The schedule uses it (receiver kind, link rule or not); the reactum does the same by rewriting.
+     * The schedule uses it (receiver kind, link rule or not). The reactum does the same by rewriting.
      */
     record Effect(Term receiver, Term giver, Coverage target, CoverageMarker reason,
                   RelationType relation, Coverage giverState, Coverage receiverState) {
@@ -58,13 +58,13 @@ public final class CoverageRewriteRules {
 
     /**
      * A rule ready for matching. {@code receiverNode} / {@code giverNode} are node names in the redex
-     * bigraph; look them up in the match's redex-to-agent node embedding to find the agent nodes.
+     * bigraph. Look them up in the match's redex-to-agent node embedding to find the agent nodes.
      */
     public record CompiledRule(String name, ParametricReactionRule<PureBigraph> rule,
                                String receiverNode, String giverNode,
                                Coverage target, CoverageMarker reason,
                                RelationType relation, Coverage giverState, Coverage receiverState) {
-        /** Whether this is a link rule, i.e. has a relation type; place rules (gate, lift) have none. */
+        /** Whether this is a link rule, i.e. has a relation type. Place rules (gate, lift) have none. */
         public boolean isLinkRule() { return relation != null; }
     }
 
@@ -83,10 +83,10 @@ public final class CoverageRewriteRules {
      * expansions are the minimal sound set, i.e. only combinations that can occur in a model:
      * <ul>
      *   <li><b>gate rules</b> ({@link #thresholdGateRules}): a gate node holds its state, {@code PartDecomp} when it is
-     *       PARTIAL, and its slots. A slot is a domain node of kind K ({@link NodeKind}) or the next gate node; all domain
-     *       slots of one decomposition chain share the kind K of the decomposed node (a tree holds a single kind);</li>
+     *       PARTIAL, and its slots. A slot is a domain node of kind K ({@link NodeKind}) or the next gate node. All domain
+     *       slots of one decomposition chain share the kind K of the decomposed node (a tree holds a single kind).</li>
      *   <li><b>lift rules</b>: a domain node of kind K ({@link NodeKind}) takes the state of its gate node. The gate node directly
-     *       under a domain node is always the topmost gate node of the chain, so no extra marker is needed;</li>
+     *       under a domain node is always the topmost gate node of the chain, so no extra marker is needed.</li>
      *   <li><b>link rules</b>: per supported (from, to) kind pair of the {@link RelationType}.</li>
      * </ul>
      */
@@ -122,7 +122,7 @@ public final class CoverageRewriteRules {
 
     /**
      * The gate rules as thresholds. The aggregation is monotone, so a gate node can be upgraded as soon as enough of
-     * its slots are: OR is COVERED once one slot is, PARTIAL once one slot is PARTIAL (or better); AND is PARTIAL once
+     * its slots are: OR is COVERED once one slot is, PARTIAL once one slot is PARTIAL (or better). AND is PARTIAL once
      * one slot is PARTIAL or COVERED. Those rules name the one slot and leave the rest of the gate node to a site,
      * instead of one rule per combination of all slot states. Only AND to COVERED needs every slot and keeps the exact
      * shapes (one K slot, two K slots, a K slot and the next gate node). The same fixpoint as one rule per combination of
@@ -358,7 +358,7 @@ public final class CoverageRewriteRules {
         return glue(as, 0, bs, new boolean[bs.size()], siteA, siteB);
     }
 
-    /** Matches the children {@code as[i..]} into {@code bs} injectively; unmatched ones need a site on the other side. */
+    /** Matches the children {@code as[i..]} into {@code bs} injectively. Unmatched ones need a site on the other side. */
     private static boolean glue(List<Term> as, int i, List<Term> bs, boolean[] used, boolean siteA, boolean siteB) {
         if (i == as.size()) {
             if (siteA) return true;
@@ -374,7 +374,7 @@ public final class CoverageRewriteRules {
         return siteB && glue(as, i + 1, bs, used, siteA, siteB); // a's child lies in b's site
     }
 
-    /** The coverage rules, each with where to find receiver and giver in a match; used by both rewriting analyzers. */
+    /** The coverage rules, each with where to find receiver and giver in a match. Used by both rewriting analyzers. */
     public static List<CompiledRule> compile() {
         DynamicSignature sig = CoverageSignature.get();
         List<CompiledRule> out = new ArrayList<>();

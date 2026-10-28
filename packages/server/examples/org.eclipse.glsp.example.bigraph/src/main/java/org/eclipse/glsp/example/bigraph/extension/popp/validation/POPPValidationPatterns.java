@@ -20,7 +20,7 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * with exactly the redex node's content (so {@code GoalAnd} without children matches only an empty gate node), and a
  * closed edge of the redex only matches an agent edge with exactly the same points (so a stub on a one-point edge
  * matches only a stub without partner). Siblings of a redex root belong to the context, so a single-node redex
- * matches the node wherever it is; anchoring in the {@code POPP} container restricts a pattern to the top level.</p>
+ * matches the node wherever it is. Anchoring in the {@code POPP} container restricts a pattern to the top level.</p>
  */
 public final class POPPValidationPatterns {
 

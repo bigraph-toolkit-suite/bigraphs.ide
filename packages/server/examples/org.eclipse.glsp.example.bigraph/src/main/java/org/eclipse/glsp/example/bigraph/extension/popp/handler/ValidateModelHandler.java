@@ -7,7 +7,7 @@ import org.eclipse.glsp.server.actions.Action;
 
 import java.util.List;
 
-/** Takes the validation snapshot on the dispatch thread; the result follows asynchronously. */
+/** Takes the validation snapshot on the dispatch thread. The result follows asynchronously. */
 public class ValidateModelHandler extends AbstractActionHandler<ValidateModelAction> {
     @Inject
     protected POPPValidationService validationService;

@@ -10,7 +10,7 @@ public final class POPPGModelTypes {
     public static String of(NodeKind k)      { return "popp:" + k.name().toLowerCase(); }
     public static String of(RelationType t)  { return "popp:" + t.name().toLowerCase(); }
 
-    /** The id of the POPP model variant; the variant's root is {@code VARIANT + "-root"}. */
+    /** The id of the POPP model variant. The variant's root is {@code VARIANT + "-root"}. */
     public static final String VARIANT             = "popp";
     public static final String NODE_DESCRIPTION    = "popp:node_description";
     public static final String DECOMPOSITION_EDGE  = "popp:decomposition_edge";

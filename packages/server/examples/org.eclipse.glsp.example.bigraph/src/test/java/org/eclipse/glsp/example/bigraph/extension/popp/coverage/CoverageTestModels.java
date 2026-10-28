@@ -73,7 +73,7 @@ public final class CoverageTestModels {
      * A balanced decomposition tree of success criteria (AND and OR alternating by level, root = AND), 2^depth
      * leaves, every proof produced by the one solution.
      *
-     * @param proofs the proof of leaf i is {@code proofs.get(i)}; if not all leaves are proven the list is shorter
+     * @param proofs the proof of leaf i is {@code proofs.get(i)}. If not all leaves are proven the list is shorter
      */
     public record Tree(SuccessCriteria root, List<SuccessCriteria> leaves, List<SuccessProof> proofs, Solution solution) {}
 

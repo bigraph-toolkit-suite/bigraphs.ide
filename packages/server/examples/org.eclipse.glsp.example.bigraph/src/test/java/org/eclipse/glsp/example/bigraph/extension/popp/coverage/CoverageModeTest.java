@@ -52,9 +52,9 @@ class CoverageModeTest {
     /**
      * On random models (Domain analyzer):
      * <ul>
-     *   <li>"goals by criteria" equals planning on goals and problems (solutions add nothing there);</li>
+     *   <li>"goals by criteria" equals planning on goals and problems (solutions add nothing there).</li>
      *   <li>"problems by proofs" never exceeds "problems by goals" (coverage reaches problems only through goals), so
-     *   covered by proofs implies covered by goals and proofs;</li>
+     *   covered by proofs implies covered by goals and proofs.</li>
      *   <li>verify never exceeds "problems by proofs" (it only counts the proofs that solutions produce).</li>
      * </ul>
      */

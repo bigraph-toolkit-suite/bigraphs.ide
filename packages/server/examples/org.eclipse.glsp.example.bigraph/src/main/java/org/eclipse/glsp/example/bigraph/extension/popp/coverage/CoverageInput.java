@@ -13,12 +13,12 @@ public interface CoverageInput {
     /** The current model, or {@code null} if none is loaded. */
     POPPModel model();
 
-    /** The model's bigraph, kept in sync by the bigraph synchronizer; only used by the rewriting analyzers. */
+    /** The model's bigraph, kept in sync by the bigraph synchronizer. Only used by the rewriting analyzers. */
     POPPBigraph bigraph();
 
     /**
      * Identifies the model state results depend on: equal revisions mean equal results. The default is the model's
-     * identity plus its version, so a reloaded model never reuses results of the old one; {@code null} (no model)
+     * identity plus its version, so a reloaded model never reuses results of the old one. {@code null} (no model)
      * disables caching.
      */
     default Object revision() {

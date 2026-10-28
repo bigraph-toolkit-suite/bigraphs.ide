@@ -27,14 +27,14 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
     private final NodeRegistry<SuccessProof> successProofs = new NodeRegistry<>(SuccessProof::new, SuccessProof::new);
 
     private final RelationGraph relations = new RelationGraph();
-    /** Bumped after every event that can change coverage; see {@link #publish}. */
+    /** Bumped after every event that can change coverage. See {@link #publish}. */
     private final AtomicLong version = new AtomicLong();
 
     public POPPModel() {
         relations.addListener(this);
     }
 
-    /** Creates a node of type N from its editor-facing attributes; matches every TreeNode subtype's constructor. */
+    /** Creates a node of type N from its editor-facing attributes. Matches every TreeNode subtype's constructor. */
     @FunctionalInterface
     private interface NodeFactory<N extends TreeNode<N>> {
         N create(String description, double x, double y);

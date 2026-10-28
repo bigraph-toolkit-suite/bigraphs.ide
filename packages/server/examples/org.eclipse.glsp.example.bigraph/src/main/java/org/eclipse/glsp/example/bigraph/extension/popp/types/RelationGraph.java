@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/** Stores typed cross-tree relations; the type and its canonical direction are derived from the two node kinds given. */
+/** Stores typed cross-tree relations. The type and its canonical direction are derived from the two node kinds given. */
 public final class RelationGraph extends POPPEventEmitter {
 
     private static final Map<RelationType.NodeTypePair, RelationType> RELATION_BY_ENDPOINT_KINDS = Arrays
@@ -39,7 +39,7 @@ public final class RelationGraph extends POPPEventEmitter {
         return a != null && b != null && a != b && resolve(a, b).isPresent();
     }
 
-    /** Adds the relation between {@code a} and {@code b}, given in either order; the type follows from their kinds. */
+    /** Adds the relation between {@code a} and {@code b}, given in either order. The type follows from their kinds. */
     public RelationResult relate(TreeNode<?> a, TreeNode<?> b) {
         if (a == null || b == null) {
             return RelationResult.NULL_ARGUMENT;
