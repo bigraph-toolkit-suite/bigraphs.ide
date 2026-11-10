@@ -13,9 +13,8 @@ import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.junit.jupiter.api.Test;
 
 /**
- * The generic {@link MonotoneFixpointRewriter} with the coverage rules: the generic overlap analysis finds every
- * dependency the coverage-specific one finds, and the engine reaches the coverage of the domain analyzer with either
- * analysis, either worklist order and either guard evaluator.
+ * The generic {@link MonotoneFixpointRewriter} with the coverage rules: the engine reaches the coverage of the domain
+ * analyzer with either worklist order and either guard evaluator.
  */
 class MonotoneFixpointRewriterTest {
 
@@ -25,7 +24,7 @@ class MonotoneFixpointRewriterTest {
     }
 
     private static Matcher matcher() {
-        return RewritingCoverageAnalyzer.FIRST_MATCH_WORKS ? Matcher.matchFirst() : Matcher.matchAll();
+        return Matcher.matchFirst();
     }
 
     /** The link rules of {@code rewriter} (the seed of a session from scratch). */
@@ -36,28 +35,14 @@ class MonotoneFixpointRewriterTest {
     }
 
     @Test
-    void theGenericOverlapContainsTheCoverageSpecificOne() {
-        List<Rule> rules = coverageRules();
-        boolean[][] specific = CoverageRewriteRules.enablingByOverlap();
-        boolean[][] generic = new OverlapProduceUseAnalyzer().analyzeRuleSet(rules);
-        List<String> missing = new ArrayList<>();
-        for (int i = 0; i < rules.size(); i++) {
-            for (int j = 0; j < rules.size(); j++) {
-                if (specific[i][j] && !generic[i][j]) missing.add(rules.get(i).name() + " -> " + rules.get(j).name());
-            }
-        }
-        assertEquals(List.of(), missing);
-    }
-
-    @Test
     void theEngineReachesTheCoverageOfTheDomainAnalyzer() {
         List<Rule> rules = coverageRules();
         Matcher matcher = matcher();
         Map<String, MonotoneFixpointRewriter> variants = new LinkedHashMap<>();
         variants.put("generic overlap, fifo", MonotoneFixpointRewriter.builder(rules)
                 .withProduceUseAnalyzer(new OverlapProduceUseAnalyzer()).withMatcher(matcher).build());
-        variants.put("coverage overlap, topological", MonotoneFixpointRewriter.builder(rules)
-                .withProduceUseAnalyzer(ProduceUseAnalyzer.of(CoverageRewriteRules.enablingByOverlap()))
+        variants.put("generic overlap, topological", MonotoneFixpointRewriter.builder(rules)
+                .withProduceUseAnalyzer(new OverlapProduceUseAnalyzer())
                 .withOrder(WorklistOrder.topological()).withMatcher(matcher).build());
         variants.put("generic overlap, topological, counted guards", MonotoneFixpointRewriter.builder(rules)
                 .withProduceUseAnalyzer(new OverlapProduceUseAnalyzer()).withOrder(WorklistOrder.topological())
@@ -132,7 +117,7 @@ class MonotoneFixpointRewriterTest {
     void hooksAndListenersSeeEveryCall() {
         int[] found = {0};
         MonotoneFixpointRewriter rewriter = MonotoneFixpointRewriter.builder(coverageRules())
-                .withProduceUseAnalyzer(ProduceUseAnalyzer.of(CoverageRewriteRules.enablingByOverlap())).withMatcher(matcher())
+                .withProduceUseAnalyzer(new OverlapProduceUseAnalyzer()).withMatcher(matcher())
                 .build(analysis -> new MonotoneFixpointRewriter(analysis) {
                     @Override
                     protected Optional<PureBigraphMatch> findMatch(Run run, int rule) {

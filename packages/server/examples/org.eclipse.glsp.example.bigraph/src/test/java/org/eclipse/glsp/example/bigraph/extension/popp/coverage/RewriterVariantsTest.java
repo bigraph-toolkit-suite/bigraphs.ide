@@ -16,7 +16,7 @@ class RewriterVariantsTest {
 
     @Test
     void everyVariantAgreesWithTheDomainAnalyzer() {
-        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITING_SUPPORTED, "needs the patched framework");
         int previousRuleCalls = Integer.MAX_VALUE;
         for (RewriterVariants.Variant definition : RewriterVariants.ALL) {
             RewriterVariants.Built variant = new RewriterVariants.Built(definition);

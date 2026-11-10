@@ -115,12 +115,6 @@ public enum POPPBigraphSignature {
         return null;
     }
 
-    /** The control with this name. {@code null} if it is not in this signature. */
-    public static POPPBigraphSignature valueOfControl(String controlName) {
-        for (POPPBigraphSignature c : values()) if (c.controlName.equals(controlName)) return c;
-        return null;
-    }
-
     /** A gate node ({@code GoalAnd}, {@code ProblemOr}, ...). */
     public static boolean isDecompControl(POPPBigraphSignature control) {
         return control != null && control.gateType != null;
@@ -144,13 +138,13 @@ public enum POPPBigraphSignature {
             PROBLEM, GOAL, CONSEQUENCE, SOLUTION, SUCCESS_CRITERIA, SUCCESS_PROOF);
 
     /** A domain node's control: its kind. */
-    public static boolean isKindControl(POPPBigraphSignature c) { return c != null && KIND_CONTROLS.contains(c); }
+    public static boolean isKindControl(POPPBigraphSignature control) { return control != null && KIND_CONTROLS.contains(control); }
 
     /** A node of the decomposition tree: a domain node or a gate node. */
-    public static boolean isTreeControl(POPPBigraphSignature c) { return isKindControl(c) || isDecompControl(c); }
+    public static boolean isTreeControl(POPPBigraphSignature control) { return isKindControl(control) || isDecompControl(control); }
 
     /** A relation stub (arity 1). */
-    public static boolean isStubControl(POPPBigraphSignature c) { return c != null && c.arity == 1; }
+    public static boolean isStubControl(POPPBigraphSignature control) { return control != null && control.arity == 1; }
 
     /** The control for the given {@link NodeKind}. */
     public static POPPBigraphSignature getByNodeKind(final NodeKind kind) {

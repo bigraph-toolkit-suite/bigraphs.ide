@@ -22,32 +22,32 @@ public final class RelationGraph extends POPPEventEmitter {
     private final Map<TreeNode<?>, Set<Relation>> incoming = new LinkedHashMap<>();
 
     /** Resolves the canonical {@code source -> target} relation for two nodes, in whichever order they're given. */
-    private static Optional<Relation> resolve(TreeNode<?> a, TreeNode<?> b) {
-        RelationType asGiven = RELATION_BY_ENDPOINT_KINDS.get(new RelationType.NodeTypePair(a.getKind(), b.getKind()));
+    private static Optional<Relation> resolve(TreeNode<?> first, TreeNode<?> second) {
+        RelationType asGiven = RELATION_BY_ENDPOINT_KINDS.get(new RelationType.NodeTypePair(first.getKind(), second.getKind()));
         if (asGiven != null) {
-            return Optional.of(new Relation(a, asGiven, b));
+            return Optional.of(new Relation(first, asGiven, second));
         }
-        RelationType reversed = RELATION_BY_ENDPOINT_KINDS.get(new RelationType.NodeTypePair(b.getKind(), a.getKind()));
+        RelationType reversed = RELATION_BY_ENDPOINT_KINDS.get(new RelationType.NodeTypePair(second.getKind(), first.getKind()));
         if (reversed != null) {
-            return Optional.of(new Relation(b, reversed, a));
+            return Optional.of(new Relation(second, reversed, first));
         }
         return Optional.empty();
     }
 
     /** Whether the two nodes could be connected at all, e.g. to drive drag-and-drop feedback in the UI. */
-    public static boolean canRelate(TreeNode<?> a, TreeNode<?> b) {
-        return a != null && b != null && a != b && resolve(a, b).isPresent();
+    public static boolean canRelate(TreeNode<?> first, TreeNode<?> second) {
+        return first != null && second != null && first != second && resolve(first, second).isPresent();
     }
 
-    /** Adds the relation between {@code a} and {@code b}, given in either order. The type follows from their kinds. */
-    public RelationResult relate(TreeNode<?> a, TreeNode<?> b) {
-        if (a == null || b == null) {
+    /** Adds the relation between {@code first} and {@code second}, given in either order. The type follows from their kinds. */
+    public RelationResult relate(TreeNode<?> first, TreeNode<?> second) {
+        if (first == null || second == null) {
             return RelationResult.NULL_ARGUMENT;
         }
-        if (a == b) {
+        if (first == second) {
             return RelationResult.SAME_NODE;
         }
-        Optional<Relation> resolved = resolve(a, b);
+        Optional<Relation> resolved = resolve(first, second);
         if (resolved.isEmpty()) {
             return RelationResult.NO_SUCH_RELATION_FOR_KINDS;
         }
@@ -61,15 +61,15 @@ public final class RelationGraph extends POPPEventEmitter {
         return RelationResult.CREATED;
     }
 
-    /** Removes the relation between {@code a} and {@code b}, given in either order. */
-    public RelationResult unrelate(TreeNode<?> a, TreeNode<?> b) {
-        if (a == null || b == null) {
+    /** Removes the relation between {@code first} and {@code second}, given in either order. */
+    public RelationResult unrelate(TreeNode<?> first, TreeNode<?> second) {
+        if (first == null || second == null) {
             return RelationResult.NULL_ARGUMENT;
         }
-        if (a == b) {
+        if (first == second) {
             return RelationResult.SAME_NODE;
         }
-        Optional<Relation> resolved = resolve(a, b);
+        Optional<Relation> resolved = resolve(first, second);
         if (resolved.isEmpty()) {
             return RelationResult.NO_SUCH_RELATION_FOR_KINDS;
         }

@@ -74,7 +74,7 @@ public final class RewriterVariants {
 
     private static MonotoneFixpointRewriter.Builder builder(boolean guarded) {
         return MonotoneFixpointRewriter.builder(RewritingCoverageAnalyzer.rewriterRules(guarded))
-                .withMatcher(RewritingCoverageAnalyzer.FIRST_MATCH_WORKS ? Matcher.matchFirst() : Matcher.matchAll());
+                .withMatcher(Matcher.matchFirst());
     }
 
     /** One variant, built once, and the recorder that observes its runs. */

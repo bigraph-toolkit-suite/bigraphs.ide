@@ -65,8 +65,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * link edits ({@code getPointsFromLink}), so links are read from the EMF model directly here.
  * <p>
  * The coverage analyzer of the POPP extension. Register it with {@link POPPBigraph#addListener}. The first session of a
- * mode, and a session on a different {@link POPPBigraph} or model (a reloaded file), evaluates from scratch. Needs a
- * jLibBig whose AgentMatcher keeps links ({@link RewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}).
+ * mode, and a session on a different {@link POPPBigraph} or model (a reloaded file), evaluates from scratch. Needs the
+ * patched framework ({@link RewritingCoverageAnalyzer#REWRITING_SUPPORTED}).
  */
 public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnalyzer, POPPBigraphListener {
 

@@ -16,29 +16,29 @@ final class RewritingSession extends AbstractCoverageSession {
 
     @Override
     public Coverage coverage(TreeNode<?> node) {
-        Coverage c = readout.coverage().get(node.getId());
-        if (c == null) throw new IllegalStateException("Node missing from the coverage bigraph: " + node);
-        return c;
+        Coverage stored = readout.coverage().get(node.getId());
+        if (stored == null) throw new IllegalStateException("Node missing from the coverage bigraph: " + node);
+        return stored;
     }
 
     @Override
     public CoverageReason explain(TreeNode<?> node) {
         Coverage state = coverage(node);
-        RewritingReadout.Derivation d = readout.derivation().get(node.getId());
+        RewritingReadout.Derivation found = readout.derivation().get(node.getId());
 
-        if (d != null) {
-            return switch (d.marker()) {
+        if (found != null) {
+            return switch (found.marker()) {
                 case COV_INTRINSIC -> new CoverageReason.Intrinsic(node, Coverage.COVERED);
                 case PART_DECOMP, COV_DECOMP -> decompositionReason(node, state);
                 case PART_LINK, COV_LINK -> {
-                    Relation r = relations.all().stream()
-                            .filter(x -> giverOf(x).getId().equals(d.giverId())
+                    Relation linked = relations.all().stream()
+                            .filter(x -> giverOf(x).getId().equals(found.giverId())
                                     && receiverOf(x).getId().equals(node.getId()))
                             .findFirst()
-                            .orElseThrow(() -> new IllegalStateException("No relation from " + d.giverId() + " to " + node.getId()));
-                    yield linkReason(node, state, r, giverOf(r));
+                            .orElseThrow(() -> new IllegalStateException("No relation from " + found.giverId() + " to " + node.getId()));
+                    yield linkReason(node, state, linked, giverOf(linked));
                 }
-                default -> throw new IllegalStateException("Not a reason marker: " + d.marker());
+                default -> throw new IllegalStateException("Not a reason marker: " + found.marker());
             };
         }
 

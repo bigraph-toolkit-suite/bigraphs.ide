@@ -41,17 +41,17 @@ public final class InspectionTracer {
         coverage.put(id, reason.coverage().name());
 
         // If language standard is updated to 21 replace with switch casting
-        if (reason instanceof CoverageReason.Decomposition d) {
-            for (CoverageReason child : d.children()) {
-                edges.add(factory.toDecompositionEdgeId(d.node(), child.node()));
+        if (reason instanceof CoverageReason.Decomposition decomposition) {
+            for (CoverageReason child : decomposition.children()) {
+                edges.add(factory.toDecompositionEdgeId(decomposition.node(), child.node()));
                 walk(child, nodes, edges, coverage, gaps);
             }
-        } else if (reason instanceof CoverageReason.Link l) {
-            edges.add(factory.toRelationEdgeId(l.relation()));
-            walk(l.coveringReason(), nodes, edges, coverage, gaps);
-        } else if (reason instanceof CoverageReason.NotCovered n) {
-            n.gaps().forEach(g -> gaps.add(
-                    new InspectionResult.GapInfo(id, n.node().getKind().name() + " " + g.describe())));
+        } else if (reason instanceof CoverageReason.Link link) {
+            edges.add(factory.toRelationEdgeId(link.relation()));
+            walk(link.coveringReason(), nodes, edges, coverage, gaps);
+        } else if (reason instanceof CoverageReason.NotCovered notCovered) {
+            notCovered.gaps().forEach(g -> gaps.add(
+                    new InspectionResult.GapInfo(id, notCovered.node().getKind().name() + " " + g.describe())));
         }
         // CoverageReason.Intrinsic: nothing further to collect
     }

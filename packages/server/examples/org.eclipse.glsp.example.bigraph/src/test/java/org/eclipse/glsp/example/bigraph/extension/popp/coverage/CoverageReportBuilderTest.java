@@ -94,10 +94,10 @@ class CoverageReportBuilderTest {
     void treeMetricsCountRootsNodesAndTheHighestAndWidestTree() {
         // tree 1: root -> (a -> (a1, a2, a3), b): 6 nodes, height 3, 4 leaves
         TreeNode<?> root = node(NodeKind.GOAL, "root");
-        TreeNode<?> a = node(NodeKind.GOAL, "a");
-        model.decompose(root, a);
+        TreeNode<?> childA = node(NodeKind.GOAL, "a");
+        model.decompose(root, childA);
         model.decompose(root, node(NodeKind.GOAL, "b"));
-        for (int i = 1; i <= 3; i++) model.decompose(a, node(NodeKind.GOAL, "a" + i));
+        for (int i = 1; i <= 3; i++) model.decompose(childA, node(NodeKind.GOAL, "a" + i));
         // tree 2: a single node
         node(NodeKind.GOAL, "other");
 
@@ -115,11 +115,11 @@ class CoverageReportBuilderTest {
 
     /** P = AND(p1, p2). g1 inverts p1 and causes c1, which proof r1 validates. g2 inverts p2 and has no criterion. */
     private TreeNode<?> objectivesModel() {
-        TreeNode<?> p = node(NodeKind.PROBLEM, "P");
+        TreeNode<?> node = node(NodeKind.PROBLEM, "P");
         TreeNode<?> p1 = node(NodeKind.PROBLEM, "p1");
         TreeNode<?> p2 = node(NodeKind.PROBLEM, "p2");
-        model.decompose(p, p1);
-        model.decompose(p, p2);
+        model.decompose(node, p1);
+        model.decompose(node, p2);
         TreeNode<?> g1 = node(NodeKind.GOAL, "g1");
         TreeNode<?> g2 = node(NodeKind.GOAL, "g2");
         model.relate(p1, g1);
@@ -127,7 +127,7 @@ class CoverageReportBuilderTest {
         TreeNode<?> c1 = node(NodeKind.SUCCESS_CRITERIA, "c1");
         model.relate(g1, c1);
         model.relate(node(NodeKind.SUCCESS_PROOF, "r1"), c1);
-        return p;
+        return node;
     }
 
     private static Map<String, Integer> counts(int uncovered, int partial, int covered) {
@@ -184,8 +184,8 @@ class CoverageReportBuilderTest {
 
     @Test
     void aQuestionModeOnlyListsTheRootsItIsAbout() {
-        TreeNode<?> p = objectivesModel();
-        assertEquals(Map.of(p.getId(), "COVERED"),
+        TreeNode<?> node = objectivesModel();
+        assertEquals(Map.of(node.getId(), "COVERED"),
                 coverageById(CoverageReportBuilder.build(model, analyzer, CoverageMode.PROBLEMS_BY_GOALS)));
         assertEquals(Set.of("PROBLEM", "GOAL", "SUCCESS_CRITERIA"),
                 CoverageReportBuilder.build(model, analyzer, CoverageMode.PROBLEMS_BY_PROOFS).roots().stream()

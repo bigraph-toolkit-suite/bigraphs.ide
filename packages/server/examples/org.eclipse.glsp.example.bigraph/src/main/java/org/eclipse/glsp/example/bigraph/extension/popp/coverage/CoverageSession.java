@@ -7,7 +7,7 @@ import java.util.Collection;
 
 /**
  * The coverage of one model revision in one mode. Results are only valid until the model changes.
- * {@link CachingCoverageAnalyzer} reuses a session until then and never across a change. Not thread-safe.
+ * {@link IncrementalRewritingCoverageAnalyzer} reuses a session until then and never across a change. Not thread-safe.
  */
 public interface CoverageSession {
     Coverage coverage(TreeNode<?> node);

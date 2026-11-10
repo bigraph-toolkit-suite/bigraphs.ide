@@ -69,8 +69,8 @@ public final class EditScript {
 
     /** Performs one edit of {@code action}. Returns what it did (for failure reports). */
     public String step(Action action) {
-        Action a = action == Action.MIXED ? Action.values()[rnd.nextInt(4)] : action;
-        return switch (a) {
+        Action performed = action == Action.MIXED ? Action.values()[rnd.nextInt(4)] : action;
+        return switch (performed) {
             case LINK -> link();
             case TYPE -> type();
             case MOVE -> move();
@@ -81,48 +81,48 @@ public final class EditScript {
 
     private String link() {
         if (relations.isEmpty()) return "no relation";
-        Pair p = relations.get(rnd.nextInt(relations.size()));
-        if (removed.remove(p)) {
-            model.relate(p.a(), p.b());
-            return "relate " + p.a().getDescription() + " -> " + p.b().getDescription();
+        Pair pair = relations.get(rnd.nextInt(relations.size()));
+        if (removed.remove(pair)) {
+            model.relate(pair.a(), pair.b());
+            return "relate " + pair.a().getDescription() + " -> " + pair.b().getDescription();
         }
-        model.unrelate(p.a(), p.b());
-        removed.add(p);
-        return "unrelate " + p.a().getDescription() + " -> " + p.b().getDescription();
+        model.unrelate(pair.a(), pair.b());
+        removed.add(pair);
+        return "unrelate " + pair.a().getDescription() + " -> " + pair.b().getDescription();
     }
 
     private String type() {
         List<TreeNode<?>> decomposed = inner.stream().filter(n -> !n.getChildren().isEmpty()).toList();
         if (decomposed.isEmpty()) return "no decomposed node";
-        TreeNode<?> n = decomposed.get(rnd.nextInt(decomposed.size()));
-        DecompositionType t = n.getDecompositionType() == DecompositionType.AND ? DecompositionType.OR : DecompositionType.AND;
-        n.setDecompositionType(t);
-        return "type " + n.getDescription() + " " + t;
+        TreeNode<?> decomposedNode = decomposed.get(rnd.nextInt(decomposed.size()));
+        DecompositionType decompositionType = decomposedNode.getDecompositionType() == DecompositionType.AND ? DecompositionType.OR : DecompositionType.AND;
+        decomposedNode.setDecompositionType(decompositionType);
+        return "type " + decomposedNode.getDescription() + " " + decompositionType;
     }
 
     private String move() {
         if (children.isEmpty()) return "no child";
-        Pair p = children.get(rnd.nextInt(children.size()));
-        if (detached.remove(p)) {
-            model.decompose(p.a(), p.b());
-            return "attach " + p.b().getDescription() + " to " + p.a().getDescription();
+        Pair pair = children.get(rnd.nextInt(children.size()));
+        if (detached.remove(pair)) {
+            model.decompose(pair.a(), pair.b());
+            return "attach " + pair.b().getDescription() + " to " + pair.a().getDescription();
         }
-        p.b().setParent(null);
-        detached.add(p);
-        return "detach " + p.b().getDescription() + " from " + p.a().getDescription();
+        pair.b().setParent(null);
+        detached.add(pair);
+        return "detach " + pair.b().getDescription() + " from " + pair.a().getDescription();
     }
 
     private String node() {
         if (!created.isEmpty() && rnd.nextBoolean()) {
-            TreeNode<?> n = created.remove(rnd.nextInt(created.size()));
-            model.deleteNode(n.getId());
-            return "delete " + n.getDescription();
+            TreeNode<?> node = created.remove(rnd.nextInt(created.size()));
+            model.deleteNode(node.getId());
+            return "delete " + node.getDescription();
         }
         if (inner.isEmpty()) return "no parent";
         TreeNode<?> parent = inner.get(rnd.nextInt(inner.size()));
-        TreeNode<?> n = model.createNode(parent.getKind(), "new " + (counter++), 0, 0);
-        model.decompose(parent, n);
-        created.add(n);
-        return "create " + n.getDescription() + " under " + parent.getDescription();
+        TreeNode<?> node = model.createNode(parent.getKind(), "new " + (counter++), 0, 0);
+        model.decompose(parent, node);
+        created.add(node);
+        return "create " + node.getDescription() + " under " + parent.getDescription();
     }
 }

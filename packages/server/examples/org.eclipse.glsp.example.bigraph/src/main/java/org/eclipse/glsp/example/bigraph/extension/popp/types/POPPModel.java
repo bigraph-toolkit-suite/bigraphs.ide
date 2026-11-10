@@ -134,13 +134,13 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
     }
 
     /** Creates a typed cross-tree relation, rejecting node-kind combinations the POPP metamodel disallows. */
-    public RelationResult relate(TreeNode<?> a, TreeNode<?> b) {
-        return relations.relate(a, b);
+    public RelationResult relate(TreeNode<?> first, TreeNode<?> second) {
+        return relations.relate(first, second);
     }
 
     /** Removes the relation between the two nodes, given in either order. */
-    public RelationResult unrelate(TreeNode<?> a, TreeNode<?> b) {
-        return relations.unrelate(a, b);
+    public RelationResult unrelate(TreeNode<?> first, TreeNode<?> second) {
+        return relations.unrelate(first, second);
     }
 
     /**
@@ -154,10 +154,10 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
             return DecompositionResult.NULL_ARGUMENT;
         }
         // If language standard is updated to 21 replace with switch casting
-        if (parent instanceof Problem p) return attach(p, child, Problem.class);
-        if (parent instanceof Goal g) return attach(g, child, Goal.class);
-        if (parent instanceof Consequence c) return attach(c, child, Consequence.class);
-        if (parent instanceof Solution s) return attach(s, child, Solution.class);
+        if (parent instanceof Problem problem) return attach(problem, child, Problem.class);
+        if (parent instanceof Goal goal) return attach(goal, child, Goal.class);
+        if (parent instanceof Consequence consequence) return attach(consequence, child, Consequence.class);
+        if (parent instanceof Solution solution) return attach(solution, child, Solution.class);
         if (parent instanceof SuccessCriteria sc) return attach(sc, child, SuccessCriteria.class);
         if (parent instanceof SuccessProof sp) return attach(sp, child, SuccessProof.class);
         throw new IllegalStateException("Unhandled node type: " + parent.getClass().getName());
@@ -222,12 +222,6 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
     public List<SuccessCriteria> getSuccessCriteriaRoots() { return successCriteria.roots(); }
     public List<SuccessProof> getSuccessProofRoots() { return successProofs.roots(); }
 
-    public List<Problem> getAllProblems() { return problems.all(); }
-    public List<Goal> getAllGoals() { return goals.all(); }
-    public List<Consequence> getAllConsequences() { return consequences.all(); }
-    public List<Solution> getAllSolutions() { return solutions.all(); }
-    public List<SuccessCriteria> getAllSuccessCriteria() { return successCriteria.all(); }
-    public List<SuccessProof> getAllSuccessProofs() { return successProofs.all(); }
 
     public Collection<TreeNode<?>> getAllNodes() {
         return nodeRegistry.values();
@@ -249,8 +243,8 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
 
     @Override
     public void onPOPPEvent(final POPPEvent event) {
-        if (Objects.requireNonNull(event) instanceof POPPEvent.NodeChangedParent e) {
-            handleParentChange(e);
+        if (Objects.requireNonNull(event) instanceof POPPEvent.NodeChangedParent parentChanged) {
+            handleParentChange(parentChanged);
         }
         publish(event);
     }
@@ -262,18 +256,18 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
 
         // If language standard is updated to 21 replace with switch casting
         TreeNode<?> node = event.node();
-        if (node instanceof Problem r) {
-            if (becameRoot) problems.addRoot(r); else problems.removeRoot(r);
-        } else if (node instanceof Goal r) {
-            if (becameRoot) goals.addRoot(r); else goals.removeRoot(r);
-        } else if (node instanceof Consequence r) {
-            if (becameRoot) consequences.addRoot(r); else consequences.removeRoot(r);
-        } else if (node instanceof Solution r) {
-            if (becameRoot) solutions.addRoot(r); else solutions.removeRoot(r);
-        } else if (node instanceof SuccessCriteria r) {
-            if (becameRoot) successCriteria.addRoot(r); else successCriteria.removeRoot(r);
-        } else if (node instanceof SuccessProof r) {
-            if (becameRoot) successProofs.addRoot(r); else successProofs.removeRoot(r);
+        if (node instanceof Problem problem) {
+            if (becameRoot) problems.addRoot(problem); else problems.removeRoot(problem);
+        } else if (node instanceof Goal goal) {
+            if (becameRoot) goals.addRoot(goal); else goals.removeRoot(goal);
+        } else if (node instanceof Consequence consequence) {
+            if (becameRoot) consequences.addRoot(consequence); else consequences.removeRoot(consequence);
+        } else if (node instanceof Solution solution) {
+            if (becameRoot) solutions.addRoot(solution); else solutions.removeRoot(solution);
+        } else if (node instanceof SuccessCriteria criterion) {
+            if (becameRoot) successCriteria.addRoot(criterion); else successCriteria.removeRoot(criterion);
+        } else if (node instanceof SuccessProof proof) {
+            if (becameRoot) successProofs.addRoot(proof); else successProofs.removeRoot(proof);
         }
     }
 }

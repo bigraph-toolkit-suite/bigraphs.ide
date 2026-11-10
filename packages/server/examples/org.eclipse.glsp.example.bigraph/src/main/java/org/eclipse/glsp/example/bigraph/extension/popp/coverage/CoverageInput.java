@@ -22,8 +22,8 @@ public interface CoverageInput {
      * disables caching.
      */
     default Object revision() {
-        POPPModel m = model();
-        return m == null ? null : new Revision(m, m.getVersion());
+        POPPModel model = model();
+        return model == null ? null : new Revision(model, model.getVersion());
     }
 
     record Revision(POPPModel model, long version) {}

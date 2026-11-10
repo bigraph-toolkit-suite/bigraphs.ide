@@ -55,12 +55,12 @@ public final class POPPValidationPatterns {
 
     private enum Link { OPEN, CLOSED }
 
-    private static Node node(POPPBigraphSignature c, String name, Node... children) {
-        return new Node(c.controlName(), name, null, List.of(children));
+    private static Node node(POPPBigraphSignature control, String name, Node... children) {
+        return new Node(control.controlName(), name, null, List.of(children));
     }
 
-    private static Node stub(POPPBigraphSignature c, String name, Link link) {
-        return new Node(c.controlName(), name, link, List.of());
+    private static Node stub(POPPBigraphSignature control, String name, Link link) {
+        return new Node(control.controlName(), name, link, List.of());
     }
 
     // -- the conditions --------------------------------------------------------------------------------------------

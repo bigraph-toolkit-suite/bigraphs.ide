@@ -69,9 +69,9 @@ public final class CoverageRewriteRules {
     }
 
     private static Map<Term, Term> pair(Term redexNode, Term reactumNode) {
-        Map<Term, Term> m = new IdentityHashMap<>();
-        m.put(redexNode, reactumNode);
-        return m;
+        Map<Term, Term> map = new IdentityHashMap<>();
+        map.put(redexNode, reactumNode);
+        return map;
     }
 
     private static final List<Coverage> UPGRADABLE = List.of(Coverage.UNCOVERED, Coverage.PARTIAL);
@@ -98,12 +98,12 @@ public final class CoverageRewriteRules {
         return out;
     }
 
-    private static Term state(Coverage c) { return Term.node(CoverageMarker.of(c).controlName()); }
+    private static Term state(Coverage coverage) { return Term.node(CoverageMarker.of(coverage).controlName()); }
 
-    private static String kind(NodeKind k) { return POPPBigraphSignature.getByNodeKind(k).controlName(); }
+    private static String kind(NodeKind kind) { return POPPBigraphSignature.getByNodeKind(kind).controlName(); }
 
-    private static String gate(DecompositionType t, NodeKind k) {
-        return POPPBigraphSignature.getGateControl(k, t).controlName();
+    private static String gate(DecompositionType decompositionType, NodeKind kind) {
+        return POPPBigraphSignature.getGateControl(kind, decompositionType).controlName();
     }
 
     private static CoverageMarker whyMarker(Coverage target, boolean link) {
@@ -113,8 +113,8 @@ public final class CoverageRewriteRules {
     }
 
     private static Term why(Coverage target, boolean link) {
-        CoverageMarker m = whyMarker(target, link);
-        return link ? Term.node(m.controlName(), "x") : Term.node(m.controlName());
+        CoverageMarker marker = whyMarker(target, link);
+        return link ? Term.node(marker.controlName(), "x") : Term.node(marker.controlName());
     }
 
     /** One slot of a gate node: a node with {@code control} in {@code state}, and whatever else it contains. */
@@ -130,10 +130,10 @@ public final class CoverageRewriteRules {
      */
     private static void thresholdGateRules(List<RuleSpecification> out) {
         for (NodeKind nk : NodeKind.values()) {
-            String k = kind(nk);
+            String kindControl = kind(nk);
             for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR)) {
-                String g = gate(type, nk);
-                for (String slot : List.of(k, g)) {
+                String gateControl = gate(type, nk);
+                for (String slot : List.of(kindControl, gateControl)) {
                     if (type == DecompositionType.OR) {
                         for (Coverage cur : UPGRADABLE) addThreshold(out, type, cur, nk, slot, Coverage.COVERED, Coverage.COVERED);
                         addThreshold(out, type, Coverage.UNCOVERED, nk, slot, Coverage.PARTIAL, Coverage.PARTIAL);
@@ -144,9 +144,9 @@ public final class CoverageRewriteRules {
                 }
                 if (type == DecompositionType.AND) {
                     for (Coverage cur : UPGRADABLE) {
-                        addGate(out, type, cur, nk, List.of(new Slot(k, Coverage.COVERED)));
-                        addGate(out, type, cur, nk, List.of(new Slot(k, Coverage.COVERED), new Slot(k, Coverage.COVERED)));
-                        addGate(out, type, cur, nk, List.of(new Slot(k, Coverage.COVERED), new Slot(g, Coverage.COVERED)));
+                        addGate(out, type, cur, nk, List.of(new Slot(kindControl, Coverage.COVERED)));
+                        addGate(out, type, cur, nk, List.of(new Slot(kindControl, Coverage.COVERED), new Slot(kindControl, Coverage.COVERED)));
+                        addGate(out, type, cur, nk, List.of(new Slot(kindControl, Coverage.COVERED), new Slot(gateControl, Coverage.COVERED)));
                     }
                 }
             }
@@ -203,36 +203,36 @@ public final class CoverageRewriteRules {
      * Pairs each non-site term with the bigraph node built from it. Relies on {@link #side} adding the children of a
      * node in term order and on {@code getChildrenOf} returning them in that order (true for the framework's builder).
      */
-    private static void collect(PureBigraph b, BigraphEntity<?> parent, List<Term> terms, IdentityHashMap<Term, String> out) {
-        List<BigraphEntity.NodeEntity<?>> nodes = b.getChildrenOf(parent).stream()
+    private static void collect(PureBigraph bigraph, BigraphEntity<?> parent, List<Term> terms, IdentityHashMap<Term, String> out) {
+        List<BigraphEntity.NodeEntity<?>> nodes = bigraph.getChildrenOf(parent).stream()
                 .filter(BigraphEntity.NodeEntity.class::isInstance)
                 .map(e -> (BigraphEntity.NodeEntity<?>) e).collect(Collectors.toUnmodifiableList());
         List<Term> pn = terms.stream().filter(term -> !term.isSite()).toList();
         for (int i = 0; i < pn.size(); i++) {
             out.put(pn.get(i), nodes.get(i).getName());
-            collect(b, nodes.get(i), pn.get(i).kids(), out);
+            collect(bigraph, nodes.get(i), pn.get(i).kids(), out);
         }
     }
 
-    /** Term -> generated node name in {@code b}, which was built from {@code roots} by {@link #side}. */
-    private static IdentityHashMap<Term, String> names(PureBigraph b, List<Term> roots) {
+    /** Term -> generated node name in {@code bigraph}, which was built from {@code roots} by {@link #side}. */
+    private static IdentityHashMap<Term, String> names(PureBigraph bigraph, List<Term> roots) {
         var out = new IdentityHashMap<Term, String>();
-        var rs = new ArrayList<>(b.getRoots());
+        var rs = new ArrayList<>(bigraph.getRoots());
         rs.sort(Comparator.comparing(BigraphEntity.RootEntity::getIndex));
-        for (int i = 0; i < roots.size(); i++) collect(b, rs.get(i), List.of(roots.get(i)), out);
+        for (int i = 0; i < roots.size(); i++) collect(bigraph, rs.get(i), List.of(roots.get(i)), out);
         return out;
     }
 
     /** Reactum node name -> redex node name it keeps (empty for new nodes, i.e. the added markers). */
-    static TrackingMap trackingMap(RuleSpecification s, PureBigraph redex, PureBigraph reactum) {
-        var rn = names(redex, s.redex());
-        var an = names(reactum, s.reactum());
+    static TrackingMap trackingMap(RuleSpecification spec, PureBigraph redex, PureBigraph reactum) {
+        var rn = names(redex, spec.redex());
+        var an = names(reactum, spec.reactum());
 
         var partnerOf = new IdentityHashMap<Term, Term>();
-        s.pairs().forEach((redexTerm, reactumTerm) -> partnerOf.put(reactumTerm, redexTerm));
+        spec.pairs().forEach((redexTerm, reactumTerm) -> partnerOf.put(reactumTerm, redexTerm));
 
         var tm = new TrackingMap();
-        tm.setRuleName(s.name());
+        tm.setRuleName(spec.name());
         an.forEach((reactumTerm, reactumName) -> {
             Term redexTerm = rn.containsKey(reactumTerm) ? reactumTerm : partnerOf.get(reactumTerm);
             tm.put(reactumName, redexTerm != null && rn.containsKey(redexTerm) ? rn.get(redexTerm) : "");
@@ -243,13 +243,13 @@ public final class CoverageRewriteRules {
     private static void liftRules(List<RuleSpecification> out) {
         for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR)) {
             for (NodeKind nk : NodeKind.values()) {
-                String k = kind(nk);
+                String kindControl = kind(nk);
                 for (Coverage s : PARTIAL_OR_COVERED) {
                     for (Coverage c : UPGRADABLE) {
                         if (s.compareTo(c) <= 0) continue;
                         Term topGate = Term.node(gate(type, nk), state(s), Term.SITE); // the gate node directly under a domain node
-                        Term redexNode = Term.node(k, state(c), Term.SITE, topGate);
-                        Term reactumNode = Term.node(k, state(s), why(s, false), Term.SITE, topGate);
+                        Term redexNode = Term.node(kindControl, state(c), Term.SITE, topGate);
+                        Term reactumNode = Term.node(kindControl, state(s), why(s, false), Term.SITE, topGate);
                         out.add(new RuleSpecification("lift-" + type + "-" + nk + "-" + c + "-" + s,
                                 List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
                                 new Effect(redexNode, null, s, whyMarker(s, false))));
@@ -289,91 +289,6 @@ public final class CoverageRewriteRules {
         }
     }
 
-    /**
-     * Which rule can give which rule a new match, decided by overlapping the rules themselves (a produce-use dependency
-     * as in the critical pair analysis of graph transformation): {@code r} enables {@code s} if {@code r}'s receiver as
-     * {@code r} leaves it (its reactum term, with the new state and reason marker) can be glued onto some node {@code b}
-     * of {@code s}'s redex such that {@code b} needs something {@code r} created. Gluing ({@link #overlaps}) compares
-     * controls and children recursively: a term without a site has exactly its children, one with a site may have more,
-     * and a node has exactly one state marker, so two different states never glue. Links are not compared (a sound
-     * over-approximation). Sound for these rules because a rule only changes its receiver's children, and every redex
-     * node that a new match could use through that change lists the node's state, which the change replaced. Indices
-     * follow {@link #compile()}.
-     */
-    static boolean[][] enablingByOverlap() {
-        return enablingByOverlap(specs());
-    }
-
-    static boolean[][] enablingByOverlap(List<RuleSpecification> specs) {
-        int n = specs.size();
-        boolean[][] enablesMatrix = new boolean[n][n]; // [i][j]: rule i enables rule j
-        for (int i = 0; i < n; i++) {
-            RuleSpecification r = specs.get(i);
-            Term before = r.effect().receiver(), after = r.pairs().get(before);
-            Map<String, Integer> created = new HashMap<>();
-            for (Term k : after.kids()) if (!k.isSite()) created.merge(k.control(), 1, Integer::sum);
-            for (Term k : before.kids()) if (!k.isSite()) created.computeIfPresent(k.control(), (c, v) -> v > 1 ? v - 1 : null);
-            for (int j = 0; j < n; j++) {
-                List<Term> nodes = new ArrayList<>();
-                for (Term root : specs.get(j).redex()) allNodes(root, nodes);
-                for (Term candidate : nodes) {
-                    boolean usesCreated = candidate.kids().stream().anyMatch(k -> !k.isSite() && created.containsKey(k.control()));
-                    if (usesCreated && overlaps(after, candidate)) {
-                        enablesMatrix[i][j] = true;
-                        break;
-                    }
-                }
-            }
-        }
-        return enablesMatrix;
-    }
-
-    private static final Set<String> STATES = Set.of(CoverageMarker.UNC.controlName(), CoverageMarker.PART.controlName(),
-            CoverageMarker.COV.controlName());
-
-    /** Collects every node term of {@code t} and below it, skipping sites (on a redex: the nodes a receiver could be identified with). */
-    private static void allNodes(Term t, List<Term> out) {
-        if (t.isSite()) return;
-        out.add(t);
-        for (Term k : t.kids()) allNodes(k, out);
-    }
-
-    /** Whether two node terms can denote the same node of some agent, i.e. whether they can be glued at this node (see {@link #enablingByOverlap()}). */
-    static boolean overlaps(Term a, Term b) {
-        if (!a.control().equals(b.control())) return false;
-        List<Term> as = new ArrayList<>(), bs = new ArrayList<>();
-        boolean siteA = false, siteB = false;
-        for (Term k : a.kids()) if (k.isSite()) siteA = true; else as.add(k);
-        for (Term k : b.kids()) if (k.isSite()) siteB = true; else bs.add(k);
-        // one state per node: if both name it, it is the same child
-        Term sa = as.stream().filter(k -> STATES.contains(k.control())).findFirst().orElse(null);
-        Term sb = bs.stream().filter(k -> STATES.contains(k.control())).findFirst().orElse(null);
-        if (sa != null && sb != null) {
-            if (!sa.control().equals(sb.control())) return false;
-            as.remove(sa);
-            bs.remove(sb);
-        } else if (sa != null && !siteB || sb != null && !siteA) {
-            return false; // the exact side has no state, the other names one
-        }
-        return glue(as, 0, bs, new boolean[bs.size()], siteA, siteB);
-    }
-
-    /** Matches the children {@code as[i..]} into {@code bs} injectively. Unmatched ones need a site on the other side. */
-    private static boolean glue(List<Term> as, int i, List<Term> bs, boolean[] used, boolean siteA, boolean siteB) {
-        if (i == as.size()) {
-            if (siteA) return true;
-            for (boolean u : used) if (!u) return false; // b has a child a cannot have
-            return true;
-        }
-        for (int j = 0; j < bs.size(); j++) {
-            if (used[j] || !overlaps(as.get(i), bs.get(j))) continue;
-            used[j] = true;
-            if (glue(as, i + 1, bs, used, siteA, siteB)) return true;
-            used[j] = false;
-        }
-        return siteB && glue(as, i + 1, bs, used, siteA, siteB); // a's child lies in b's site
-    }
-
     /** The coverage rules, each with where to find receiver and giver in a match. Used by both rewriting analyzers. */
     public static List<CompiledRule> compile() {
         DynamicSignature sig = CoverageSignature.get();
@@ -394,15 +309,15 @@ public final class CoverageRewriteRules {
             } catch (InvalidReactionRuleException e) {
                 throw new IllegalStateException("Invalid coverage rule " + s.name(), e);
             }
-            logger.debug(toBigrapher(s));
+            if (logger.isDebugEnabled()) logger.debug(toBigrapher(s)); // debugging only
         }
         return List.copyOf(out);
     }
 
     static PureBigraph side(DynamicSignature sig, List<Term> roots) {
-        var b = pureBuilder(sig);
-        for (Term term : roots) emit(b.root(), term);
-        return b.create();
+        var builder = pureBuilder(sig);
+        for (Term term : roots) emit(builder.root(), term);
+        return builder.create();
     }
 
     private static void emit(PureBigraphBuilder<DynamicSignature>.Hierarchy level, Term term) {
@@ -422,12 +337,15 @@ public final class CoverageRewriteRules {
         }
     }
 
-    /** The rule in BigraphER syntax, for logging and inspection. */
-    static String toBigrapher(RuleSpecification s) {
-        return "react " + ident(s.name()) + " =\n  " + side(s.redex()) + "\n  --> " + side(s.reactum()) + ";\n";
+    /**
+     * The rule in BigraphER syntax. Meant for debugging only: {@link #compile()} writes every rule at debug level, so
+     * the generated rules can be read and checked with BigraphER.
+     */
+    static String toBigrapher(RuleSpecification spec) {
+        return "react " + ident(spec.name()) + " =\n  " + side(spec.redex()) + "\n  --> " + side(spec.reactum()) + ";\n";
     }
-    private static String ident(String n) {
-        return n.toLowerCase().replaceAll("[^a-z0-9]+", "_").replaceAll("_$", "");
+    private static String ident(String name) {
+        return name.toLowerCase().replaceAll("[^a-z0-9]+", "_").replaceAll("_$", "");
     }
     private static String side(List<Term> roots) {
         return roots.stream().map(CoverageRewriteRules::expr).collect(Collectors.joining(" || "));

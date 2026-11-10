@@ -42,7 +42,7 @@ class IncrementalRewritingCoverageAnalyzerTest {
 
     @Test
     void agreesAfterEveryEdit() {
-        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITING_SUPPORTED, "needs the patched framework");
         StringBuilder report = new StringBuilder();
         int bad = 0;
         for (long seed = 1; seed <= 6; seed++) bad += mismatches("incremental", 1 + (int) (seed % 2), 40, seed, report);
@@ -55,7 +55,7 @@ class IncrementalRewritingCoverageAnalyzerTest {
      */
     @Test
     void agreesWhenTheModesRunInParallel() throws Exception {
-        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITING_SUPPORTED, "needs the patched framework");
         List<CoverageMode> modes = CoverageMode.presets();
         java.util.concurrent.ForkJoinPool pool = new java.util.concurrent.ForkJoinPool(modes.size());
         StringBuilder report = new StringBuilder();
@@ -93,7 +93,7 @@ class IncrementalRewritingCoverageAnalyzerTest {
     /** Without a change since the last session, the analyzer answers from its fixpoint. After an edit it evaluates again. */
     @Test
     void reusesTheSessionUntilTheModelChanges() {
-        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITING_SUPPORTED, "needs the patched framework");
         Synced popp = new Synced();
         CoverageTestModels.fullModel(popp.model, 2, true);
         CoverageAnalyzer analyzer = CoverageTestModels.analyzer("incremental", popp);

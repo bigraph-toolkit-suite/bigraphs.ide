@@ -46,11 +46,11 @@ class POPPGModelSynchronizerTest {
     void aCreatedNodeBecomesAGNodeOfItsKindWithLabelAndPort() {
         TreeNode<?> goal = model.createNode(NodeKind.GOAL, "Ship it", 40, 70);
 
-        GNode g = gnode(goal);
-        assertEquals("popp:goal", g.getType());
-        assertEquals(40, g.getPosition().getX());
-        assertEquals(70, g.getPosition().getY());
-        assertEquals("NONE", g.getArgs().get("decomposition_type"));
+        GNode gnode = gnode(goal);
+        assertEquals("popp:goal", gnode.getType());
+        assertEquals(40, gnode.getPosition().getX());
+        assertEquals(70, gnode.getPosition().getY());
+        assertEquals("NONE", gnode.getArgs().get("decomposition_type"));
 
         GLabel label = label(goal);
         assertEquals(ids.toDescriptionId(goal), label.getId());
@@ -136,13 +136,13 @@ class POPPGModelSynchronizerTest {
 
     @Test
     void flippingParentAndChildReversesTheEdge() {
-        TreeNode<?> a = model.createNode(NodeKind.GOAL, "a", 0, 0);
-        TreeNode<?> b = model.createNode(NodeKind.GOAL, "b", 0, 0);
-        model.decompose(a, b);
+        TreeNode<?> first = model.createNode(NodeKind.GOAL, "a", 0, 0);
+        TreeNode<?> second = model.createNode(NodeKind.GOAL, "b", 0, 0);
+        model.decompose(first, second);
 
-        assertTrue(model.decompose(b, a).isSuccess());
+        assertTrue(model.decompose(second, first).isSuccess());
 
-        assertEquals(List.of(ids.toDecompositionEdgeId(b, a)),
+        assertEquals(List.of(ids.toDecompositionEdgeId(second, first)),
                 edges(POPPGModelTypes.DECOMPOSITION_EDGE).stream().map(GEdge::getId).toList());
     }
 

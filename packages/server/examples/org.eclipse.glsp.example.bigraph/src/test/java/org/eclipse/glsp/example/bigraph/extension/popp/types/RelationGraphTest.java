@@ -97,15 +97,15 @@ class RelationGraphTest {
 
         for (Set<Class<?>> pair : unsupportedPairs) {
             List<Class<?>> kindList = List.copyOf(pair);
-            TreeNode<?> a = NODE_FACTORIES.get(kindList.get(0)).get();
-            TreeNode<?> b = NODE_FACTORIES.get(kindList.get(1)).get();
+            TreeNode<?> first = NODE_FACTORIES.get(kindList.get(0)).get();
+            TreeNode<?> second = NODE_FACTORIES.get(kindList.get(1)).get();
             RelationGraph graph = new RelationGraph();
             String description = kindList.get(0).getSimpleName() + " <-> " + kindList.get(1).getSimpleName();
 
-            assertFalse(graph.canRelate(a, b), description + " should not be relatable");
-            assertFalse(graph.canRelate(b, a), description + " should not be relatable reversed");
-            assertEquals(RelationResult.NO_SUCH_RELATION_FOR_KINDS, graph.relate(a, b), description);
-            assertEquals(RelationResult.NO_SUCH_RELATION_FOR_KINDS, graph.relate(b, a), description);
+            assertFalse(graph.canRelate(first, second), description + " should not be relatable");
+            assertFalse(graph.canRelate(second, first), description + " should not be relatable reversed");
+            assertEquals(RelationResult.NO_SUCH_RELATION_FOR_KINDS, graph.relate(first, second), description);
+            assertEquals(RelationResult.NO_SUCH_RELATION_FOR_KINDS, graph.relate(second, first), description);
         }
     }
 

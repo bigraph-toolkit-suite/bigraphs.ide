@@ -40,7 +40,7 @@ public class ExportJsonHandler extends AbstractActionHandler<RequestJsonExportAc
 
     /** {@code <name of the open file without .xmi>.popp.json}. */
     private String fileName() {
-        String path = context.getBigraphModelState() instanceof BigraphModelState s ? s.getSourceFilePath() : null;
+        String path = context.getBigraphModelState() instanceof BigraphModelState modelState ? modelState.getSourceFilePath() : null;
         String base = path == null ? "popp-model" : new File(path).getName().replaceFirst("\\.xmi$", "");
         return base + ".popp.json";
     }

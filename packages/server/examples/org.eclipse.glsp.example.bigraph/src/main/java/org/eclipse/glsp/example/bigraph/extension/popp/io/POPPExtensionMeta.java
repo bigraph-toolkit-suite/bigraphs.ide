@@ -41,14 +41,14 @@ public record POPPExtensionMeta(Map<String, NodeData> nodes) {
 
     public static POPPExtensionMeta fromJson(String json) {
         if (json == null || json.isBlank()) return new POPPExtensionMeta(new HashMap<>());
-        Payload p = GSON.fromJson(json, Payload.class);
-        return new POPPExtensionMeta(p != null && p.nodes != null ? p.nodes : new HashMap<>());
+        Payload payload = GSON.fromJson(json, Payload.class);
+        return new POPPExtensionMeta(payload != null && payload.nodes != null ? payload.nodes : new HashMap<>());
     }
 
     public String toJson() {
-        Payload p = new Payload();
-        p.nodes = nodes;
-        return GSON.toJson(p);
+        Payload payload = new Payload();
+        payload.nodes = nodes;
+        return GSON.toJson(payload);
     }
 
     private static final class Payload {

@@ -104,14 +104,14 @@ public class POPPGModelFactory {
 
         int minLines = Integer.MAX_VALUE;
         for (double w = MIN_W; w <= 480; w += 20) {
-            int n = wrap(desc, maxChars(w)).size();
-            if (w / heightFor(n) <= MAX_RATIO) minLines = Math.min(minLines, n);
+            int lines = wrap(desc, maxChars(w)).size();
+            if (w / heightFor(lines) <= MAX_RATIO) minLines = Math.min(minLines, lines);
         }
         double width = MIN_W;
         int lineCount = wrap(desc, maxChars(MIN_W)).size();
         for (double w = MIN_W; w <= 480; w += 20) {
-            int n = wrap(desc, maxChars(w)).size();
-            if (n == minLines && w / heightFor(n) <= MAX_RATIO) { width = w; lineCount = n; break; }
+            int lines = wrap(desc, maxChars(w)).size();
+            if (lines == minLines && w / heightFor(lines) <= MAX_RATIO) { width = w; lineCount = lines; break; }
         }
         double finalWidth = width;
         double height = heightFor(lineCount);
@@ -160,16 +160,16 @@ public class POPPGModelFactory {
     }
 
     public GPoint point(final double x, final double y) {
-        GPoint p = GraphFactory.eINSTANCE.createGPoint();
-        p.setX(x);
-        p.setY(y);
-        return p;
+        GPoint point = GraphFactory.eINSTANCE.createGPoint();
+        point.setX(x);
+        point.setY(y);
+        return point;
     }
 
-    public GDimension size(final double w, final double h) {
-        GDimension d = GraphFactory.eINSTANCE.createGDimension();
-        d.setWidth(w);
-        d.setHeight(h);
-        return d;
+    public GDimension size(final double width, final double height) {
+        GDimension dimension = GraphFactory.eINSTANCE.createGDimension();
+        dimension.setWidth(width);
+        dimension.setHeight(height);
+        return dimension;
     }
 }

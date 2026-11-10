@@ -7,8 +7,8 @@ import java.util.Optional;
 
 /** Defines all glsp model types used in the frontend to visualize the domain model. */
 public final class POPPGModelTypes {
-    public static String of(NodeKind k)      { return "popp:" + k.name().toLowerCase(); }
-    public static String of(RelationType t)  { return "popp:" + t.name().toLowerCase(); }
+    public static String of(NodeKind kind)      { return "popp:" + kind.name().toLowerCase(); }
+    public static String of(RelationType type)  { return "popp:" + type.name().toLowerCase(); }
 
     /** The id of the POPP model variant. The variant's root is {@code VARIANT + "-root"}. */
     public static final String VARIANT             = "popp";

@@ -71,10 +71,6 @@ public class POPPBigraph {
         return signature;
     }
 
-    private static POPPBigraphSignature controlOf(BigraphEntity<?> e) {
-        return e instanceof BigraphEntity.NodeEntity<?> n ? POPPBigraphSignature.forNode(n) : null;
-    }
-
     /** Whether {@code node} is a domain node, i.e. its control is a node kind. */
     public boolean isDomainNode(BigraphEntity.NodeEntity<?> node) {
         return POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(node));
@@ -87,8 +83,8 @@ public class POPPBigraph {
 
     /** The domain kind of a node. Empty for gate nodes, stubs and the container. */
     public Optional<NodeKind> kindOf(BigraphEntity.NodeEntity<?> node) {
-        POPPBigraphSignature c = POPPBigraphSignature.forNode(node);
-        return POPPBigraphSignature.isKindControl(c) ? Optional.of(POPPBigraphSignature.toNodeKind(c)) : Optional.empty();
+        POPPBigraphSignature control = POPPBigraphSignature.forNode(node);
+        return POPPBigraphSignature.isKindControl(control) ? Optional.of(POPPBigraphSignature.toNodeKind(control)) : Optional.empty();
     }
 
     /** The decomposition type of a gate node. {@code NONE} for every other node. */
@@ -117,8 +113,8 @@ public class POPPBigraph {
             }
             List<BigraphEntity.NodeEntity<DynamicControl>> chain = new ArrayList<>();
             for (BigraphEntity<?> child : bigraph.getChildrenOf(node)) {
-                if (child instanceof BigraphEntity.NodeEntity<?> n && isGateNode(n)) {
-                    collectGateNodes((BigraphEntity.NodeEntity<DynamicControl>) n, chain);
+                if (child instanceof BigraphEntity.NodeEntity<?> gate && isGateNode(gate)) {
+                    collectGateNodes((BigraphEntity.NodeEntity<DynamicControl>) gate, chain);
                 }
             }
             if (!chain.isEmpty()) {
@@ -131,8 +127,8 @@ public class POPPBigraph {
                                    List<BigraphEntity.NodeEntity<DynamicControl>> out) {
         out.add(gateNode);
         for (BigraphEntity<?> child : bigraph.getChildrenOf(gateNode)) {
-            if (child instanceof BigraphEntity.NodeEntity<?> n && isGateNode(n)) {
-                collectGateNodes((BigraphEntity.NodeEntity<DynamicControl>) n, out);
+            if (child instanceof BigraphEntity.NodeEntity<?> node && isGateNode(node)) {
+                collectGateNodes((BigraphEntity.NodeEntity<DynamicControl>) node, out);
             }
         }
     }
@@ -386,8 +382,8 @@ public class POPPBigraph {
                 continue;
             }
             new ArrayList<>(bigraph.getChildrenOf(gateNode)).forEach(child -> {
-                if (child instanceof BigraphEntity.NodeEntity<?> n && isDomainNode(n)) {
-                    moveAndNotify((BigraphEntity.NodeEntity<DynamicControl>) n, container);
+                if (child instanceof BigraphEntity.NodeEntity<?> node && isDomainNode(node)) {
+                    moveAndNotify((BigraphEntity.NodeEntity<DynamicControl>) node, container);
                 }
             });
             bigraph.removeNode(gateNode);

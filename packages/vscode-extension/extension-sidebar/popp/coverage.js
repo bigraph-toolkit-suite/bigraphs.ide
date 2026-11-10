@@ -18,29 +18,29 @@
 
     // Every user-written text goes through textContent, never innerHTML.
     function el(tag, cls, text) {
-        const e = document.createElement(tag);
-        if (cls) e.className = cls;
-        if (text !== undefined) e.textContent = text;
-        return e;
+        const element = document.createElement(tag);
+        if (cls) element.className = cls;
+        if (text !== undefined) element.textContent = text;
+        return element;
     }
     function row(parent, badge, badgeCls, text, ids, sub) {
-        const r = el('div', 'row' + (ids && ids.length ? ' click' : ''));
-        if (badge) r.appendChild(el('span', 'badge ' + (badgeCls || ''), badge));
-        const t = el('span', 'text', text);
-        if (sub) { t.appendChild(document.createElement('br')); t.appendChild(el('span', 'sub', sub)); }
-        r.appendChild(t);
-        if (ids && ids.length) { r.title = 'Show in diagram'; r.onclick = () => send('focus', { ids }); }
-        parent.appendChild(r);
+        const line = el('div', 'row' + (ids && ids.length ? ' click' : ''));
+        if (badge) line.appendChild(el('span', 'badge ' + (badgeCls || ''), badge));
+        const label = el('span', 'text', text);
+        if (sub) { label.appendChild(document.createElement('br')); label.appendChild(el('span', 'sub', sub)); }
+        line.appendChild(label);
+        if (ids && ids.length) { line.title = 'Show in diagram'; line.onclick = () => send('focus', { ids }); }
+        parent.appendChild(line);
     }
     function section(title, right) {
-        const h = el('h3', null, title);
-        if (right) h.appendChild(right);
-        root.appendChild(h);
+        const heading = el('h3', null, title);
+        if (right) heading.appendChild(right);
+        root.appendChild(heading);
     }
 
-    function render(fileName, s) {
+    function render(fileName, state) {
         root.replaceChildren();
-        if (!s) {
+        if (!state) {
             root.appendChild(el('div', 'empty', 'Open a POPP diagram to see its coverage and validation.'));
             return;
         }
@@ -49,12 +49,12 @@
         const select = el('select');
         select.title = 'Coverage mode: what counts as covered by itself, and which nodes the gaps are reported for';
         MODES.forEach(m => {
-            const o = el('option', null, m.label);
-            o.value = m.id;
-            o.title = m.description;
-            select.appendChild(o);
+            const option = el('option', null, m.label);
+            option.value = m.id;
+            option.title = m.description;
+            select.appendChild(option);
         });
-        select.value = s.mode;
+        select.value = state.mode;
         select.onchange = () => send('setMode', { mode: select.value });
         bar.appendChild(select);
         const refresh = el('button', null, 'Refresh');
@@ -63,42 +63,42 @@
         root.appendChild(bar);
 
         // Validation
-        const v = s.validation;
+        const validation = state.validation;
         section('Validation');
-        if (!v) {
+        if (!validation) {
             row(root, null, null, 'Validating\u2026');
-        } else if (v.issues.length === 0) {
+        } else if (validation.issues.length === 0) {
             row(root, 'OK', 'covered', 'The model is structurally valid', null,
-                v.patternsMatched + ' patterns matched, ' + v.patternsSkipped + ' skipped, ' + v.durationMs + ' ms');
+                validation.patternsMatched + ' patterns matched, ' + validation.patternsSkipped + ' skipped, ' + validation.durationMs + ' ms');
         } else {
-            v.issues.forEach(i => {
+            validation.issues.forEach(i => {
                 const sev = String(i.severity) === 'ERROR' ? 'error' : 'warning';
                 row(root, sev, sev, String(i.message || ''), i.nodeIds || [],
                     String(i.code || '').toLowerCase().replace(/_/g, ' '));
             });
             const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
-            row(root, null, null, '', null, plural(v.errors, 'error') + ', ' + plural(v.warnings, 'warning') + ' \u00b7 '
-                + v.patternsMatched + ' patterns matched, ' + v.durationMs + ' ms');
+            row(root, null, null, '', null, plural(validation.errors, 'error') + ', ' + plural(validation.warnings, 'warning') + ' \u00b7 '
+                + validation.patternsMatched + ' patterns matched, ' + validation.durationMs + ' ms');
         }
 
         // Tree coverage: one statement per mode; the selected one lists its trees. A click selects the mode.
-        const r = s.report;
+        const report = state.report;
         section('Tree coverage');
-        if (!r) {
+        if (!report) {
             row(root, null, null, 'Computing\u2026');
         } else {
-            (r.modes || []).forEach(m => modeStatement(m, m.mode === s.mode ? r.roots : null));
+            (report.modes || []).forEach(m => modeStatement(m, m.mode === state.mode ? report.roots : null));
         }
 
         // Gaps of the selected mode
-        const gaps = s.gaps || [];
-        const toggle = el('button', s.gapsActive ? 'on' : '', s.gapsActive ? 'Highlighted' : 'Highlight');
+        const gaps = state.gaps || [];
+        const toggle = el('button', state.gapsActive ? 'on' : '', state.gapsActive ? 'Highlighted' : 'Highlight');
         toggle.title = 'Highlight uncovered nodes in the diagram';
-        toggle.onclick = () => send('setGaps', { active: !s.gapsActive });
+        toggle.onclick = () => send('setGaps', { active: !state.gapsActive });
         section('Uncovered (' + gaps.length + ')', toggle);
         const roots = gaps.filter(g => g.rootCause);
         if (gaps.length === 0) {
-            row(root, null, null, r ? 'Everything this mode asks about is covered' : 'Computing\u2026', null);
+            row(root, null, null, report ? 'Everything this mode asks about is covered' : 'Computing\u2026', null);
         }
         roots.forEach(g => row(root, g.coverage === 'PARTIAL' ? 'partial' : 'uncovered', g.coverage.toLowerCase(),
             g.label, [g.nodeId], g.message ? g.message : undefined));
@@ -108,9 +108,9 @@
                 affected.map(g => g.nodeId));
         }
 
-        if (!r) return;
+        if (!report) return;
         section('Depth and breadth');
-        Object.entries(r.trees).forEach(([kind, m]) => row(root, null, null,
+        Object.entries(report.trees).forEach(([kind, m]) => row(root, null, null,
             kindName(kind) + ': ' + m.nodes + ' nodes',
             null, 'trees ' + m.roots + ' \u00b7 depth ' + m.height + ' \u00b7 breadth ' + m.width));
     }
@@ -123,27 +123,27 @@
         const info = MODES.find(x => x.id === m.mode) || { label: m.mode, by: '', description: '' };
         const cov = m.coverage ? String(m.coverage) : null;
         const subject = m.kind ? kindName(m.kind).replace(/^./, c => c.toUpperCase()) + ' tree' : 'Model';
-        const r = el('div', 'row click mode' + (trees ? ' current' : ''));
-        r.appendChild(el('span', 'badge ' + (cov ? cov.toLowerCase() : 'muted'), cov ? cov.toLowerCase() : 'empty'));
-        const t = el('span', 'text');
+        const line = el('div', 'row click mode' + (trees ? ' current' : ''));
+        line.appendChild(el('span', 'badge ' + (cov ? cov.toLowerCase() : 'muted'), cov ? cov.toLowerCase() : 'empty'));
+        const label = el('span', 'text');
         if (cov) {
-            t.appendChild(document.createTextNode(subject + ' '));
-            t.appendChild(el('b', null, VERB[cov]));
-            t.appendChild(document.createTextNode(' ' + info.by));
+            label.appendChild(document.createTextNode(subject + ' '));
+            label.appendChild(el('b', null, VERB[cov]));
+            label.appendChild(document.createTextNode(' ' + info.by));
         } else {
-            t.appendChild(document.createTextNode((m.kind ? 'No ' + kindName(m.kind) + ' tree' : 'No coverable trees') + ' yet (' + info.label + ')'));
+            label.appendChild(document.createTextNode((m.kind ? 'No ' + kindName(m.kind) + ' tree' : 'No coverable trees') + ' yet (' + info.label + ')'));
         }
-        const c = m.counts || {};
-        const total = (c.COVERED || 0) + (c.PARTIAL || 0) + (c.UNCOVERED || 0);
+        const counts = m.counts || {};
+        const total = (counts.COVERED || 0) + (counts.PARTIAL || 0) + (counts.UNCOVERED || 0);
         if (total > 0) {
-            t.appendChild(document.createElement('br'));
-            t.appendChild(el('span', 'sub', (c.COVERED || 0) + ' of ' + total + ' ' + (m.kind ? kindName(m.kind) : 'node')
-                + ' nodes covered' + (c.PARTIAL ? ', ' + c.PARTIAL + ' partially' : '')));
+            label.appendChild(document.createElement('br'));
+            label.appendChild(el('span', 'sub', (counts.COVERED || 0) + ' of ' + total + ' ' + (m.kind ? kindName(m.kind) : 'node')
+                + ' nodes covered' + (counts.PARTIAL ? ', ' + counts.PARTIAL + ' partially' : '')));
         }
-        r.appendChild(t);
-        r.title = info.label + ': ' + info.description + (trees ? '' : ' (click to show in the diagram)');
-        if (!trees) r.onclick = () => send('setMode', { mode: m.mode });
-        root.appendChild(r);
+        line.appendChild(label);
+        line.title = info.label + ': ' + info.description + (trees ? '' : ' (click to show in the diagram)');
+        if (!trees) line.onclick = () => send('setMode', { mode: m.mode });
+        root.appendChild(line);
         if (trees && trees.length) {
             const list = el('div', 'trees');
             trees.forEach(tr => row(list, tr.coverage.toLowerCase(), tr.coverage.toLowerCase(),

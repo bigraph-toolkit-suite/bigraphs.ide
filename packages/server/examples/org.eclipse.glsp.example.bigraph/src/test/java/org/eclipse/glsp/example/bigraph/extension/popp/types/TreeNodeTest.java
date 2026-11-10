@@ -77,10 +77,10 @@ class TreeNodeTest {
         child.addListener((event) -> {
             eventHandled.set(true);
             assertInstanceOf(POPPEvent.NodeChangedParent.class, event);
-            POPPEvent.NodeChangedParent e = (POPPEvent.NodeChangedParent) event;
-            assertEquals(e.node(), child);
-            assertEquals(e.newParent(), root);
-            assertNull(e.oldParent());
+            POPPEvent.NodeChangedParent parentChanged = (POPPEvent.NodeChangedParent) event;
+            assertEquals(parentChanged.node(), child);
+            assertEquals(parentChanged.newParent(), root);
+            assertNull(parentChanged.oldParent());
         });
 
         assertFalse(eventHandled.get());
@@ -101,10 +101,10 @@ class TreeNodeTest {
         problem.addListener((event) -> {
             eventHandled.set(true);
             assertInstanceOf(POPPEvent.NodeDecompositionTypeChanged.class, event);
-            POPPEvent.NodeDecompositionTypeChanged e = (POPPEvent.NodeDecompositionTypeChanged) event;
-            assertEquals(problem, e.node());
-            assertEquals(or, e.node().getDecompositionType());
-            assertEquals(initial, e.oldType());
+            POPPEvent.NodeDecompositionTypeChanged typeChanged = (POPPEvent.NodeDecompositionTypeChanged) event;
+            assertEquals(problem, typeChanged.node());
+            assertEquals(or, typeChanged.node().getDecompositionType());
+            assertEquals(initial, typeChanged.oldType());
         });
 
         assertFalse(eventHandled.get());
@@ -124,10 +124,10 @@ class TreeNodeTest {
         problem.addListener((event) -> {
             eventHandled.set(true);
             assertInstanceOf(POPPEvent.NodeDescriptionChanged.class, event);
-            POPPEvent.NodeDescriptionChanged e = (POPPEvent.NodeDescriptionChanged) event;
-            assertEquals(problem, e.node());
-            assertEquals(newDescription, e.node().getDescription());
-            assertEquals(initial, e.oldDescription());
+            POPPEvent.NodeDescriptionChanged descriptionChanged = (POPPEvent.NodeDescriptionChanged) event;
+            assertEquals(problem, descriptionChanged.node());
+            assertEquals(newDescription, descriptionChanged.node().getDescription());
+            assertEquals(initial, descriptionChanged.oldDescription());
         });
 
         assertFalse(eventHandled.get());
@@ -147,12 +147,12 @@ class TreeNodeTest {
         problem.addListener((event) -> {
             eventHandled.set(true);
             assertInstanceOf(POPPEvent.NodeMoved.class, event);
-            POPPEvent.NodeMoved e = (POPPEvent.NodeMoved) event;
-            assertEquals(problem, e.node());
-            assertEquals(newX, e.node().getX());
-            assertEquals(newY, e.node().getY());
-            assertEquals(0, e.oldX());
-            assertEquals(0, e.oldY());
+            POPPEvent.NodeMoved moved = (POPPEvent.NodeMoved) event;
+            assertEquals(problem, moved.node());
+            assertEquals(newX, moved.node().getX());
+            assertEquals(newY, moved.node().getY());
+            assertEquals(0, moved.oldX());
+            assertEquals(0, moved.oldY());
         });
 
         assertFalse(eventHandled.get());
@@ -196,41 +196,41 @@ class TreeNodeTest {
     @Test
     void movingAChildAndAttachingTheOldParentBelowItDoesNotLoopEvents() {
         POPPModel model = new POPPModel();
-        TreeNode<?> a = model.createNode(NodeKind.PROBLEM, "a", 0, 0);
-        TreeNode<?> b = model.createNode(NodeKind.PROBLEM, "b", 0, 0);
-        TreeNode<?> c = model.createNode(NodeKind.PROBLEM, "c", 0, 0);
+        TreeNode<?> nodeA = model.createNode(NodeKind.PROBLEM, "a", 0, 0);
+        TreeNode<?> nodeB = model.createNode(NodeKind.PROBLEM, "b", 0, 0);
+        TreeNode<?> nodeC = model.createNode(NodeKind.PROBLEM, "c", 0, 0);
         AtomicInteger moves = new AtomicInteger();
         model.addListener(e -> { if (e instanceof POPPEvent.NodeChangedParent) moves.incrementAndGet(); });
 
-        assertEquals(DecompositionResult.ATTACHED, model.decompose(a, c));
+        assertEquals(DecompositionResult.ATTACHED, model.decompose(nodeA, nodeC));
         moves.set(0);
-        assertEquals(DecompositionResult.ATTACHED, model.decompose(b, c)); // move c from a to b
+        assertEquals(DecompositionResult.ATTACHED, model.decompose(nodeB, nodeC)); // move c from a to b
         assertEquals(1, moves.get(), "the move still reaches the model, exactly once");
-        assertEquals(DecompositionResult.ATTACHED, model.decompose(c, a)); // a below its former child
+        assertEquals(DecompositionResult.ATTACHED, model.decompose(nodeC, nodeA)); // a below its former child
 
-        assertDoesNotThrow(() -> a.setDescription("renamed")); // looped before the fix
-        assertEquals(java.util.List.of(b), model.getProblemRoots());
+        assertDoesNotThrow(() -> nodeA.setDescription("renamed")); // looped before the fix
+        assertEquals(java.util.List.of(nodeB), model.getProblemRoots());
     }
 
     @Test
     void aNodeHasADecompositionExactlyWhileItHasChildren() {
         POPPModel model = new POPPModel();
-        Problem a = (Problem) model.createNode(NodeKind.PROBLEM, "a", 0, 0);
-        Problem b = (Problem) model.createNode(NodeKind.PROBLEM, "b", 0, 0);
-        Problem c = (Problem) model.createNode(NodeKind.PROBLEM, "c", 0, 0);
+        Problem nodeA = (Problem) model.createNode(NodeKind.PROBLEM, "a", 0, 0);
+        Problem nodeB = (Problem) model.createNode(NodeKind.PROBLEM, "b", 0, 0);
+        Problem nodeC = (Problem) model.createNode(NodeKind.PROBLEM, "c", 0, 0);
 
-        a.addChild(b);
-        assertEquals(DecompositionType.AND, a.getDecompositionType());
+        nodeA.addChild(nodeB);
+        assertEquals(DecompositionType.AND, nodeA.getDecompositionType());
 
-        b.addChild(a); // flip: a becomes b's child and has no children left
-        assertEquals(DecompositionType.NONE, a.getDecompositionType());
-        assertEquals(DecompositionType.AND, b.getDecompositionType());
+        nodeB.addChild(nodeA); // flip: a becomes b's child and has no children left
+        assertEquals(DecompositionType.NONE, nodeA.getDecompositionType());
+        assertEquals(DecompositionType.AND, nodeB.getDecompositionType());
 
-        c.addChild(a); // move a from b to c: b loses its last child
-        assertEquals(DecompositionType.NONE, b.getDecompositionType());
+        nodeC.addChild(nodeA); // move a from b to c: b loses its last child
+        assertEquals(DecompositionType.NONE, nodeB.getDecompositionType());
 
-        c.removeChild(a);
-        assertEquals(DecompositionType.NONE, c.getDecompositionType());
+        nodeC.removeChild(nodeA);
+        assertEquals(DecompositionType.NONE, nodeC.getDecompositionType());
     }
 
     @Test
@@ -257,18 +257,18 @@ class TreeNodeTest {
 
     @Test
     void attachingTheDirectParentFlipsTheTwo() {
-        Problem a = new Problem("a", 0, 0);
-        Problem b = new Problem("b", 0, 0);
-        a.addChild(b);
+        Problem nodeA = new Problem("a", 0, 0);
+        Problem nodeB = new Problem("b", 0, 0);
+        nodeA.addChild(nodeB);
 
-        assertTrue(b.addChild(a));
+        assertTrue(nodeB.addChild(nodeA));
 
-        assertTrue(b.getParent().isEmpty());
-        assertEquals(b, a.getParent().orElseThrow());
-        assertEquals(java.util.List.of(a), b.getChildren());
-        assertTrue(a.getChildren().isEmpty());
-        assertEquals(DecompositionType.NONE, a.getDecompositionType());
-        assertEquals(DecompositionType.AND, b.getDecompositionType());
+        assertTrue(nodeB.getParent().isEmpty());
+        assertEquals(nodeB, nodeA.getParent().orElseThrow());
+        assertEquals(java.util.List.of(nodeA), nodeB.getChildren());
+        assertTrue(nodeA.getChildren().isEmpty());
+        assertEquals(DecompositionType.NONE, nodeA.getDecompositionType());
+        assertEquals(DecompositionType.AND, nodeB.getDecompositionType());
     }
 
     @Test

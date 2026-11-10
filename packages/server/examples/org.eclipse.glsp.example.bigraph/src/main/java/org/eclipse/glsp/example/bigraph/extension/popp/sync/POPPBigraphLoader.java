@@ -111,8 +111,8 @@ public final class POPPBigraphLoader {
 
         Map<String, Object> attrs = bnode.getAttributes();
         String description = attrs.get("description") != null ? attrs.get("description").toString() : "";
-        double x = attrs.get("layout.x") instanceof Number n ? n.doubleValue() : 0.0;
-        double y = attrs.get("layout.y") instanceof Number n ? n.doubleValue() : 0.0;
+        double x = attrs.get("layout.x") instanceof Number number ? number.doubleValue() : 0.0;
+        double y = attrs.get("layout.y") instanceof Number number ? number.doubleValue() : 0.0;
 
         TreeNode<?> node = model.restoreNode(kind, bnode.getName(), description, x, y);
         nodesById.put(bnode.getName(), node);

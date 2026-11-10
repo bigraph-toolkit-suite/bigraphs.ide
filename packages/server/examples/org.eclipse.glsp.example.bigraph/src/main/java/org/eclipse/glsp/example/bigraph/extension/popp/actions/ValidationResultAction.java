@@ -17,18 +17,18 @@ public class ValidationResultAction extends Action {
     /** {@link ValidationIssue} with {@code code} and {@code severity} as enum names. */
     public record Issue(String code, String severity, String message, List<String> nodeIds,
                         List<String> elements, String pattern) {
-        static Issue of(ValidationIssue i) {
-            return new Issue(i.code().name(), i.severity().name(), i.message(), List.copyOf(i.nodeIds()),
-                    List.copyOf(i.elements()), i.pattern());
+        static Issue of(ValidationIssue issue) {
+            return new Issue(issue.code().name(), issue.severity().name(), issue.message(), List.copyOf(issue.nodeIds()),
+                    List.copyOf(issue.elements()), issue.pattern());
         }
     }
 
     public record Report(long modelVersion, boolean valid, int errors, int warnings, List<Issue> issues,
                          long durationMs, int patternsMatched, int patternsSkipped) {
-        static Report of(ValidationReport r) {
-            return new Report(r.modelVersion(), r.valid(), r.errors(), r.warnings(),
-                    r.issues().stream().map(Issue::of).toList(),
-                    r.durationMs(), r.patternsMatched(), r.patternsSkipped());
+        static Report of(ValidationReport report) {
+            return new Report(report.modelVersion(), report.valid(), report.errors(), report.warnings(),
+                    report.issues().stream().map(Issue::of).toList(),
+                    report.durationMs(), report.patternsMatched(), report.patternsSkipped());
         }
     }
 

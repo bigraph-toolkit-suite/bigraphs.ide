@@ -21,12 +21,12 @@ final class CoverageRandomModels {
     static void build(Synced popp, Random rnd, int maxNodes) {
         POPPModel model = popp.model;
         Map<NodeKind, List<TreeNode<?>>> byKind = new EnumMap<>(NodeKind.class);
-        int n = 1 + rnd.nextInt(maxNodes);
+        int nodeCount = 1 + rnd.nextInt(maxNodes);
         // a random subset of 2..6 kinds, so that trees get deep and wide enough for inner chains and PARTIAL
         List<NodeKind> kinds = new ArrayList<>(List.of(NodeKind.values()));
         Collections.shuffle(kinds, rnd);
         kinds = kinds.subList(0, 2 + rnd.nextInt(kinds.size() - 1));
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < nodeCount; i++) {
             NodeKind kind = kinds.get(rnd.nextInt(kinds.size()));
             TreeNode<?> node = model.createNode(kind, kind + " " + i, 0, 0);
             List<TreeNode<?>> same = byKind.computeIfAbsent(kind, k -> new ArrayList<>());
@@ -40,16 +40,16 @@ final class CoverageRandomModels {
         }
         for (List<TreeNode<?>> nodes : byKind.values()) {
             for (TreeNode<?> node : nodes) {
-                DecompositionType t = switch (rnd.nextInt(4)) {
+                DecompositionType decompositionType = switch (rnd.nextInt(4)) {
                     case 0 -> DecompositionType.OR;
                     case 1 -> node.getChildren().isEmpty() ? DecompositionType.NONE : DecompositionType.AND;
                     default -> node.getChildren().isEmpty() && rnd.nextInt(3) == 0 ? DecompositionType.NONE
                             : DecompositionType.AND;
                 };
                 if (!node.getChildren().isEmpty()) {
-                    node.setDecompositionType(t == DecompositionType.NONE ? DecompositionType.AND : t);
-                } else if (t != DecompositionType.NONE) {
-                    emptyChain(popp, node, t); // as a hand-edited file could have it
+                    node.setDecompositionType(decompositionType == DecompositionType.NONE ? DecompositionType.AND : decompositionType);
+                } else if (decompositionType != DecompositionType.NONE) {
+                    emptyChain(popp, node, decompositionType); // as a hand-edited file could have it
                 }
             }
         }
@@ -67,11 +67,11 @@ final class CoverageRandomModels {
 
     /** Adds an empty gate node of {@code type} under {@code node}, in the bigraph only. */
     static void emptyChain(Synced popp, TreeNode<?> node, DecompositionType type) {
-        var g = popp.bigraph.getBigraph();
+        var bigraph = popp.bigraph.getBigraph();
         var parent = popp.bigraph.getById(node.getId()).orElseThrow();
         String control = org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature
                 .getGateControl(node.getKind(), type).controlName();
-        g.addNode(parent, popp.bigraph.getSignature().getControlByName(control), node.getId() + "_DECOMP");
+        bigraph.addNode(parent, popp.bigraph.getSignature().getControlByName(control), node.getId() + "_DECOMP");
     }
 
     /** Number of (model, mode) pairs on which {@code analyzer} disagrees with Domain on at least one node. */

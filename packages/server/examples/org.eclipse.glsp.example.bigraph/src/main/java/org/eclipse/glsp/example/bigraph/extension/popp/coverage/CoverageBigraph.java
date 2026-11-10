@@ -36,15 +36,15 @@ public class CoverageBigraph {
     private static PureBigraphMutable copy(POPPBigraph source, CoverageMode mode) {
        DynamicSignature sig = CoverageSignature.get();
        PureBigraphMutable src = source.getBigraph();
-       PureBigraphMutable g = pureBuilder(sig).createMutable();
+       PureBigraphMutable bigraph = pureBuilder(sig).createMutable();
        Map<String, BigraphEntity.NodeEntity<DynamicControl>> copies = new HashMap<>();
 
        for (BigraphEntity.RootEntity root : src.getRoots()) {
-           copyPlaces(src, root, g.addRoot(), g, sig, copies);
+           copyPlaces(src, root, bigraph.addRoot(), bigraph, sig, copies);
        }
-       copyEdges(src, g, copies);
-       annotate(source, g, sig, mode, copies);
-       return g;
+       copyEdges(src, bigraph, copies);
+       annotate(source, bigraph, sig, mode, copies);
+       return bigraph;
     }
 
     /**
@@ -58,47 +58,47 @@ public class CoverageBigraph {
 
     /** Copies the place graph. */
     private static void copyPlaces(PureBigraphMutable src, BigraphEntity<?> oldParent, BigraphEntity<?> newParent,
-                                  PureBigraphMutable g, DynamicSignature sig,
+                                  PureBigraphMutable bigraph, DynamicSignature sig,
                                   Map<String, BigraphEntity.NodeEntity<DynamicControl>> copies) {
         for (BigraphEntity<?> child : src.getChildrenOf(oldParent)) {
             if (!(child instanceof BigraphEntity.NodeEntity<?> raw)) continue;
             var old = (BigraphEntity.NodeEntity<DynamicControl>) raw;
-            var copy = g.addNode(newParent, sig.getControlByName(old.getControl().getNamedType().stringValue()), old.getName());
+            var copy = bigraph.addNode(newParent, sig.getControlByName(old.getControl().getNamedType().stringValue()), old.getName());
             copies.put(old.getName(), copy);
-            copyPlaces(src, old, copy, g, sig, copies);
+            copyPlaces(src, old, copy, bigraph, sig, copies);
         }
     }
 
-    private static void copyEdges(PureBigraphMutable src, PureBigraphMutable g,
+    private static void copyEdges(PureBigraphMutable src, PureBigraphMutable bigraph,
                                   Map<String, BigraphEntity.NodeEntity<DynamicControl>> copies) {
         Map<String, BigraphEntity.Edge> edges = new HashMap<>();
-        for (BigraphEntity.Edge e : src.getEdges()) edges.put(e.getName(), g.addEdge(e.getName()));
+        for (BigraphEntity.Edge e : src.getEdges()) edges.put(e.getName(), bigraph.addEdge(e.getName()));
         for (BigraphEntity.NodeEntity<DynamicControl> old : src.getNodes()) {
             for (BigraphEntity.Port port : src.getPorts(old)) {
-                if (src.getLinkOfPoint(port) instanceof BigraphEntity.Edge e) {
-                    g.connectNodeToLink(copies.get(old.getName()), edges.get(e.getName()));
+                if (src.getLinkOfPoint(port) instanceof BigraphEntity.Edge edge) {
+                    bigraph.connectNodeToLink(copies.get(old.getName()), edges.get(edge.getName()));
                 }
             }
         }
     }
 
-    private static void annotate(POPPBigraph source, PureBigraphMutable g, DynamicSignature sig, CoverageMode mode,
+    private static void annotate(POPPBigraph source, PureBigraphMutable bigraph, DynamicSignature sig, CoverageMode mode,
                                  Map<String, BigraphEntity.NodeEntity<DynamicControl>> copies) {
         for (BigraphEntity.NodeEntity<DynamicControl> old : source.getBigraph().getNodes()) {
             POPPBigraphSignature control = POPPBigraphSignature.forNode(old);
             if (!POPPBigraphSignature.isTreeControl(control)) continue; // container and stubs have no state
             var copy = copies.get(old.getName());
             if (isIntrinsic(control, mode)) {
-                cell(g, sig, copy, CoverageMarker.COV, ".state");
-                cell(g, sig, copy, CoverageMarker.COV_INTRINSIC, ".why");
+                cell(bigraph, sig, copy, CoverageMarker.COV, ".state");
+                cell(bigraph, sig, copy, CoverageMarker.COV_INTRINSIC, ".why");
             } else {
-                cell(g, sig, copy, CoverageMarker.UNC, ".state");
+                cell(bigraph, sig, copy, CoverageMarker.UNC, ".state");
             }
         }
     }
 
-    private static void cell(PureBigraphMutable g, DynamicSignature sig,
-                             BigraphEntity.NodeEntity<DynamicControl> owner, CoverageMarker m, String suffix) {
-        g.addNode(owner, sig.getControlByName(m.controlName()), owner.getName() + suffix);
+    private static void cell(PureBigraphMutable bigraph, DynamicSignature sig,
+                             BigraphEntity.NodeEntity<DynamicControl> owner, CoverageMarker marker, String suffix) {
+        bigraph.addNode(owner, sig.getControlByName(marker.controlName()), owner.getName() + suffix);
     }
 }

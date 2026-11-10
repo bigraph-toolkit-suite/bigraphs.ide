@@ -40,8 +40,8 @@ public enum CoverageMarker {
     public String controlName() { return controlName; }
     public int arity() { return arity; }
 
-    public static CoverageMarker of(Coverage c) {
-        return switch (c) { case UNCOVERED -> UNC; case PARTIAL -> PART; case COVERED -> COV; };
+    public static CoverageMarker of(Coverage coverage) {
+        return switch (coverage) { case UNCOVERED -> UNC; case PARTIAL -> PART; case COVERED -> COV; };
     }
 
     public Optional<Coverage> state() {
@@ -53,11 +53,11 @@ public enum CoverageMarker {
         };
     }
 
-    /** Whether this is a reason marker justifying state {@code s}. */
-    public boolean belongsTo(Coverage s) {
+    /** Whether this is a reason marker justifying state {@code coverage}. */
+    public boolean belongsTo(Coverage coverage) {
         return switch (this) {
-            case PART_DECOMP, PART_LINK -> s == Coverage.PARTIAL;
-            case COV_INTRINSIC, COV_DECOMP, COV_LINK -> s == Coverage.COVERED;
+            case PART_DECOMP, PART_LINK -> coverage == Coverage.PARTIAL;
+            case COV_INTRINSIC, COV_DECOMP, COV_LINK -> coverage == Coverage.COVERED;
             default -> false;
         };
     }

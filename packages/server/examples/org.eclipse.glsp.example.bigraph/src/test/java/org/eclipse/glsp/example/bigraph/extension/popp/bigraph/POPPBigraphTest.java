@@ -40,14 +40,14 @@ class POPPBigraphTest {
 
         @Override
         public void onBigraphEvent(POPPBigraphEvent event) {
-            if (event instanceof POPPBigraphEvent.NodeAdded e) added.add(e.node());
-            else if (event instanceof POPPBigraphEvent.NodeRemoved e) removed.add(e.node());
-            else if (event instanceof POPPBigraphEvent.NodeReparented e) reparented.add(e.child());
-            else if (event instanceof POPPBigraphEvent.PositionChanged e) positions.add(new double[]{e.x(), e.y()});
-            else if (event instanceof POPPBigraphEvent.RelationAdded e) relationsAdded.add(e.stubs());
-            else if (event instanceof POPPBigraphEvent.RelationRemoving e) {
-                relationsRemoving.add(e.stubs());
-                stubsAttachedWhenRemoving.add(e.stubs().stream().allMatch(s -> bigraph.getBigraph().getParent(s) != null));
+            if (event instanceof POPPBigraphEvent.NodeAdded nodeAdded) added.add(nodeAdded.node());
+            else if (event instanceof POPPBigraphEvent.NodeRemoved nodeRemoved) removed.add(nodeRemoved.node());
+            else if (event instanceof POPPBigraphEvent.NodeReparented nodeReparented) reparented.add(nodeReparented.child());
+            else if (event instanceof POPPBigraphEvent.PositionChanged positionChanged) positions.add(new double[]{positionChanged.x(), positionChanged.y()});
+            else if (event instanceof POPPBigraphEvent.RelationAdded relationAdded) relationsAdded.add(relationAdded.stubs());
+            else if (event instanceof POPPBigraphEvent.RelationRemoving relationRemoving) {
+                relationsRemoving.add(relationRemoving.stubs());
+                stubsAttachedWhenRemoving.add(relationRemoving.stubs().stream().allMatch(s -> bigraph.getBigraph().getParent(s) != null));
             }
         }
     }
@@ -135,13 +135,13 @@ class POPPBigraphTest {
 
     @Test
     void treeNodesLiveInOnePOPPContainerUnderTheDefaultRoot() {
-        var a = popp.addTreeNode(criteria("a"));
-        var b = popp.addTreeNode(criteria("b"));
+        var first = popp.addTreeNode(criteria("a"));
+        var second = popp.addTreeNode(criteria("b"));
 
         var container = popp.findPOPPContainer(popp.getDefaultRoot());
         assertNotNull(container);
-        assertSame(container, popp.getBigraph().getParent(a));
-        assertSame(container, popp.getBigraph().getParent(b));
+        assertSame(container, popp.getBigraph().getParent(first));
+        assertSame(container, popp.getBigraph().getParent(second));
     }
 
     @Test
@@ -237,25 +237,25 @@ class POPPBigraphTest {
 
     @Test
     void hydrateRebuildsTheCacheFromAnExistingBigraph() {
-        Chain c = chain();
-        popp.createRelation(relation(c.criteria(), c.proof()));
+        Chain chain = chain();
+        popp.createRelation(relation(chain.criteria(), chain.proof()));
 
         POPPBigraph reloaded = new POPPBigraph(popp.getBigraph(), signature);
 
-        assertTrue(reloaded.getById(c.solution().getId()).isPresent());
-        assertTrue(reloaded.getById(c.proof().getId()).isPresent());
-        assertTrue(reloaded.getById(c.criteria().getId()).isPresent());
-        assertSame(entity(c.criteria()), reloaded.getById(c.criteria().getId()).orElseThrow());
-        assertTrue(reloaded.findRelationEdge(relation(c.criteria(), c.proof())).isPresent());
+        assertTrue(reloaded.getById(chain.solution().getId()).isPresent());
+        assertTrue(reloaded.getById(chain.proof().getId()).isPresent());
+        assertTrue(reloaded.getById(chain.criteria().getId()).isPresent());
+        assertSame(entity(chain.criteria()), reloaded.getById(chain.criteria().getId()).orElseThrow());
+        assertTrue(reloaded.findRelationEdge(relation(chain.criteria(), chain.proof())).isPresent());
     }
 
     @Test
     void hydrateKeepsDecompositionChainsRemovable() {
         SuccessCriteria parent = criteria("parent");
-        SuccessCriteria a = criteria("a"), b = criteria("b"), d = criteria("d");
-        for (var n : List.of(a, b, d)) popp.addTreeNode(n);
+        SuccessCriteria criterionA = criteria("a"), criterionB = criteria("b"), criterionD = criteria("d");
+        for (var n : List.of(criterionA, criterionB, criterionD)) popp.addTreeNode(n);
         popp.addTreeNode(parent);
-        parent.addChild(a); parent.addChild(b); parent.addChild(d);
+        parent.addChild(criterionA); parent.addChild(criterionB); parent.addChild(criterionD);
         parent.setDecompositionType(DecompositionType.AND);
         popp.rebuildDecomposition(parent);
 
@@ -385,10 +385,10 @@ class POPPBigraphTest {
 
     @Test
     void createRelationEncodesAnEdgeAndTwoStubs() {
-        Chain c = chain();
+        Chain chain = chain();
         int nodes = nodeCount(), edges = edgeCount();
 
-        Relation relation = relation(c.criteria(), c.proof());
+        Relation relation = relation(chain.criteria(), chain.proof());
         var edge = popp.createRelation(relation);
 
         assertEquals(nodes + 2, nodeCount());
@@ -401,10 +401,10 @@ class POPPBigraphTest {
 
     @Test
     void stubsHangUnderTheirEndpointAndAreForgottenWithTheRelation() {
-        Chain c = chain();
+        Chain chain = chain();
         Recorder recorder = new Recorder(popp);
         popp.addListener(recorder);
-        Relation relation = relation(c.criteria(), c.proof());
+        Relation relation = relation(chain.criteria(), chain.proof());
         popp.createRelation(relation);
 
         assertEquals(1, recorder.relationsAdded.size());
@@ -422,9 +422,9 @@ class POPPBigraphTest {
 
     @Test
     void removeRelationRemovesTheEdgeAndBothStubs() {
-        Chain c = chain();
+        Chain chain = chain();
         int nodes = nodeCount(), edges = edgeCount();
-        Relation relation = relation(c.criteria(), c.proof());
+        Relation relation = relation(chain.criteria(), chain.proof());
         popp.createRelation(relation);
 
         popp.removeRelation(relation);
@@ -436,8 +436,8 @@ class POPPBigraphTest {
 
     @Test
     void removeRelationTellsListenersWithNodesThatAreStillAttached() {
-        Chain c = chain();
-        Relation relation = relation(c.criteria(), c.proof());
+        Chain chain = chain();
+        Relation relation = relation(chain.criteria(), chain.proof());
         popp.createRelation(relation);
         Recorder recorder = new Recorder(popp);
         popp.addListener(recorder);
@@ -454,8 +454,8 @@ class POPPBigraphTest {
 
     @Test
     void repeatedlyRelatingAndUnrelatingDoesNotGrowTheBigraph() {
-        Chain c = chain();
-        Relation relation = relation(c.criteria(), c.proof());
+        Chain chain = chain();
+        Relation relation = relation(chain.criteria(), chain.proof());
         int nodes = nodeCount(), edges = edgeCount();
         for (int i = 0; i < 200; i++) {
             popp.createRelation(relation);
@@ -467,9 +467,9 @@ class POPPBigraphTest {
 
     @Test
     void severalRelationsAreIndependent() {
-        Chain c = chain();
-        Relation proves = relation(c.criteria(), c.proof());
-        Relation produces = relation(c.proof(), c.solution());
+        Chain chain = chain();
+        Relation proves = relation(chain.criteria(), chain.proof());
+        Relation produces = relation(chain.proof(), chain.solution());
         popp.createRelation(proves);
         popp.createRelation(produces);
 
@@ -481,8 +481,8 @@ class POPPBigraphTest {
 
     @Test
     void removingAnUnknownRelationFails() {
-        Chain c = chain();
-        Relation relation = relation(c.criteria(), c.proof());
+        Chain chain = chain();
+        Relation relation = relation(chain.criteria(), chain.proof());
         assertThrows(NoSuchElementException.class, () -> popp.removeRelation(relation));
     }
 

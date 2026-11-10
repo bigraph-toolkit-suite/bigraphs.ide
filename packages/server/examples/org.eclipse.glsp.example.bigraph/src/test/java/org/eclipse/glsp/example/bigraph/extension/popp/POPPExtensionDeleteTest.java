@@ -58,15 +58,15 @@ class POPPExtensionDeleteTest {
     @Test
     void oneOfSeveralChildrenLeavesTheRestOfTheDecomposition() {
         TreeNode<?> parent = node(NodeKind.GOAL, "parent");
-        TreeNode<?> a = node(NodeKind.GOAL, "a");
-        TreeNode<?> b = node(NodeKind.GOAL, "b");
-        model.decompose(parent, a);
-        model.decompose(parent, b);
+        TreeNode<?> first = node(NodeKind.GOAL, "a");
+        TreeNode<?> second = node(NodeKind.GOAL, "b");
+        model.decompose(parent, first);
+        model.decompose(parent, second);
         parent.setDecompositionType(DecompositionType.OR);
 
-        POPPExtension.deleteElements(model, List.of(ids.toDecompositionEdgeId(parent, a)));
+        POPPExtension.deleteElements(model, List.of(ids.toDecompositionEdgeId(parent, first)));
 
-        assertEquals(List.of(b), parent.getChildren());
+        assertEquals(List.of(second), parent.getChildren());
         assertEquals(DecompositionType.OR, parent.getDecompositionType());
     }
 

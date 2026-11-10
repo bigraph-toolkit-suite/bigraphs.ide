@@ -23,8 +23,8 @@ public final class CoverageTestModels {
     /**
      * The analyzer for a name: {@code domain} ({@link DomainCoverageAnalyzer}, the reference), {@code default}
      * ({@link RewritingCoverageAnalyzer}, from scratch) or {@code incremental} ({@link IncrementalRewritingCoverageAnalyzer},
-     * registered as a listener of the bigraph). Rewriting needs the fixed jLibBig {@code AgentMatcher}, see
-     * {@link RewritingCoverageAnalyzer#REWRITE_KEEPS_LINKS}.
+     * registered as a listener of the bigraph). Rewriting needs the patched framework, see
+     * {@link RewritingCoverageAnalyzer#REWRITING_SUPPORTED}.
      */
     public static CoverageAnalyzer analyzer(String name, Synced popp) {
         CoverageInput input = CoverageInput.of(popp.model, popp.bigraph);
@@ -57,14 +57,14 @@ public final class CoverageTestModels {
     private record Forwarder(POPPBigraph bigraph) implements POPPEventListener {
         @Override
         public void onPOPPEvent(POPPEvent event) {
-            if (event instanceof POPPEvent.NodeCreated e) bigraph.addTreeNode(e.node());
-            else if (event instanceof POPPEvent.NodeDescriptionChanged e) bigraph.updateDescription(e.node().getId(), e.node().getDescription());
-            else if (event instanceof POPPEvent.NodeMoved e) bigraph.updatePosition(e.node().getId(), e.node().getX(), e.node().getY());
-            else if (event instanceof POPPEvent.NodeDecompositionTypeChanged e) bigraph.rebuildDecomposition(e.node());
-            else if (event instanceof POPPEvent.NodeRemoved e) bigraph.deleteTreeNode(e.node().getId());
-            else if (event instanceof POPPEvent.NodeChangedParent e) bigraph.reparentTreeNode(e.node(), e.oldParent(), e.newParent());
-            else if (event instanceof POPPEvent.RelationCreated e) bigraph.createRelation(e.relation());
-            else if (event instanceof POPPEvent.RelationRemoved e) bigraph.removeRelation(e.relation());
+            if (event instanceof POPPEvent.NodeCreated created) bigraph.addTreeNode(created.node());
+            else if (event instanceof POPPEvent.NodeDescriptionChanged descriptionChanged) bigraph.updateDescription(descriptionChanged.node().getId(), descriptionChanged.node().getDescription());
+            else if (event instanceof POPPEvent.NodeMoved moved) bigraph.updatePosition(moved.node().getId(), moved.node().getX(), moved.node().getY());
+            else if (event instanceof POPPEvent.NodeDecompositionTypeChanged typeChanged) bigraph.rebuildDecomposition(typeChanged.node());
+            else if (event instanceof POPPEvent.NodeRemoved removed) bigraph.deleteTreeNode(removed.node().getId());
+            else if (event instanceof POPPEvent.NodeChangedParent parentChanged) bigraph.reparentTreeNode(parentChanged.node(), parentChanged.oldParent(), parentChanged.newParent());
+            else if (event instanceof POPPEvent.RelationCreated relationCreated) bigraph.createRelation(relationCreated.relation());
+            else if (event instanceof POPPEvent.RelationRemoved relationRemoved) bigraph.removeRelation(relationRemoved.relation());
             else throw new IllegalStateException("Unhandled POPPEvent: " + event);
         }
     }
@@ -119,9 +119,9 @@ public final class CoverageTestModels {
         Map<NodeKind, TreeNode<?>> roots = new EnumMap<>(NodeKind.class);
         Map<NodeKind, List<TreeNode<?>>> leaves = new EnumMap<>(NodeKind.class);
         for (NodeKind kind : NodeKind.values()) {
-            List<TreeNode<?>> l = new ArrayList<>();
-            roots.put(kind, tree(model, kind, depth, 0, l));
-            leaves.put(kind, l);
+            List<TreeNode<?>> list = new ArrayList<>();
+            roots.put(kind, tree(model, kind, depth, 0, list));
+            leaves.put(kind, list);
         }
         for (int i = 0; i < (1 << depth); i++) {
             TreeNode<?> problem = leaves.get(NodeKind.PROBLEM).get(i), goal = leaves.get(NodeKind.GOAL).get(i),

@@ -13,14 +13,14 @@ public enum Coverage {
     PARTIAL,
     COVERED;
 
-    public static Coverage best(Coverage a, Coverage b) {
-        return a.compareTo(b) >= 0 ? a : b;
+    public static Coverage best(Coverage first, Coverage second) {
+        return first.compareTo(second) >= 0 ? first : second;
     }
 
     /**
      * Whether a node of this kind can be covered through a relation at all, i.e. whether the metamodel has a
      * propagating kind pair towards its kind. False only for solutions (always covered by themselves), so they are
-     * left out of reports and gap lists.
+     * left out of reports and gap lists. Consequences are coverable, through the problems that cause them.
      */
     public static boolean isCoverable(TreeNode<?> node) {
         return isCoverable(node.getKind());

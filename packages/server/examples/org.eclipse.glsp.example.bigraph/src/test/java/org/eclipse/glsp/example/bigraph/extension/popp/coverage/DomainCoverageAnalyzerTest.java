@@ -202,9 +202,8 @@ class DomainCoverageAnalyzerTest {
     void everyActionStaysWellBelowTheResponsivenessRequirement(int depth) {
         POPPModel model = new POPPModel();
         Tree tree = CoverageTestModels.balancedTree(model, depth, true);
-        // as wired in POPPExtensionState, with the domain analyzer: this test is about the domain analyzer's timings
-        CoverageInput input = CoverageInput.of(model, null);
-        CoverageAnalyzer analyzer = new CachingCoverageAnalyzer(input, new DomainCoverageAnalyzer(input));
+        // this test is about the domain analyzer's timings
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(CoverageInput.of(model, null));
         System.out.printf("[responsiveness] depth=%d leaves=%d popp nodes=%d (budget %.0f ms per action)%n",
                 depth, tree.leaves().size(), model.getAllNodes().size(), BUDGET_MS);
 
@@ -259,10 +258,9 @@ class DomainCoverageAnalyzerTest {
 
     /** The analyzer as POPPExtensionState wires it: late-bound input, cached sessions. */
     @Test
-    void cachedAnalyzerFollowsEditsAndAReloadedModel() {
+    void analyzerFollowsEditsAndAReloadedModel() {
         POPPModel[] current = {new POPPModel()};
-        CoverageInput input = CoverageInput.lazy(() -> current[0], () -> null);
-        CoverageAnalyzer analyzer = new CachingCoverageAnalyzer(input, new DomainCoverageAnalyzer(input));
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(CoverageInput.lazy(() -> current[0], () -> null));
 
         POPPModel model = current[0];
         TreeNode<?> solution = model.createNode(NodeKind.SOLUTION, "solution", 0, 0);
@@ -272,7 +270,7 @@ class DomainCoverageAnalyzerTest {
         model.relate(proof, criterion);
         assertTrue(analyzer.isCovered(criterion, CoverageMode.VERIFY));
 
-        model.unrelate(proof, criterion); // an edit bumps the version: the cached session must not be reused
+        model.unrelate(proof, criterion); // a session is a snapshot: a new one sees the edit
         assertFalse(analyzer.isCovered(criterion, CoverageMode.VERIFY));
 
         // a reload replaces the model object; the analyzer is not rebuilt and must read the new model

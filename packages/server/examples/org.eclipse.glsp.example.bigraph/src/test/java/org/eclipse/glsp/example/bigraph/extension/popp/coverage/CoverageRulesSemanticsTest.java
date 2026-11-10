@@ -105,20 +105,20 @@ class CoverageRulesSemanticsTest {
     void testLinkBasedPropagation(){
         SyncedPOPP popp = new SyncedPOPP();
         CoverageAnalyzer analyzer = popp.analyzer;
-        Problem p = (Problem) popp.model.createNode(NodeKind.PROBLEM, "", 0, 0);
-        Goal g = (Goal) popp.model.createNode(NodeKind.GOAL, "", 0, 0);
+        Problem problem = (Problem) popp.model.createNode(NodeKind.PROBLEM, "", 0, 0);
+        Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "", 0, 0);
         SuccessCriteria sc = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
         SuccessProof sp = (SuccessProof) popp.model.createNode(NodeKind.SUCCESS_PROOF, "", 0, 0);
-        Solution s = (Solution) popp.model.createNode(NodeKind.SOLUTION, "", 0, 0);
+        Solution solution = (Solution) popp.model.createNode(NodeKind.SOLUTION, "", 0, 0);
 
-        assertEquals(RelationResult.CREATED, popp.model.relate(p, g));
-        assertEquals(RelationResult.CREATED, popp.model.relate(g, sc));
+        assertEquals(RelationResult.CREATED, popp.model.relate(problem, goal));
+        assertEquals(RelationResult.CREATED, popp.model.relate(goal, sc));
         assertEquals(RelationResult.CREATED, popp.model.relate(sc, sp));
-        assertEquals(RelationResult.CREATED, popp.model.relate(sp, s));
+        assertEquals(RelationResult.CREATED, popp.model.relate(sp, solution));
 
-        assertEquals(Coverage.COVERED, analyzer.coverage(p, CoverageMode.VERIFY));
-        assertEquals(CoverageReason.Link.class, analyzer.explain(p, CoverageMode.VERIFY).getClass());
-        assertEquals(CoverageReason.Link.class, analyzer.explain(g, CoverageMode.VERIFY).getClass());
+        assertEquals(Coverage.COVERED, analyzer.coverage(problem, CoverageMode.VERIFY));
+        assertEquals(CoverageReason.Link.class, analyzer.explain(problem, CoverageMode.VERIFY).getClass());
+        assertEquals(CoverageReason.Link.class, analyzer.explain(goal, CoverageMode.VERIFY).getClass());
         assertEquals(CoverageReason.Link.class, analyzer.explain(sc, CoverageMode.VERIFY).getClass());
         assertEquals(CoverageReason.Link.class, analyzer.explain(sp, CoverageMode.VERIFY).getClass());
     }
@@ -127,7 +127,7 @@ class CoverageRulesSemanticsTest {
     void intrinsicCoverageBasedOnMode() {
         SyncedPOPP popp = new SyncedPOPP();
         CoverageAnalyzer analyzer = popp.analyzer;
-        Solution s = (Solution) popp.model.createNode(NodeKind.SOLUTION, "", 0, 0);
+        Solution solution = (Solution) popp.model.createNode(NodeKind.SOLUTION, "", 0, 0);
 
         SuccessCriteria sc = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "", 0, 0);
         assertEquals(new CoverageReason.Intrinsic(sc, Coverage.COVERED), analyzer.explain(sc, CoverageMode.PLANNING));
@@ -137,15 +137,15 @@ class CoverageRulesSemanticsTest {
         assertFalse(analyzer.isCovered(sc, CoverageMode.VERIFY));
         assertEquals(Coverage.UNCOVERED, analyzer.coverage(sc, CoverageMode.VERIFY));
 
-        assertEquals(new CoverageReason.Intrinsic(s, Coverage.COVERED), analyzer.explain(s, CoverageMode.PLANNING));
-        assertTrue(analyzer.isCovered(s, CoverageMode.PLANNING));
-        assertEquals(Coverage.COVERED, analyzer.coverage(s, CoverageMode.PLANNING));
-        assertEquals(CoverageReason.Intrinsic.class, analyzer.explain(s, CoverageMode.VERIFY).getClass());
-        assertTrue(analyzer.isCovered(s, CoverageMode.VERIFY));
-        assertEquals(Coverage.COVERED, analyzer.coverage(s, CoverageMode.VERIFY));
+        assertEquals(new CoverageReason.Intrinsic(solution, Coverage.COVERED), analyzer.explain(solution, CoverageMode.PLANNING));
+        assertTrue(analyzer.isCovered(solution, CoverageMode.PLANNING));
+        assertEquals(Coverage.COVERED, analyzer.coverage(solution, CoverageMode.PLANNING));
+        assertEquals(CoverageReason.Intrinsic.class, analyzer.explain(solution, CoverageMode.VERIFY).getClass());
+        assertTrue(analyzer.isCovered(solution, CoverageMode.VERIFY));
+        assertEquals(Coverage.COVERED, analyzer.coverage(solution, CoverageMode.VERIFY));
 
         SuccessProof sp = (SuccessProof) popp.model.createNode(NodeKind.SUCCESS_PROOF, "", 0, 0);
-        popp.model.relate(s, sp);
+        popp.model.relate(solution, sp);
         popp.model.relate(sp, sc);
 
         assertEquals(CoverageReason.Link.class, analyzer.explain(sc, CoverageMode.VERIFY).getClass());

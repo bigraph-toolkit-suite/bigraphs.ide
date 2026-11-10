@@ -12,14 +12,14 @@ class RewritingCoverageAnalyzerTest {
 
     @Test
     void rewritingAgreesWithTheDomainAnalyzerOnRandomModels() {
-        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITING_SUPPORTED, "needs the patched framework");
         StringBuilder report = new StringBuilder();
         assertEquals(0, CoverageRandomModels.mismatches("default", 12, 8, 4400, report), report.toString());
     }
 
     @Test
     void theFixpointBigraphKeepsEveryRelationEdgeAndRecordsTheGiverOnIt() {
-        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITING_SUPPORTED, "needs the patched framework");
         Synced popp = new Synced();
         CoverageTestModels.fullModel(popp.model, 2, true);
         CoverageInput input = CoverageInput.of(popp.model, popp.bigraph);

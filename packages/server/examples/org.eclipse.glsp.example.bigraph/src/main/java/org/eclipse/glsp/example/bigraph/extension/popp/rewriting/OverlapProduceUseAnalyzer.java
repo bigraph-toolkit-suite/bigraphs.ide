@@ -3,7 +3,6 @@ package org.eclipse.glsp.example.bigraph.extension.popp.rewriting;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.BigraphEntity.NodeEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraph;
-import org.bigraphs.framework.core.reactivesystem.InstantiationMap;
 import org.bigraphs.framework.core.reactivesystem.ParametricReactionRule;
 import org.bigraphs.framework.core.reactivesystem.TrackingMap;
 
@@ -91,23 +90,9 @@ public class OverlapProduceUseAnalyzer implements ProduceUseAnalyzer {
     /** What a rewrite by {@code rule} changes. */
     protected Changes changes(ParametricReactionRule<PureBigraph> rule) {
         PureBigraph redex = rule.getRedex(), reactum = rule.getReactum();
-        Map<String, NodeEntity<?>> redexByName = new HashMap<>();
-        for (NodeEntity<?> node : redex.getNodes()) redexByName.put(node.getName(), node);
-        TrackingMap tracking = rule.getTrackingMap();
-
-        // reactum node -> the redex node it keeps (absent: new)
-        Map<NodeEntity<?>, NodeEntity<?>> kept = new IdentityHashMap<>();
-        Map<NodeEntity<?>, NodeEntity<?>> keptBy = new IdentityHashMap<>();
-        if (tracking != null) {
-            for (NodeEntity<?> node : reactum.getNodes()) {
-                String from = tracking.get(node.getName());
-                NodeEntity<?> old = from == null || from.isEmpty() ? null : redexByName.get(from);
-                if (old != null && control(old).equals(control(node)) && !keptBy.containsKey(old)) {
-                    kept.put(node, old);
-                    keptBy.put(old, node);
-                }
-            }
-        }
+        KeptNodes keptNodes = KeptNodes.of(rule);
+        Map<NodeEntity<?>, NodeEntity<?>> kept = keptNodes.redexOf(); // reactum node -> the redex node it keeps (absent: new)
+        Map<NodeEntity<?>, NodeEntity<?>> keptBy = keptNodes.reactumOf(); // redex node -> the reactum node that keeps it
 
         List<NodeEntity<?>> newStructure = new ArrayList<>();
         List<NodeEntity<?>> lostChildren = new ArrayList<>();
@@ -136,17 +121,13 @@ public class OverlapProduceUseAnalyzer implements ProduceUseAnalyzer {
         // node without a site requires exactly its children, and a region of a redex is open to the context.
 
         return new Changes(newStructure, lostChildren, relinked, lostLinkPoints(redex, reactum, keptBy),
-                movedParameters(rule, keptBy));
+                keptNodes.movesSites(rule) || !innerNameLinks(redex, keptBy, true).equals(innerNameLinks(reactum, keptBy, false)));
     }
 
     /** Whether the parent of a kept node is the same before and after (a kept node, or the same region). */
     private static boolean sameParent(BigraphEntity<?> before, BigraphEntity<?> after,
                                       Map<NodeEntity<?>, NodeEntity<?>> keptBy) {
-        if (before instanceof NodeEntity<?> beforeNode) return after == keptBy.get(beforeNode);
-        if (before instanceof BigraphEntity.RootEntity rootBefore && after instanceof BigraphEntity.RootEntity rootAfter) {
-            return rootBefore.getIndex() == rootAfter.getIndex();
-        }
-        return false;
+        return KeptNodes.sameParent(before, after, keptBy);
     }
 
     /**
@@ -217,25 +198,6 @@ public class OverlapProduceUseAnalyzer implements ProduceUseAnalyzer {
                 for (String second : points) if (first.compareTo(second) < 0) out.add(first + "|" + second);
             }
         }
-    }
-
-    /**
-     * Whether the parameters end up elsewhere (copied, dropped, or under a different parent than their site), or are
-     * linked differently (inner names connected to other links than before).
-     */
-    private static boolean movedParameters(ParametricReactionRule<PureBigraph> rule,
-                                           Map<NodeEntity<?>, NodeEntity<?>> keptBy) {
-        PureBigraph redex = rule.getRedex(), reactum = rule.getReactum();
-        InstantiationMap instantiation = rule.getInstantationMap();
-        int sites = redex.getSites().size();
-        if (reactum.getSites().size() != sites) return true;
-        if (instantiation != null && !instantiation.isIdentity()) return true;
-        Map<Integer, BigraphEntity<?>> parentBefore = new HashMap<>();
-        for (BigraphEntity.SiteEntity site : redex.getSites()) parentBefore.put(site.getIndex(), redex.getParent(site));
-        for (BigraphEntity.SiteEntity site : reactum.getSites()) {
-            if (!sameParent(parentBefore.get(site.getIndex()), reactum.getParent(site), keptBy)) return true;
-        }
-        return !innerNameLinks(redex, keptBy, true).equals(innerNameLinks(reactum, keptBy, false));
     }
 
     /** For every inner name, the other inner names, the outer name and the kept points on its link. */
@@ -339,11 +301,10 @@ public class OverlapProduceUseAnalyzer implements ProduceUseAnalyzer {
     }
 
     protected static boolean hasSite(PureBigraph bigraph, NodeEntity<?> node) {
-        for (BigraphEntity<?> child : bigraph.getChildrenOf(node)) if (child instanceof BigraphEntity.SiteEntity) return true;
-        return false;
+        return KeptNodes.hasSite(bigraph, node);
     }
 
     protected static String control(NodeEntity<?> node) {
-        return node.getControl().getNamedType().stringValue();
+        return KeptNodes.control(node);
     }
 }

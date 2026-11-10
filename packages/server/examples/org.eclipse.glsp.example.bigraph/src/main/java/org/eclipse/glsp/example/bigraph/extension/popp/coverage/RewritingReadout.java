@@ -19,45 +19,45 @@ record RewritingReadout(Map<String, Coverage> coverage, Map<String, Derivation> 
      * ({@code CovLink}/{@code PartLink}) is connected to the relation edge it was derived over, so the giver is the
      * domain node owning the other relation stub on that link.
      */
-    static RewritingReadout ofRewritten(PureBigraph g) {
+    static RewritingReadout ofRewritten(PureBigraph bigraph) {
         Map<String, Coverage> cov = new HashMap<>();
         Map<String, Derivation> why = new HashMap<>();
-        for (BigraphEntity.NodeEntity<?> owner : g.getNodes()) {
+        for (BigraphEntity.NodeEntity<?> owner : bigraph.getNodes()) {
             if (!POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(owner))) continue;
             Coverage state = null;
             List<BigraphEntity.NodeEntity<?>> markers = new ArrayList<>();
-            for (BigraphEntity<?> c : g.getChildrenOf(owner)) {
-                if (!(c instanceof BigraphEntity.NodeEntity<?> n)) continue;
-                Optional<CoverageMarker> m = CoverageMarker.forNode(n);
-                if (m.isEmpty()) continue;
-                if (m.get().state().isPresent()) state = m.get().state().get();
-                else markers.add(n);
+            for (BigraphEntity<?> c : bigraph.getChildrenOf(owner)) {
+                if (!(c instanceof BigraphEntity.NodeEntity<?> node)) continue;
+                Optional<CoverageMarker> marker = CoverageMarker.forNode(node);
+                if (marker.isEmpty()) continue;
+                if (marker.get().state().isPresent()) state = marker.get().state().get();
+                else markers.add(node);
             }
             if (state == null) continue;
             cov.put(owner.getName(), state);
             for (BigraphEntity.NodeEntity<?> n : markers) {
-                CoverageMarker m = CoverageMarker.forNode(n).orElseThrow();
-                if (!m.belongsTo(state)) continue;
-                String giver = m.arity() == 0 ? null : giverOverLink(g, owner, n);
-                why.put(owner.getName(), new Derivation(m, giver));
+                CoverageMarker marker = CoverageMarker.forNode(n).orElseThrow();
+                if (!marker.belongsTo(state)) continue;
+                String giver = marker.arity() == 0 ? null : giverOverLink(bigraph, owner, n);
+                why.put(owner.getName(), new Derivation(marker, giver));
             }
         }
         return new RewritingReadout(cov, why);
     }
 
     /** The domain node owning the other relation stub on the link of the reason marker {@code marker}. */
-    private static String giverOverLink(PureBigraph g, BigraphEntity.NodeEntity<?> receiver,
+    private static String giverOverLink(PureBigraph bigraph, BigraphEntity.NodeEntity<?> receiver,
                                         BigraphEntity.NodeEntity<?> marker) {
-        for (BigraphEntity.Port port : g.getPorts(marker)) {
-            BigraphEntity.Link link = (BigraphEntity.Link) g.getLinkOfPoint(port);
+        for (BigraphEntity.Port port : bigraph.getPorts(marker)) {
+            BigraphEntity.Link link = (BigraphEntity.Link) bigraph.getLinkOfPoint(port);
             if (link == null) continue;
-            for (BigraphEntity<?> point : g.getPointsFromLink(link)) {
-                if (!(point instanceof BigraphEntity.Port p)) continue;
-                BigraphEntity.NodeEntity<?> stub = g.getNodeOfPort(p);
+            for (BigraphEntity<?> point : bigraph.getPointsFromLink(link)) {
+                if (!(point instanceof BigraphEntity.Port stubPort)) continue;
+                BigraphEntity.NodeEntity<?> stub = bigraph.getNodeOfPort(stubPort);
                 if (CoverageMarker.forNode(stub).isPresent()) continue;     // the marker itself
-                BigraphEntity<?> owner = g.getParent(stub);
-                if (owner instanceof BigraphEntity.NodeEntity<?> o && !o.getName().equals(receiver.getName())) {
-                    return o.getName();
+                BigraphEntity<?> owner = bigraph.getParent(stub);
+                if (owner instanceof BigraphEntity.NodeEntity<?> node && !node.getName().equals(receiver.getName())) {
+                    return node.getName();
                 }
             }
         }

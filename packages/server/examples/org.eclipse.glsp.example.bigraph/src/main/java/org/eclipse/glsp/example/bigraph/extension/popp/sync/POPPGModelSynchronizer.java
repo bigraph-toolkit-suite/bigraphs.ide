@@ -28,63 +28,63 @@ public class POPPGModelSynchronizer implements POPPEventListener {
     @Override
     public void onPOPPEvent(final POPPEvent event) {
         // If language standard is updated to 21 replace with switch casting
-        if (event instanceof POPPEvent.NodeCreated e) nodeCreated(e);
-        else if (event instanceof POPPEvent.NodeDescriptionChanged e) nodeDescriptionChanged(e);
-        else if (event instanceof POPPEvent.NodeMoved e) nodeMoved(e);
-        else if (event instanceof POPPEvent.NodeDecompositionTypeChanged e) nodeDecompositionTypeChanged(e);
-        else if (event instanceof POPPEvent.NodeRemoved e) nodeRemoved(e);
-        else if (event instanceof POPPEvent.NodeChangedParent e) nodeChangedParent(e);
-        else if (event instanceof POPPEvent.RelationCreated e) relationCreated(e);
-        else if (event instanceof POPPEvent.RelationRemoved e) relationRemoved(e);
+        if (event instanceof POPPEvent.NodeCreated created) nodeCreated(created);
+        else if (event instanceof POPPEvent.NodeDescriptionChanged descriptionChanged) nodeDescriptionChanged(descriptionChanged);
+        else if (event instanceof POPPEvent.NodeMoved moved) nodeMoved(moved);
+        else if (event instanceof POPPEvent.NodeDecompositionTypeChanged typeChanged) nodeDecompositionTypeChanged(typeChanged);
+        else if (event instanceof POPPEvent.NodeRemoved removed) nodeRemoved(removed);
+        else if (event instanceof POPPEvent.NodeChangedParent parentChanged) nodeChangedParent(parentChanged);
+        else if (event instanceof POPPEvent.RelationCreated relationCreated) relationCreated(relationCreated);
+        else if (event instanceof POPPEvent.RelationRemoved relationRemoved) relationRemoved(relationRemoved);
         else throw new IllegalStateException("Unhandled POPPEvent: " + event);
     }
 
-    private void nodeCreated(POPPEvent.NodeCreated e) {
-        GNode newNode = factory.createTreeNode(e.node());
+    private void nodeCreated(POPPEvent.NodeCreated created) {
+        GNode newNode = factory.createTreeNode(created.node());
         getGModel().addNode(newNode.getId(), newNode);
     }
 
-    private void nodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {
-        GNode editedNode = getGModel().getNode(e.node().getId());
-        factory.applyLayout(editedNode, e.node());
+    private void nodeDescriptionChanged(POPPEvent.NodeDescriptionChanged descriptionChanged) {
+        GNode editedNode = getGModel().getNode(descriptionChanged.node().getId());
+        factory.applyLayout(editedNode, descriptionChanged.node());
     }
 
-    private void nodeMoved(POPPEvent.NodeMoved e) {
-        GNode editedNode = getGModel().getNode(e.node().getId());
-        factory.applyLayout(editedNode, e.node());
+    private void nodeMoved(POPPEvent.NodeMoved moved) {
+        GNode editedNode = getGModel().getNode(moved.node().getId());
+        factory.applyLayout(editedNode, moved.node());
     }
 
-    private void nodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged e) {
-        GNode editedNode = getGModel().getNode(e.node().getId());
-        editedNode.getArgs().put("decomposition_type", e.node().getDecompositionType().toString());
-        factory.applyLayout(editedNode, e.node());
+    private void nodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged typeChanged) {
+        GNode editedNode = getGModel().getNode(typeChanged.node().getId());
+        editedNode.getArgs().put("decomposition_type", typeChanged.node().getDecompositionType().toString());
+        factory.applyLayout(editedNode, typeChanged.node());
     }
 
-    private void nodeRemoved(POPPEvent.NodeRemoved e) {
-        context.getOwnState().getGModel().removeNode(e.node().getId());
+    private void nodeRemoved(POPPEvent.NodeRemoved removed) {
+        context.getOwnState().getGModel().removeNode(removed.node().getId());
     }
 
-    private void nodeChangedParent(POPPEvent.NodeChangedParent e) {
-        if (e.oldParent() != null) {
+    private void nodeChangedParent(POPPEvent.NodeChangedParent parentChanged) {
+        if (parentChanged.oldParent() != null) {
             getGModel().getRoot().getChildren().stream()
-                    .filter(element -> element.getId().equals(factory.toDecompositionEdgeId(e.oldParent(), e.node())))
+                    .filter(element -> element.getId().equals(factory.toDecompositionEdgeId(parentChanged.oldParent(), parentChanged.node())))
                     .findFirst().ifPresent(oldEdge -> getGModel().getRoot().getChildren().remove(oldEdge));
         }
 
-        if (e.newParent() != null) {
-            GEdge decompositionEdge = factory.createDecompositionEdge(e.newParent(), e.node());
+        if (parentChanged.newParent() != null) {
+            GEdge decompositionEdge = factory.createDecompositionEdge(parentChanged.newParent(), parentChanged.node());
             getGModel().getRoot().getChildren().add(decompositionEdge);
         }
     }
 
-    private void relationCreated(POPPEvent.RelationCreated e) {
-        GEdge relationEdge = factory.createRelationEdge(e.relation());
+    private void relationCreated(POPPEvent.RelationCreated relationCreated) {
+        GEdge relationEdge = factory.createRelationEdge(relationCreated.relation());
         getGModel().getRoot().getChildren().add(relationEdge);
     }
 
-    private void relationRemoved(POPPEvent.RelationRemoved e) {
+    private void relationRemoved(POPPEvent.RelationRemoved relationRemoved) {
         getGModel().getRoot().getChildren().stream()
-                .filter(element -> element.getId().equals(factory.toRelationEdgeId(e.relation())))
+                .filter(element -> element.getId().equals(factory.toRelationEdgeId(relationRemoved.relation())))
                 .findFirst().ifPresent(oldEdge -> getGModel().getRoot().getChildren().remove(oldEdge));
     }
 }

@@ -4,9 +4,7 @@ import org.bigraphs.framework.core.ControlStatus;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.BigraphEntity.NodeEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraph;
-import org.bigraphs.framework.core.reactivesystem.InstantiationMap;
 import org.bigraphs.framework.core.reactivesystem.ParametricReactionRule;
-import org.bigraphs.framework.core.reactivesystem.TrackingMap;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -57,10 +55,10 @@ public final class GuardEffects {
     public static Integer effect(ParametricReactionRule<PureBigraph> rule, PureBigraph guard) {
         if (!linkAgnostic(guard)) return null;
         PureBigraph redex = rule.getRedex(), reactum = rule.getReactum();
-        Map<NodeEntity<?>, NodeEntity<?>> forward = tracking(rule); // redex node -> reactum node
-        Map<NodeEntity<?>, NodeEntity<?>> backward = new IdentityHashMap<>();
-        forward.forEach((redexNode, reactumNode) -> backward.put(reactumNode, redexNode));
-        if (movesParameters(rule, forward)) return null;
+        KeptNodes keptNodes = KeptNodes.of(rule);
+        Map<NodeEntity<?>, NodeEntity<?>> forward = keptNodes.reactumOf(); // redex node -> reactum node
+        Map<NodeEntity<?>, NodeEntity<?>> backward = keptNodes.redexOf(); // reactum node -> redex node
+        if (keptNodes.movesSites(rule)) return null;
         if (hasExactParent(guard) && changesRegions(redex, reactum, forward)) return null;
 
         Side before = new Side(redex), after = new Side(reactum);
@@ -336,42 +334,6 @@ public final class GuardEffects {
 
     // The rule
 
-    /** Redex node to the reactum node that keeps it (same control, from the tracking map). */
-    private static Map<NodeEntity<?>, NodeEntity<?>> tracking(ParametricReactionRule<PureBigraph> rule) {
-        PureBigraph redex = rule.getRedex(), reactum = rule.getReactum();
-        Map<String, NodeEntity<?>> redexByName = new HashMap<>();
-        for (NodeEntity<?> node : redex.getNodes()) redexByName.put(node.getName(), node);
-        Map<NodeEntity<?>, NodeEntity<?>> forward = new IdentityHashMap<>();
-        TrackingMap tracking = rule.getTrackingMap();
-        if (tracking == null) return forward;
-        for (NodeEntity<?> node : reactum.getNodes()) {
-            String from = tracking.get(node.getName());
-            NodeEntity<?> old = from == null || from.isEmpty() ? null : redexByName.get(from);
-            if (old != null && control(old).equals(control(node)) && !forward.containsKey(old)) forward.put(old, node);
-        }
-        return forward;
-    }
-
-    /** Parameters copied, dropped or under another parent than before. */
-    private static boolean movesParameters(ParametricReactionRule<PureBigraph> rule, Map<NodeEntity<?>, NodeEntity<?>> forward) {
-        PureBigraph redex = rule.getRedex(), reactum = rule.getReactum();
-        InstantiationMap instantiation = rule.getInstantationMap();
-        if (reactum.getSites().size() != redex.getSites().size()) return true;
-        if (instantiation != null && !instantiation.isIdentity()) return true;
-        Map<Integer, BigraphEntity<?>> parentBefore = new HashMap<>();
-        for (BigraphEntity.SiteEntity site : redex.getSites()) parentBefore.put(site.getIndex(), redex.getParent(site));
-        for (BigraphEntity.SiteEntity site : reactum.getSites()) {
-            BigraphEntity<?> was = parentBefore.get(site.getIndex()), now = reactum.getParent(site);
-            if (was instanceof NodeEntity<?> wasNode) {
-                if (forward.get(wasNode) != now) return true;
-            } else if (!(was instanceof BigraphEntity.RootEntity wasRoot && now instanceof BigraphEntity.RootEntity nowRoot
-                    && wasRoot.getIndex() == nowRoot.getIndex())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /** Whether the nodes directly in some region differ (a node there deleted, new, or moved in or out). */
     private static boolean changesRegions(PureBigraph redex, PureBigraph reactum, Map<NodeEntity<?>, NodeEntity<?>> forward) {
         Side before = new Side(redex), after = new Side(reactum);
@@ -401,11 +363,10 @@ public final class GuardEffects {
     }
 
     private static boolean hasSite(PureBigraph bigraph, NodeEntity<?> node) {
-        for (BigraphEntity<?> child : bigraph.getChildrenOf(node)) if (child instanceof BigraphEntity.SiteEntity) return true;
-        return false;
+        return KeptNodes.hasSite(bigraph, node);
     }
 
     private static String control(NodeEntity<?> node) {
-        return node.getControl().getNamedType().stringValue();
+        return KeptNodes.control(node);
     }
 }

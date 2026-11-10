@@ -97,33 +97,33 @@ public final class POPPJson {
         sorted.sort(Comparator.comparing((Relation r) -> r.type().ordinal())
                 .thenComparing(r -> r.source().getId()).thenComparing(r -> r.target().getId()));
         for (Relation r : sorted) {
-            JsonObject o = new JsonObject();
-            o.addProperty("type", r.type().name().toLowerCase(Locale.ROOT));
-            o.addProperty("source", r.source().getId());
-            o.addProperty("target", r.target().getId());
-            relations.add(o);
+            JsonObject json = new JsonObject();
+            json.addProperty("type", r.type().name().toLowerCase(Locale.ROOT));
+            json.addProperty("source", r.source().getId());
+            json.addProperty("target", r.target().getId());
+            relations.add(json);
         }
         doc.add("relations", relations);
         return GSON.toJson(doc) + "\n";
     }
 
-    private static JsonObject node(TreeNode<?> n) {
-        JsonObject o = new JsonObject();
-        o.addProperty("id", n.getId());
-        o.addProperty("description", n.getDescription() == null ? "" : n.getDescription());
-        if (!n.getChildren().isEmpty()) {
-            o.addProperty("decomposition", n.getDecompositionType().name().toLowerCase(Locale.ROOT));
+    private static JsonObject node(TreeNode<?> node) {
+        JsonObject json = new JsonObject();
+        json.addProperty("id", node.getId());
+        json.addProperty("description", node.getDescription() == null ? "" : node.getDescription());
+        if (!node.getChildren().isEmpty()) {
+            json.addProperty("decomposition", node.getDecompositionType().name().toLowerCase(Locale.ROOT));
         }
         JsonObject layout = new JsonObject();
-        layout.addProperty("x", n.getX());
-        layout.addProperty("y", n.getY());
-        o.add("layout", layout);
-        if (!n.getChildren().isEmpty()) {
+        layout.addProperty("x", node.getX());
+        layout.addProperty("y", node.getY());
+        json.add("layout", layout);
+        if (!node.getChildren().isEmpty()) {
             JsonArray children = new JsonArray();
-            for (TreeNode<?> c : n.getChildren()) children.add(node(c));
-            o.add("children", children);
+            for (TreeNode<?> c : node.getChildren()) children.add(node(c));
+            json.add("children", children);
         }
-        return o;
+        return json;
     }
 
     private static List<? extends TreeNode<?>> roots(POPPModel model, NodeKind kind) {
@@ -177,8 +177,8 @@ public final class POPPJson {
                 }
                 int i = 0;
                 for (JsonElement e : array.getAsJsonArray()) {
-                    Node n = node(e, entry.getKey(), "trees." + entry.getValue() + "[" + i++ + "]", kinds, problems);
-                    if (n != null) roots.add(n);
+                    Node parsedNode = node(e, entry.getKey(), "trees." + entry.getValue() + "[" + i++ + "]", kinds, problems);
+                    if (parsedNode != null) roots.add(parsedNode);
                 }
             }
         }
@@ -196,8 +196,8 @@ public final class POPPJson {
                     problems.add(at + " must be an object");
                     continue;
                 }
-                JsonObject o = e.getAsJsonObject();
-                String type = string(o, "type"), source = string(o, "source"), target = string(o, "target");
+                JsonObject relationJson = e.getAsJsonObject();
+                String type = string(relationJson, "type"), source = string(relationJson, "source"), target = string(relationJson, "target");
                 Optional<RelationType> rt = relationType(type);
                 if (rt.isEmpty()) problems.add(at + ": unknown relation type \"" + type + "\"");
                 if (source == null || !kinds.containsKey(source)) problems.add(at + ": unknown source node \"" + source + "\"");
@@ -220,23 +220,23 @@ public final class POPPJson {
         return new Document(List.copyOf(roots), List.copyOf(links));
     }
 
-    private static Node node(JsonElement e, NodeKind kind, String at, Map<String, NodeKind> kinds, List<String> problems) {
-        if (!e.isJsonObject()) {
+    private static Node node(JsonElement element, NodeKind kind, String at, Map<String, NodeKind> kinds, List<String> problems) {
+        if (!element.isJsonObject()) {
             problems.add(at + " must be an object");
             return null;
         }
-        JsonObject o = e.getAsJsonObject();
-        String id = string(o, "id");
+        JsonObject nodeJson = element.getAsJsonObject();
+        String id = string(nodeJson, "id");
         if (id == null || id.isBlank()) {
             problems.add(at + ": \"id\" must be a non-empty string");
         } else if (kinds.putIfAbsent(id, kind) != null) {
             problems.add(at + ": duplicate id \"" + id + "\"");
         }
-        String description = o.has("description") ? string(o, "description") : "";
+        String description = nodeJson.has("description") ? string(nodeJson, "description") : "";
         if (description == null) problems.add(at + ": \"description\" must be a string");
 
         Double x = null, y = null;
-        JsonElement layout = o.get("layout");
+        JsonElement layout = nodeJson.get("layout");
         if (layout != null) {
             if (layout.isJsonObject() && number(layout.getAsJsonObject(), "x") != null
                     && number(layout.getAsJsonObject(), "y") != null) {
@@ -248,7 +248,7 @@ public final class POPPJson {
         }
 
         List<Node> children = new ArrayList<>();
-        JsonElement kids = o.get("children");
+        JsonElement kids = nodeJson.get("children");
         if (kids != null && !kids.isJsonArray()) {
             problems.add(at + ": \"children\" must be an array");
         } else if (kids != null) {
@@ -260,10 +260,10 @@ public final class POPPJson {
         }
 
         DecompositionType decomposition = DecompositionType.NONE;
-        String d = o.has("decomposition") ? string(o, "decomposition") : null;
-        if (o.has("decomposition")) {
-            if ("and".equals(d)) decomposition = DecompositionType.AND;
-            else if ("or".equals(d)) decomposition = DecompositionType.OR;
+        String decompositionName = nodeJson.has("decomposition") ? string(nodeJson, "decomposition") : null;
+        if (nodeJson.has("decomposition")) {
+            if ("and".equals(decompositionName)) decomposition = DecompositionType.AND;
+            else if ("or".equals(decompositionName)) decomposition = DecompositionType.OR;
             else problems.add(at + ": \"decomposition\" must be \"and\" or \"or\"");
             if (kids == null || !kids.isJsonArray() || kids.getAsJsonArray().isEmpty()) {
                 problems.add(at + ": only a node with children has a decomposition");
@@ -292,15 +292,15 @@ public final class POPPJson {
         }
     }
 
-    private static void restore(Node n, TreeNode<?> parent, int depth, POPPModel model, Map<NodeKind, int[]> rows) {
-        int column = new ArrayList<>(TREE_KEYS.keySet()).indexOf(n.kind());
-        int row = rows.computeIfAbsent(n.kind(), k -> new int[1])[0]++;
-        double x = n.x() != null ? n.x() : column * 320 + depth * 40;
-        double y = n.y() != null ? n.y() : row * 90;
-        TreeNode<?> node = model.restoreNode(n.kind(), n.id(), n.description(), x, y);
+    private static void restore(Node parsed, TreeNode<?> parent, int depth, POPPModel model, Map<NodeKind, int[]> rows) {
+        int column = new ArrayList<>(TREE_KEYS.keySet()).indexOf(parsed.kind());
+        int row = rows.computeIfAbsent(parsed.kind(), k -> new int[1])[0]++;
+        double x = parsed.x() != null ? parsed.x() : column * 320 + depth * 40;
+        double y = parsed.y() != null ? parsed.y() : row * 90;
+        TreeNode<?> node = model.restoreNode(parsed.kind(), parsed.id(), parsed.description(), x, y);
         if (parent != null) model.decompose(parent, node);
-        for (Node c : n.children()) restore(c, node, depth + 1, model, rows);
-        if (n.decomposition() != DecompositionType.NONE) node.setDecompositionType(n.decomposition());
+        for (Node c : parsed.children()) restore(c, node, depth + 1, model, rows);
+        if (parsed.decomposition() != DecompositionType.NONE) node.setDecompositionType(parsed.decomposition());
     }
 
     private static Optional<RelationType> relationType(String name) {
@@ -308,13 +308,13 @@ public final class POPPJson {
         return Arrays.stream(RelationType.values()).filter(t -> t.name().equalsIgnoreCase(name)).findFirst();
     }
 
-    private static String string(JsonObject o, String key) {
-        JsonElement e = o.get(key);
-        return e != null && e.isJsonPrimitive() && e.getAsJsonPrimitive().isString() ? e.getAsString() : null;
+    private static String string(JsonObject json, String key) {
+        JsonElement element = json.get(key);
+        return element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isString() ? element.getAsString() : null;
     }
 
-    private static Double number(JsonObject o, String key) {
-        JsonElement e = o.get(key);
-        return e != null && e.isJsonPrimitive() && e.getAsJsonPrimitive().isNumber() ? e.getAsDouble() : null;
+    private static Double number(JsonObject json, String key) {
+        JsonElement element = json.get(key);
+        return element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isNumber() ? element.getAsDouble() : null;
     }
 }

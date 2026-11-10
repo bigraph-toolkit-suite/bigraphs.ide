@@ -47,15 +47,15 @@ class POPPModelValidatorTest {
     @Test
     void separateRootsOfOneKindAreOneWarningListingAllOfThem() {
         CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
-        TreeNode<?> a = popp.model.createNode(NodeKind.PROBLEM, "a", 0, 0);
-        TreeNode<?> b = popp.model.createNode(NodeKind.PROBLEM, "b", 0, 0);
-        TreeNode<?> c = popp.model.createNode(NodeKind.PROBLEM, "c", 0, 0);
+        TreeNode<?> nodeA = popp.model.createNode(NodeKind.PROBLEM, "a", 0, 0);
+        TreeNode<?> nodeB = popp.model.createNode(NodeKind.PROBLEM, "b", 0, 0);
+        TreeNode<?> nodeC = popp.model.createNode(NodeKind.PROBLEM, "c", 0, 0);
         popp.model.createNode(NodeKind.GOAL, "single goal", 0, 0);
 
         List<ValidationIssue> trees = issues(validate(popp), ValidationIssue.Code.MULTIPLE_TREES);
 
         assertEquals(1, trees.size());
-        assertEquals(java.util.Set.of(a.getId(), b.getId(), c.getId()), java.util.Set.copyOf(trees.getFirst().nodeIds()));
+        assertEquals(java.util.Set.of(nodeA.getId(), nodeB.getId(), nodeC.getId()), java.util.Set.copyOf(trees.getFirst().nodeIds()));
         assertEquals(ValidationIssue.Severity.WARNING, trees.getFirst().severity());
     }
 
@@ -75,8 +75,8 @@ class POPPModelValidatorTest {
         // the editor cannot produce this; a file edited by hand can contain it
         CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
         Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "goal", 0, 0);
-        PureBigraphMutable g = popp.bigraph.getBigraph();
-        g.addNode(node(g, goal.getId()), popp.bigraph.getSignature().getControlByName("GoalAnd"), goal.getId() + "_DECOMP");
+        PureBigraphMutable bigraph = popp.bigraph.getBigraph();
+        bigraph.addNode(node(bigraph, goal.getId()), popp.bigraph.getSignature().getControlByName("GoalAnd"), goal.getId() + "_DECOMP");
 
         List<ValidationIssue> empty = issues(validate(popp), ValidationIssue.Code.EMPTY_DECOMPOSITION);
 
@@ -91,18 +91,18 @@ class POPPModelValidatorTest {
         Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "goal", 0, 0);
         Problem child = (Problem) popp.model.createNode(NodeKind.PROBLEM, "child", 0, 0);
         popp.model.relate(problem, goal);
-        PureBigraphMutable g = popp.bigraph.getBigraph();
+        PureBigraphMutable bigraph = popp.bigraph.getBigraph();
         var container = popp.bigraph.findPOPPContainer(popp.bigraph.getDefaultRoot());
 
         // 1) the goal-side stub of the relation is lost
-        var goalStub = g.getNodes().stream()
-                .filter(n -> POPPBigraphSignature.INVERTS_INCOMING.matches(n) && g.getParent(n) == node(g, goal.getId()))
+        var goalStub = bigraph.getNodes().stream()
+                .filter(n -> POPPBigraphSignature.INVERTS_INCOMING.matches(n) && bigraph.getParent(n) == node(bigraph, goal.getId()))
                 .findFirst().orElseThrow();
-        g.removeNode(goalStub);
+        bigraph.removeNode(goalStub);
         // 2) a gate node directly in the container
-        g.addNode(container, popp.bigraph.getSignature().getControlByName("ProblemAnd"), "stray-gate");
+        bigraph.addNode(container, popp.bigraph.getSignature().getControlByName("ProblemAnd"), "stray-gate");
         // 3) a child placed directly in its parent, without the chain
-        g.moveNode(node(g, child.getId()), node(g, problem.getId()));
+        bigraph.moveNode(node(bigraph, child.getId()), node(bigraph, problem.getId()));
 
         ValidationReport report = validate(popp);
 
@@ -145,9 +145,9 @@ class POPPModelValidatorTest {
         Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "goal", 0, 0);
         SuccessCriteria criterion = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "sc", 0, 0);
         popp.model.relate(goal, criterion);
-        PureBigraphMutable g = popp.bigraph.getBigraph();
-        var stub = g.getNodes().stream().filter(POPPBigraphSignature.CAUSES_OUTGOING::matches).findFirst().orElseThrow();
-        g.moveNode(stub, popp.bigraph.findPOPPContainer(popp.bigraph.getDefaultRoot()));
+        PureBigraphMutable bigraph = popp.bigraph.getBigraph();
+        var stub = bigraph.getNodes().stream().filter(POPPBigraphSignature.CAUSES_OUTGOING::matches).findFirst().orElseThrow();
+        bigraph.moveNode(stub, popp.bigraph.findPOPPContainer(popp.bigraph.getDefaultRoot()));
 
         List<ValidationIssue> misplaced = issues(validate(popp), ValidationIssue.Code.MISPLACED_STUB);
 
@@ -164,9 +164,9 @@ class POPPModelValidatorTest {
         parent.addChild((Goal) popp.model.createNode(NodeKind.GOAL, "child", 0, 0));
         SuccessCriteria criterion = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "sc", 0, 0);
         popp.model.relate(parent, criterion);
-        PureBigraphMutable g = popp.bigraph.getBigraph();
-        var stub = g.getNodes().stream().filter(POPPBigraphSignature.CAUSES_OUTGOING::matches).findFirst().orElseThrow();
-        g.moveNode(stub, node(g, parent.getId() + "_DECOMP"));
+        PureBigraphMutable bigraph = popp.bigraph.getBigraph();
+        var stub = bigraph.getNodes().stream().filter(POPPBigraphSignature.CAUSES_OUTGOING::matches).findFirst().orElseThrow();
+        bigraph.moveNode(stub, node(bigraph, parent.getId() + "_DECOMP"));
 
         List<ValidationIssue> misplaced = issues(validate(popp), ValidationIssue.Code.MISPLACED_STUB);
 
@@ -180,8 +180,8 @@ class POPPModelValidatorTest {
         CoverageTestModels.Synced popp = new CoverageTestModels.Synced();
         Problem problem = (Problem) popp.model.createNode(NodeKind.PROBLEM, "problem", 0, 0);
         Goal goal = (Goal) popp.model.createNode(NodeKind.GOAL, "goal", 0, 0);
-        PureBigraphMutable g = popp.bigraph.getBigraph();
-        g.moveNode(node(g, goal.getId()), node(g, problem.getId()));
+        PureBigraphMutable bigraph = popp.bigraph.getBigraph();
+        bigraph.moveNode(node(bigraph, goal.getId()), node(bigraph, problem.getId()));
 
         List<ValidationIssue> direct = issues(validate(popp), ValidationIssue.Code.CHILD_WITHOUT_DECOMPOSITION);
 
@@ -199,13 +199,13 @@ class POPPModelValidatorTest {
         controls.add(new BigraphTestSupport.ControlSpec("Foreign", 0));
         var signature = BigraphTestSupport.signature(
                 controls.toArray(BigraphTestSupport.ControlSpec[]::new));
-        PureBigraphMutable g = BigraphTestSupport.emptyBigraph(signature);
+        PureBigraphMutable bigraph = BigraphTestSupport.emptyBigraph(signature);
         var container = BigraphTestSupport.addNode(
-                g, g.getRoots().getFirst(), "POPP", "POPP");
-        var foreign = BigraphTestSupport.addNode(g, container, "Foreign", "foreign");
-        BigraphTestSupport.addNode(g, foreign, "Goal", "hidden goal");
+                bigraph, bigraph.getRoots().getFirst(), "POPP", "POPP");
+        var foreign = BigraphTestSupport.addNode(bigraph, container, "Foreign", "foreign");
+        BigraphTestSupport.addNode(bigraph, foreign, "Goal", "hidden goal");
 
-        POPPModelValidator.Snapshot snapshot = POPPModelValidator.snapshot(g, 7);
+        POPPModelValidator.Snapshot snapshot = POPPModelValidator.snapshot(bigraph, 7);
         ValidationReport report = validator.validate(snapshot);
 
         assertEquals(List.of("foreign"), snapshot.unknown());
@@ -255,7 +255,7 @@ class POPPModelValidatorTest {
         }
     }
 
-    private static BigraphEntity.NodeEntity<DynamicControl> node(PureBigraphMutable g, String name) {
-        return g.getNodes().stream().filter(n -> n.getName().equals(name)).findFirst().orElseThrow();
+    private static BigraphEntity.NodeEntity<DynamicControl> node(PureBigraphMutable bigraph, String name) {
+        return bigraph.getNodes().stream().filter(n -> n.getName().equals(name)).findFirst().orElseThrow();
     }
 }

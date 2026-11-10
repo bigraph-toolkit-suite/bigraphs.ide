@@ -32,12 +32,12 @@ public class POPPBigraphViewMirror implements POPPBigraphListener {
     @Override
     public void onBigraphEvent(final POPPBigraphEvent event) {
         // If language standard is updated to 21 replace with switch casting
-        if (event instanceof POPPBigraphEvent.NodeAdded e) nodeAdded(e.node(), e.parent());
-        else if (event instanceof POPPBigraphEvent.NodeRemoved e) nodeRemoved(e.node());
-        else if (event instanceof POPPBigraphEvent.NodeReparented e) nodeReparented(e.child(), e.newParent());
-        else if (event instanceof POPPBigraphEvent.PositionChanged e) positionChanged(e.node(), e.x(), e.y());
-        else if (event instanceof POPPBigraphEvent.RelationAdded e) relationAdded(e.edge(), e.stubs());
-        else if (event instanceof POPPBigraphEvent.RelationRemoving e) relationRemoving(e.edge(), e.stubs());
+        if (event instanceof POPPBigraphEvent.NodeAdded added) nodeAdded(added.node(), added.parent());
+        else if (event instanceof POPPBigraphEvent.NodeRemoved removed) nodeRemoved(removed.node());
+        else if (event instanceof POPPBigraphEvent.NodeReparented reparented) nodeReparented(reparented.child(), reparented.newParent());
+        else if (event instanceof POPPBigraphEvent.PositionChanged positionChanged) positionChanged(positionChanged.node(), positionChanged.x(), positionChanged.y());
+        else if (event instanceof POPPBigraphEvent.RelationAdded relationAdded) relationAdded(relationAdded.edge(), relationAdded.stubs());
+        else if (event instanceof POPPBigraphEvent.RelationRemoving relationRemoving) relationRemoving(relationRemoving.edge(), relationRemoving.stubs());
         else throw new IllegalStateException("Unhandled POPPBigraphEvent: " + event);
     }
 

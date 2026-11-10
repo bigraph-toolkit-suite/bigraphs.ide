@@ -39,9 +39,9 @@ public class POPPValidationService implements POPPEventListener {
 
     /** One daemon thread for all sessions: validation is short and never urgent. */
     private static final ScheduledExecutorService EXECUTOR = Executors.newSingleThreadScheduledExecutor(r -> {
-        Thread t = new Thread(r, "popp-validation");
-        t.setDaemon(true);
-        return t;
+        Thread worker = new Thread(r, "popp-validation");
+        worker.setDaemon(true);
+        return worker;
     });
 
     private final POPPExtensionContext context;

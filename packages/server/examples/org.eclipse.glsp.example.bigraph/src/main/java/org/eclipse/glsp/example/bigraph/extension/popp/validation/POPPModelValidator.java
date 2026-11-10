@@ -58,7 +58,13 @@ public final class POPPModelValidator {
                            Map<String, String> labelOf, Map<String, Integer> census, List<String> unknown) {
     }
 
-    /** Copies {@code source}. Cheap (linear in the bigraph), but must run where {@code source} is not being mutated. */
+    /**
+     * A source entity still to copy: where its copy goes, and the POPP node it belongs to (the nearest enclosing tree
+     * node, {@code null} above the first one) with its label for the issues.
+     */
+    private record PendingCopy(BigraphEntity<?> entity, BigraphEntity<?> copyParent, String owner, String ownerLabel) {}
+
+    /** Copies {@code source}. Cheap (one traversal, no matching), but must run where {@code source} is not being mutated. */
     @SuppressWarnings("unchecked")
     public static Snapshot snapshot(PureBigraph source, long modelVersion) {
         PureBigraphMutable copy = pureBuilder(POPPValidationPatterns.SIGNATURE).createMutable();
@@ -68,17 +74,17 @@ public final class POPPModelValidator {
         List<String> unknown = new ArrayList<>();
         Map<BigraphEntity.Link, BigraphEntity.Edge> links = new HashMap<>();
 
-        Deque<Object[]> todo = new ArrayDeque<>(); // {source entity, copy parent, owner id, owner label}
+        Deque<PendingCopy> todo = new ArrayDeque<>();
         for (BigraphEntity.RootEntity root : source.getRoots()) {
-            BigraphEntity.RootEntity r = copy.addRoot();
-            for (BigraphEntity<?> child : source.getChildrenOf(root)) todo.push(new Object[]{child, r, null, null});
+            BigraphEntity.RootEntity copyRoot = copy.addRoot();
+            for (BigraphEntity<?> child : source.getChildrenOf(root)) todo.push(new PendingCopy(child, copyRoot, null, null));
         }
         while (!todo.isEmpty()) {
-            Object[] item = todo.pop();
-            BigraphEntity<?> entity = (BigraphEntity<?>) item[0];
-            BigraphEntity<?> parent = (BigraphEntity<?>) item[1];
-            String owner = (String) item[2];
-            String ownerLabel = (String) item[3];
+            PendingCopy item = todo.pop();
+            BigraphEntity<?> entity = item.entity();
+            BigraphEntity<?> parent = item.copyParent();
+            String owner = item.owner();
+            String ownerLabel = item.ownerLabel();
             if (entity instanceof BigraphEntity.SiteEntity) {
                 copy.addSite(parent);
                 continue;
@@ -91,7 +97,7 @@ public final class POPPModelValidator {
                 unknown.add(node.getName());
                 continue; // its subtree is not copied either: the copy only contains what the patterns can talk about
             }
-            var n = copy.addNode(parent, control, node.getName());
+            var copiedNode = copy.addNode(parent, control, node.getName());
             census.merge(controlName, 1, Integer::sum);
 
             POPPBigraphSignature kind = POPPBigraphSignature.forNode(node);
@@ -107,11 +113,11 @@ public final class POPPModelValidator {
             for (BigraphEntity.Port port : source.getPorts(node)) {
                 BigraphEntity.Link link = source.getLinkOfPoint(port);
                 if (link != null) {
-                    copy.connectNodeToLink(n, links.computeIfAbsent(link, l -> copy.addEdge(l.getName())));
+                    copy.connectNodeToLink(copiedNode, links.computeIfAbsent(link, l -> copy.addEdge(l.getName())));
                 }
             }
             for (BigraphEntity<?> child : source.getChildrenOf(node)) {
-                todo.push(new Object[]{child, n, owner, ownerLabel});
+                todo.push(new PendingCopy(child, copiedNode, owner, ownerLabel));
             }
         }
         return new Snapshot(modelVersion, copy, Map.copyOf(ownerOf), Map.copyOf(labelOf), Map.copyOf(census),
@@ -155,33 +161,33 @@ public final class POPPModelValidator {
         return true;
     }
 
-    private static List<ValidationIssue> occurrences(PureBigraphMatcher matcher, ValidationPattern pattern, Snapshot s) {
+    private static List<ValidationIssue> occurrences(PureBigraphMatcher matcher, ValidationPattern pattern, Snapshot snapshot) {
         // The framework computes all matches before the first one is returned, so patterns are shaped to have few
         // occurrences, e.g. one root instead of a pair of roots. matchFirst would not help: patterns with
         // minOccurrences or aggregate need every occurrence (and in 2.4.1 it returns no match at all).
         // Symmetric patterns find the same nodes several times: one issue per set of offending nodes.
         Map<Set<String>, List<String>> found = new LinkedHashMap<>();
-        int n = 0;
-        for (PureBigraphMatch match : matcher.matchAll(s.bigraph(), pattern.rule())) {
+        int count = 0;
+        for (PureBigraphMatch match : matcher.matchAll(snapshot.bigraph(), pattern.rule())) {
             Map<String, String> emb = new HashMap<>();
             match.getJLibMatchResult().emb_nodes.forEach((r, a) -> emb.put(r.getEditable().getName(), a.getEditable().getName()));
             List<String> elements = pattern.subjects().stream().map(emb::get).filter(Objects::nonNull).toList();
             found.putIfAbsent(new HashSet<>(elements), elements);
-            if (++n >= MAX_MATCHES_PER_PATTERN) break;
+            if (++count >= MAX_MATCHES_PER_PATTERN) break;
         }
         if (found.size() < pattern.minOccurrences()) return List.of();
 
         if (pattern.aggregate()) {
             LinkedHashSet<String> all = new LinkedHashSet<>();
             found.values().forEach(all::addAll);
-            return List.of(issue(pattern, List.copyOf(all), s));
+            return List.of(issue(pattern, List.copyOf(all), snapshot));
         }
-        return found.values().stream().map(elements -> issue(pattern, elements, s)).toList();
+        return found.values().stream().map(elements -> issue(pattern, elements, snapshot)).toList();
     }
 
-    private static ValidationIssue issue(ValidationPattern pattern, List<String> elements, Snapshot s) {
-        List<String> labels = elements.stream().map(e -> s.labelOf().getOrDefault(e, e)).toList();
-        List<String> nodeIds = elements.stream().map(s.ownerOf()::get).filter(Objects::nonNull).distinct().toList();
+    private static ValidationIssue issue(ValidationPattern pattern, List<String> elements, Snapshot snapshot) {
+        List<String> labels = elements.stream().map(e -> snapshot.labelOf().getOrDefault(e, e)).toList();
+        List<String> nodeIds = elements.stream().map(snapshot.ownerOf()::get).filter(Objects::nonNull).distinct().toList();
         return new ValidationIssue(pattern.code(), pattern.code().severity(), pattern.message().apply(labels),
                 nodeIds, elements, pattern.name());
     }

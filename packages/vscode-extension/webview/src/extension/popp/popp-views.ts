@@ -94,17 +94,17 @@ export class POPPRelationEdgeView extends PolylineEdgeView {
 
         // relation name at the middle segment
         const text = RELATION_TEXT[edge.type] ?? edge.type;
-        const i = Math.floor((segments.length - 1) / 2);
-        const a = segments[i];
-        const b = segments[i + 1];
-        const mx = (a.x + b.x) / 2;
-        const my = (a.y + b.y) / 2;
-        const w = text.length * 6.5 + 10;
+        const middle = Math.floor((segments.length - 1) / 2);
+        const segmentStart = segments[middle];
+        const segmentEnd = segments[middle + 1];
+        const mx = (segmentStart.x + segmentEnd.x) / 2;
+        const my = (segmentStart.y + segmentEnd.y) / 2;
+        const labelWidth = text.length * 6.5 + 10;
 
         const bg = svg('rect', {
-            x: (mx - w / 2).toString(),
+            x: (mx - labelWidth / 2).toString(),
             y: (my - 9).toString(),
-            width: w.toString(),
+            width: labelWidth.toString(),
             height: '18',
             rx: '4',
             ry: '4'
@@ -148,9 +148,9 @@ export class POPPDecompositionPortView extends ShapeView {
         setClass(diamond, 'popp-decomp-diamond', true);
         setClass(diamond, isAnd ? 'popp-decomp-and' : 'popp-decomp-or', true);
 
-        const g = svg('g', {});
-        g.children = [diamond];
-        return g;
+        const group = svg('g', {});
+        group.children = [diamond];
+        return group;
     }
 }
 
@@ -163,9 +163,9 @@ const LINE_H = 16;
 function wrap(text: string, maxChars: number): string[] {
     const lines: string[] = [];
     let cur = '';
-    for (const w of text.trim().split(/\s+/)) {
-        if (cur && cur.length + 1 + w.length > maxChars) { lines.push(cur); cur = ''; }
-        cur = cur ? cur + ' ' + w : w;
+    for (const word of text.trim().split(/\s+/)) {
+        if (cur && cur.length + 1 + word.length > maxChars) { lines.push(cur); cur = ''; }
+        cur = cur ? cur + ' ' + word : word;
     }
     lines.push(cur);
     return lines;
@@ -176,11 +176,11 @@ export class POPPDescriptionLabelView extends ShapeView {
     override render(label: Readonly<GLabel>, context: RenderingContext): VNode | undefined {
         if (!this.isVisible(label, context)) { return undefined; }
 
-        const w = label.size.width;
-        const h = label.size.height;
-        const lines = wrap(label.text ?? '', Math.max(1, Math.floor(w / CHAR_W)));
+        const width = label.size.width;
+        const height = label.size.height;
+        const lines = wrap(label.text ?? '', Math.max(1, Math.floor(width / CHAR_W)));
 
-        const hit = svg('rect', { x: '0', y: '0', width: w.toString(), height: h.toString(), fill: 'transparent' });
+        const hit = svg('rect', { x: '0', y: '0', width: width.toString(), height: height.toString(), fill: 'transparent' });
 
         const text = svg('text', {
             'font-size': '12',
@@ -190,14 +190,14 @@ export class POPPDescriptionLabelView extends ShapeView {
         });
        text.children = lines.map((line, i) =>
             svg('tspan', {
-                x: (w / 2).toString(),
+                x: (width / 2).toString(),
                 y: (i * LINE_H + LINE_H / 2).toString()
             }, line)
         );
 
-        const g = svg('g', {});
-        setClass(g, POPP_DESCRIPTION_LABEL_CLASS, true);
-        g.children = [hit, text];
-        return g;
+        const group = svg('g', {});
+        setClass(group, POPP_DESCRIPTION_LABEL_CLASS, true);
+        group.children = [hit, text];
+        return group;
     }
 }

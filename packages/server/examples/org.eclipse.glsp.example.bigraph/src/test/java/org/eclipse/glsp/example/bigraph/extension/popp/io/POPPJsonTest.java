@@ -35,17 +35,17 @@ class POPPJsonTest {
         assertEquals(original.bigraph.getBigraph().getNodes().size(), copy.bigraph.getBigraph().getNodes().size());
         assertEquals(original.bigraph.getBigraph().getEdges().size(), copy.bigraph.getBigraph().getEdges().size());
         for (CoverageMode mode : CoverageMode.presets()) {
-            CoverageSession a = new DomainCoverageAnalyzer(CoverageInput.of(original.model, original.bigraph)).session(mode);
-            CoverageSession b = new DomainCoverageAnalyzer(CoverageInput.of(copy.model, copy.bigraph)).session(mode);
+            CoverageSession expected = new DomainCoverageAnalyzer(CoverageInput.of(original.model, original.bigraph)).session(mode);
+            CoverageSession actual = new DomainCoverageAnalyzer(CoverageInput.of(copy.model, copy.bigraph)).session(mode);
             for (TreeNode<?> n : original.model.getAllNodes()) {
-                assertEquals(a.coverage(n), b.coverage(copy.model.findNode(n.getId())), mode + " " + n.getDescription());
+                assertEquals(expected.coverage(n), actual.coverage(copy.model.findNode(n.getId())), mode + " " + n.getDescription());
             }
         }
     }
 
     @Test
     void importReplacesTheModelAndTheIncrementalAnalysisFollows() {
-        assumeTrue(RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS, "needs the fixed jLibBig AgentMatcher");
+        assumeTrue(RewritingCoverageAnalyzer.REWRITING_SUPPORTED, "needs the patched framework");
         Synced target = fullModel(1);
         Set<String> oldIds = new HashSet<>();
         target.model.getAllNodes().forEach(n -> oldIds.add(n.getId()));
@@ -94,8 +94,8 @@ class POPPJsonTest {
                   "relations": [ { "type": "realizes", "source": "p", "target": "g" },
                                  { "type": "inverts", "source": "p", "target": "nowhere" } ] }
                 """;
-        var e = assertThrows(POPPJson.InvalidDocumentException.class, () -> POPPJson.read(json));
-        String all = String.join("\n", e.problems());
+        var error = assertThrows(POPPJson.InvalidDocumentException.class, () -> POPPJson.read(json));
+        String all = String.join("\n", error.problems());
         assertTrue(all.contains("\"version\" must be 1"), all);
         assertTrue(all.contains("Unknown tree \"tasks\""), all);
         assertTrue(all.contains("only a node with children has a decomposition"), all);
@@ -103,12 +103,12 @@ class POPPJsonTest {
         assertTrue(all.contains("\"decomposition\" must be \"and\" or \"or\""), all);
         assertTrue(all.contains("a realizes relation cannot go from a problem to a goal"), all);
         assertTrue(all.contains("unknown target node \"nowhere\""), all);
-        assertEquals(7, e.problems().size(), all);
+        assertEquals(7, error.problems().size(), all);
     }
 
     @Test
     void notJsonAtAll() {
-        var e = assertThrows(POPPJson.InvalidDocumentException.class, () -> POPPJson.read("<xmi/>"));
-        assertTrue(e.getMessage().contains("JSON"), e.getMessage());
+        var error = assertThrows(POPPJson.InvalidDocumentException.class, () -> POPPJson.read("<xmi/>"));
+        assertTrue(error.getMessage().contains("JSON"), error.getMessage());
     }
 }

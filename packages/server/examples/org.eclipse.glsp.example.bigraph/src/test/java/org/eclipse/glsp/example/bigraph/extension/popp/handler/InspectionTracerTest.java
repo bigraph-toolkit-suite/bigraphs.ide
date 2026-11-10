@@ -25,10 +25,10 @@ class InspectionTracerTest {
         return model.createNode(kind, description, 0, 0);
     }
 
-    private Relation relation(TreeNode<?> a, TreeNode<?> b) {
-        assertTrue(model.relate(a, b).isSuccess());
+    private Relation relation(TreeNode<?> first, TreeNode<?> second) {
+        assertTrue(model.relate(first, second).isSuccess());
         return model.getRelations().all().stream()
-                .filter(r -> Set.of(r.source(), r.target()).equals(Set.of(a, b))).findFirst().orElseThrow();
+                .filter(r -> Set.of(r.source(), r.target()).equals(Set.of(first, second))).findFirst().orElseThrow();
     }
 
     @Test

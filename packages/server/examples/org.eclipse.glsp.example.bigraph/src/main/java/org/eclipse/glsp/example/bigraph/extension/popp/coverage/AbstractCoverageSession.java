@@ -62,20 +62,20 @@ public abstract class AbstractCoverageSession implements CoverageSession {
                 shown.stream().map(this::explain).toList());
     }
 
-    protected final CoverageReason linkReason(TreeNode<?> node, Coverage c, Relation r, TreeNode<?> giver) {
-        return new CoverageReason.Link(node, c, r, explain(giver));
+    protected final CoverageReason linkReason(TreeNode<?> node, Coverage coverage, Relation relation, TreeNode<?> giver) {
+        return new CoverageReason.Link(node, coverage, relation, explain(giver));
     }
 
     @Override
     public CoverageGap.CoverageGaps gaps(Collection<? extends TreeNode<?>> scope) {
         List<CoverageGap> out = new ArrayList<>();
         for (TreeNode<?> node : scope) {
-            Coverage c = coverage(node);
-            if (c == Coverage.COVERED) {
+            Coverage coverage = coverage(node);
+            if (coverage == Coverage.COVERED) {
                 continue;
             }
             boolean root = !hasUncoveredBlocker(node);
-            out.add(new CoverageGap(node, c, root, root ? CoverageGap.remediesFor(node.getKind()) : List.of()));
+            out.add(new CoverageGap(node, coverage, root, root ? CoverageGap.remediesFor(node.getKind()) : List.of()));
         }
         return new CoverageGap.CoverageGaps(List.copyOf(out));
     }
@@ -92,12 +92,12 @@ public abstract class AbstractCoverageSession implements CoverageSession {
     }
 
     /** The node a propagating relation covers (only meaningful for FORWARD and BACKWARD relations). */
-    protected static TreeNode<?> receiverOf(Relation r) {
-        return r.coveragePropagation() == RelationType.CoveragePropagation.FORWARD ? r.target() : r.source();
+    protected static TreeNode<?> receiverOf(Relation relation) {
+        return relation.coveragePropagation() == RelationType.CoveragePropagation.FORWARD ? relation.target() : relation.source();
     }
 
     /** The node a propagating relation takes the coverage from (only meaningful for FORWARD and BACKWARD relations). */
-    protected static TreeNode<?> giverOf(Relation r) {
-        return r.coveragePropagation() == RelationType.CoveragePropagation.FORWARD ? r.source() : r.target();
+    protected static TreeNode<?> giverOf(Relation relation) {
+        return relation.coveragePropagation() == RelationType.CoveragePropagation.FORWARD ? relation.source() : relation.target();
     }
 }

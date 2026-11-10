@@ -75,10 +75,10 @@ public final class CoverageReportBuilder {
             if (!shown.contains(n.getKind()) || !Coverage.isCoverable(n)) {
                 continue;
             }
-            Coverage c = session.coverage(n);
-            byKind.computeIfAbsent(n.getKind().name(), k -> new HashMap<>()).merge(c.name(), 1, Integer::sum);
+            Coverage coverage = session.coverage(n);
+            byKind.computeIfAbsent(n.getKind().name(), k -> new HashMap<>()).merge(coverage.name(), 1, Integer::sum);
             if (n.getParent().isEmpty()) {
-                roots.add(new RootStatus(n.getId(), n.getKind().name(), n.getDescription(), c.name()));
+                roots.add(new RootStatus(n.getId(), n.getKind().name(), n.getDescription(), coverage.name()));
             }
         }
 
@@ -100,9 +100,9 @@ public final class CoverageReportBuilder {
             Coverage root = null;
             for (TreeNode<?> n : nodes) {
                 if (!mode.isTarget(n.getKind()) || !Coverage.isCoverable(n)) continue;
-                Coverage c = session.coverage(n);
-                counts.merge(c.name(), 1, Integer::sum);
-                if (n.getParent().isEmpty()) root = root == null || c.compareTo(root) < 0 ? c : root;
+                Coverage coverage = session.coverage(n);
+                counts.merge(coverage.name(), 1, Integer::sum);
+                if (n.getParent().isEmpty()) root = root == null || coverage.compareTo(root) < 0 ? coverage : root;
             }
             String kind = mode.targets().size() == 1 ? mode.targets().iterator().next().name() : null;
             out.add(new ModeSummary(mode.name(), kind, root == null ? null : root.name(), counts));

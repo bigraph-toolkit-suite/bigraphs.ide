@@ -1,5 +1,8 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Deque;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -9,6 +12,29 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class POPPModelTest {
+
+    /** The nodes of one kind, each root followed by its subtree (the order the model keeps its roots in). */
+    private static List<TreeNode<?>> nodesOf(POPPModel model, NodeKind kind) {
+        List<? extends TreeNode<?>> roots = switch (kind) {
+            case PROBLEM -> model.getProblemRoots();
+            case GOAL -> model.getGoalRoots();
+            case CONSEQUENCE -> model.getConsequenceRoots();
+            case SOLUTION -> model.getSolutionRoots();
+            case SUCCESS_CRITERIA -> model.getSuccessCriteriaRoots();
+            case SUCCESS_PROOF -> model.getSuccessProofRoots();
+        };
+        List<TreeNode<?>> nodes = new ArrayList<>();
+        for (TreeNode<?> root : roots) {
+            Deque<TreeNode<?>> pending = new ArrayDeque<>(List.of(root));
+            while (!pending.isEmpty()) {
+                TreeNode<?> node = pending.pop();
+                nodes.add(node);
+                node.getChildren().forEach(pending::push);
+            }
+        }
+        return nodes;
+    }
+
 
     @Test
     void storesTypedRootsAndCollectsTheirDescendants() {
@@ -20,9 +46,9 @@ class POPPModelTest {
         child.addChild(grandchild);
 
         assertEquals(root, model.getProblemRoots().getFirst());
-        assertEquals(3, model.getAllProblems().size());
-        assertEquals(root, model.getAllProblems().getFirst());
-        assertTrue(model.getAllGoals().isEmpty());
+        assertEquals(3, nodesOf(model, NodeKind.PROBLEM).size());
+        assertEquals(root, nodesOf(model, NodeKind.PROBLEM).getFirst());
+        assertTrue(nodesOf(model, NodeKind.GOAL).isEmpty());
     }
 
     @Test
@@ -35,18 +61,18 @@ class POPPModelTest {
         SuccessProof successProofRoot = (SuccessProof) model.createNode(NodeKind.SUCCESS_PROOF, "proof-root", 0, 0);
 
         assertEquals(goalRoot, model.getGoalRoots().getFirst());
-        assertEquals(List.of(goalRoot), model.getAllGoals());
+        assertEquals(List.of(goalRoot), nodesOf(model, NodeKind.GOAL));
         assertEquals(solutionRoot, model.getSolutionRoots().getFirst());
-        assertEquals(List.of(solutionRoot), model.getAllSolutions());
+        assertEquals(List.of(solutionRoot), nodesOf(model, NodeKind.SOLUTION));
         assertEquals(consequenceRoot, model.getConsequenceRoots().getFirst());
-        assertEquals(List.of(consequenceRoot), model.getAllConsequences());
+        assertEquals(List.of(consequenceRoot), nodesOf(model, NodeKind.CONSEQUENCE));
         assertEquals(successCriteriaRoot, model.getSuccessCriteriaRoots().getFirst());
-        assertEquals(List.of(successCriteriaRoot), model.getAllSuccessCriteria());
+        assertEquals(List.of(successCriteriaRoot), nodesOf(model, NodeKind.SUCCESS_CRITERIA));
         assertEquals(successProofRoot, model.getSuccessProofRoots().getFirst());
-        assertEquals(List.of(successProofRoot), model.getAllSuccessProofs());
+        assertEquals(List.of(successProofRoot), nodesOf(model, NodeKind.SUCCESS_PROOF));
 
         assertTrue(model.getProblemRoots().isEmpty());
-        assertTrue(model.getAllProblems().isEmpty());
+        assertTrue(nodesOf(model, NodeKind.PROBLEM).isEmpty());
     }
 
     @Test
@@ -60,9 +86,9 @@ class POPPModelTest {
         root.addChild(right);
         left.addChild(leftChild);
 
-        System.out.println(String.join(" ", model.getAllProblems().stream().map(TreeNode::getDescription).toList()));
-        assertEquals(Set.of(root, left, right, leftChild), Set.copyOf(model.getAllProblems()));
-        assertEquals(4, model.getAllProblems().size());
+        System.out.println(String.join(" ", nodesOf(model, NodeKind.PROBLEM).stream().map(TreeNode::getDescription).toList()));
+        assertEquals(Set.of(root, left, right, leftChild), Set.copyOf(nodesOf(model, NodeKind.PROBLEM)));
+        assertEquals(4, nodesOf(model, NodeKind.PROBLEM).size());
     }
 
     @Test
@@ -156,7 +182,7 @@ class POPPModelTest {
         POPPModel model = new POPPModel();
         AtomicBoolean found = new AtomicBoolean();
         model.addListener(e -> {
-            if (e instanceof POPPEvent.NodeCreated c) found.set(model.findNode(c.node().getId()) == c.node());
+            if (e instanceof POPPEvent.NodeCreated created) found.set(model.findNode(created.node().getId()) == created.node());
         });
         model.createNode(NodeKind.GOAL, "goal", 0, 0);
         assertTrue(found.get());
@@ -166,18 +192,18 @@ class POPPModelTest {
     void deletingANodeAnnouncesEachOrphanedChildOnce() {
         POPPModel model = new POPPModel();
         TreeNode<?> parent = model.createNode(NodeKind.GOAL, "parent", 0, 0);
-        TreeNode<?> a = model.createNode(NodeKind.GOAL, "a", 0, 0);
-        TreeNode<?> b = model.createNode(NodeKind.GOAL, "b", 0, 0);
-        model.decompose(parent, a);
-        model.decompose(parent, b);
+        TreeNode<?> first = model.createNode(NodeKind.GOAL, "a", 0, 0);
+        TreeNode<?> second = model.createNode(NodeKind.GOAL, "b", 0, 0);
+        model.decompose(parent, first);
+        model.decompose(parent, second);
         List<POPPEvent.NodeChangedParent> changes = new java.util.ArrayList<>();
-        model.addListener(e -> { if (e instanceof POPPEvent.NodeChangedParent c) changes.add(c); });
+        model.addListener(e -> { if (e instanceof POPPEvent.NodeChangedParent parentChanged) changes.add(parentChanged); });
 
         model.deleteNode(parent.getId());
 
         assertEquals(2, changes.size(), changes::toString);
         assertTrue(changes.stream().allMatch(c -> c.oldParent() == parent && c.newParent() == null));
-        assertEquals(Set.of(a, b), Set.copyOf(model.getGoalRoots()));
+        assertEquals(Set.of(first, second), Set.copyOf(model.getGoalRoots()));
     }
 
     @Test
@@ -189,7 +215,7 @@ class POPPModelTest {
         model.deleteNode(goal.getId());
 
         assertEquals(List.of(other), model.getGoalRoots());
-        assertEquals(List.of(other), model.getAllGoals());
+        assertEquals(List.of(other), nodesOf(model, NodeKind.GOAL));
         assertNull(model.findNode(goal.getId()));
         AtomicBoolean heard = new AtomicBoolean();
         model.addListener(e -> heard.set(true));

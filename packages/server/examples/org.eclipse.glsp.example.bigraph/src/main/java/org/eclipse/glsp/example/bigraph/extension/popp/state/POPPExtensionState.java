@@ -27,8 +27,8 @@ public class POPPExtensionState {
 
     public POPPExtensionState(final IBigraphModelState bigraphModelState) {
         this.bigraphModelState = bigraphModelState;
-        this.gModel = new POPPGModel(() -> bigraphModelState instanceof BigraphModelState s
-                ? s.getVariantRoot(POPPGModelTypes.VARIANT) : null);
+        this.gModel = new POPPGModel(() -> bigraphModelState instanceof BigraphModelState modelState
+                ? modelState.getVariantRoot(POPPGModelTypes.VARIANT) : null);
         CoverageInput input = CoverageInput.lazy(this::getPoppModel, this::getPoppBigraph);
         this.analyzer = new IncrementalRewritingCoverageAnalyzer(input);
     }

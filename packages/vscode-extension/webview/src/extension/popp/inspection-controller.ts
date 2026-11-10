@@ -54,9 +54,9 @@ export class InspectionController extends MouseListener implements IActionHandle
 
     handle(action: Action): void {
         if (action.kind === SetInspectionAction.KIND) {
-            const a = action as SetInspectionAction;
-            this.active = a.active;
-            this.mode = a.mode;
+            const inspection = action as SetInspectionAction;
+            this.active = inspection.active;
+            this.mode = inspection.mode;
             if (!this.active) {
                 this.clear();
             } else if (this.inspectedNodeId) {

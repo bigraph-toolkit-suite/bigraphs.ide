@@ -33,8 +33,8 @@ public class POPPBigraphSynchronizer implements POPPEventListener {
         PureBigraphMutable bigraph = context.getBigraphModelState().getMutableBigraph();
         state.setPoppBigraph(new POPPBigraph(bigraph, bigraph.getSignature()));
         state.getPoppBigraph().addListener(new POPPBigraphViewMirror(() ->
-                context.getBigraphModelState() instanceof BigraphModelState s
-                        ? Optional.ofNullable(s.getActiveView())
+                context.getBigraphModelState() instanceof BigraphModelState modelState
+                        ? Optional.ofNullable(modelState.getActiveView())
                         : Optional.empty()));
     }
 
@@ -53,47 +53,47 @@ public class POPPBigraphSynchronizer implements POPPEventListener {
     @Override
     public void onPOPPEvent(final POPPEvent event) {
         // If language standard is updated to 21 replace with switch casting
-        if (event instanceof POPPEvent.NodeCreated e) nodeCreated(e);
-        else if (event instanceof POPPEvent.NodeDescriptionChanged e) nodeDescriptionChanged(e);
-        else if (event instanceof POPPEvent.NodeMoved e) nodeMoved(e);
-        else if (event instanceof POPPEvent.NodeDecompositionTypeChanged e) nodeDecompositionTypeChanged(e);
-        else if (event instanceof POPPEvent.NodeRemoved e) nodeRemoved(e);
-        else if (event instanceof POPPEvent.NodeChangedParent e) nodeChangedParent(e);
-        else if (event instanceof POPPEvent.RelationCreated e) relationCreated(e);
-        else if (event instanceof POPPEvent.RelationRemoved e) relationRemoved(e);
+        if (event instanceof POPPEvent.NodeCreated created) nodeCreated(created);
+        else if (event instanceof POPPEvent.NodeDescriptionChanged descriptionChanged) nodeDescriptionChanged(descriptionChanged);
+        else if (event instanceof POPPEvent.NodeMoved moved) nodeMoved(moved);
+        else if (event instanceof POPPEvent.NodeDecompositionTypeChanged typeChanged) nodeDecompositionTypeChanged(typeChanged);
+        else if (event instanceof POPPEvent.NodeRemoved removed) nodeRemoved(removed);
+        else if (event instanceof POPPEvent.NodeChangedParent parentChanged) nodeChangedParent(parentChanged);
+        else if (event instanceof POPPEvent.RelationCreated relationCreated) relationCreated(relationCreated);
+        else if (event instanceof POPPEvent.RelationRemoved relationRemoved) relationRemoved(relationRemoved);
         else throw new IllegalStateException("Unhandled POPPEvent: " + event);
     }
 
-    private void nodeCreated(POPPEvent.NodeCreated e) {
-        getPoppBigraph().addTreeNode(e.node());
+    private void nodeCreated(POPPEvent.NodeCreated created) {
+        getPoppBigraph().addTreeNode(created.node());
         LOGGER.info("ADDED BIGRAPH NODE");
     }
 
-    private void nodeDescriptionChanged(POPPEvent.NodeDescriptionChanged e) {
-        getPoppBigraph().updateDescription(e.node().getId(), e.node().getDescription());
+    private void nodeDescriptionChanged(POPPEvent.NodeDescriptionChanged descriptionChanged) {
+        getPoppBigraph().updateDescription(descriptionChanged.node().getId(), descriptionChanged.node().getDescription());
     }
 
-    private void nodeMoved(POPPEvent.NodeMoved e) {
-        getPoppBigraph().updatePosition(e.node().getId(), e.node().getX(), e.node().getY());
+    private void nodeMoved(POPPEvent.NodeMoved moved) {
+        getPoppBigraph().updatePosition(moved.node().getId(), moved.node().getX(), moved.node().getY());
     }
 
-    private void nodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged e) {
-        getPoppBigraph().rebuildDecomposition(e.node());
+    private void nodeDecompositionTypeChanged(POPPEvent.NodeDecompositionTypeChanged typeChanged) {
+        getPoppBigraph().rebuildDecomposition(typeChanged.node());
     }
 
-    private void nodeRemoved(POPPEvent.NodeRemoved e) {
-        getPoppBigraph().deleteTreeNode(e.node().getId());
+    private void nodeRemoved(POPPEvent.NodeRemoved removed) {
+        getPoppBigraph().deleteTreeNode(removed.node().getId());
     }
 
-    private void nodeChangedParent(POPPEvent.NodeChangedParent e) {
-        getPoppBigraph().reparentTreeNode(e.node(), e.oldParent(), e.newParent());
+    private void nodeChangedParent(POPPEvent.NodeChangedParent parentChanged) {
+        getPoppBigraph().reparentTreeNode(parentChanged.node(), parentChanged.oldParent(), parentChanged.newParent());
     }
 
-    private void relationCreated(POPPEvent.RelationCreated e) {
-        getPoppBigraph().createRelation(e.relation());
+    private void relationCreated(POPPEvent.RelationCreated relationCreated) {
+        getPoppBigraph().createRelation(relationCreated.relation());
     }
 
-    private void relationRemoved(POPPEvent.RelationRemoved e) {
-        getPoppBigraph().removeRelation(e.relation());
+    private void relationRemoved(POPPEvent.RelationRemoved relationRemoved) {
+        getPoppBigraph().removeRelation(relationRemoved.relation());
     }
 }

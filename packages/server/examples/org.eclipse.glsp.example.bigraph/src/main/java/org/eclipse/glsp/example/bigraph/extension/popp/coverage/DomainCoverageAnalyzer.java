@@ -87,10 +87,10 @@ public final class DomainCoverageAnalyzer implements CoverageAnalyzer {
             Candidate best = null;
             Coverage bestCoverage = Coverage.UNCOVERED;
             for (Candidate candidate : candidates(node)) {
-                Coverage c = coverage(candidate.node());
-                if (best == null || c.compareTo(bestCoverage) > 0) {
+                Coverage candidateCoverage = coverage(candidate.node());
+                if (best == null || candidateCoverage.compareTo(bestCoverage) > 0) {
                     best = candidate;
-                    bestCoverage = c;
+                    bestCoverage = candidateCoverage;
                 }
             }
 

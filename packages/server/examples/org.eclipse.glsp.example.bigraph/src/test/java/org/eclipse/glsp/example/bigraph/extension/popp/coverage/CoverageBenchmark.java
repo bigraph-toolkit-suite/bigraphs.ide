@@ -43,8 +43,8 @@ public final class CoverageBenchmark {
         int edits = args.length > 4 ? Integer.parseInt(args[4]) : 8;
         CoverageMode editMode = CoverageMode.valueOf(args.length > 5 ? args[5] : "VERIFY");
         Files.createDirectories(out);
-        if (!RewritingCoverageAnalyzer.REWRITE_KEEPS_LINKS) throw new IllegalStateException("needs the fixed jLibBig AgentMatcher");
-        System.out.println("framework fixes: firstMatch=" + RewritingCoverageAnalyzer.FIRST_MATCH_WORKS + " rewrite=true");
+        if (!RewritingCoverageAnalyzer.REWRITING_SUPPORTED) throw new IllegalStateException("needs the patched framework");
+        System.out.println("framework fixes: firstMatch=true rewrite=true");
 
         List<Built> built = new ArrayList<>();
         try (PrintWriter csv = new PrintWriter(Files.newBufferedWriter(out.resolve("variants.csv")))) {

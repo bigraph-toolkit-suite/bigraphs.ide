@@ -65,9 +65,9 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  * {@code PureReactiveSystem.buildParametricReaction} (context, instantiated reactum and parameters composed), and the
  * states and reasons are read off the fixpoint bigraph by one walk ({@link RewritingReadout#ofRewritten}). The agent
  * <i>is</i> the state: there is no state map. This needs a jLibBig whose {@code AgentMatcher} keeps links between
- * parameters and deeper context nodes (the bundled 0.0.4 splits them, see {@link #REWRITE_KEEPS_LINKS}), otherwise
- * rewriting is refused. Guards and rules stop at their first match ({@code matchFirst}) where the framework supports it
- * ({@link #FIRST_MATCH_WORKS}), and enumerate all matches otherwise.
+ * parameters and deeper context nodes (the bundled 0.0.4 splits them), and a framework whose {@code matchFirst}
+ * finds existing matches (bigraph-simulation 2.4.1 does not), otherwise rewriting is refused (see
+ * {@link #REWRITING_SUPPORTED}). Guards and rules stop at their first match ({@code matchFirst}).
  */
 public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
     private static final Logger logger = LoggerFactory.getLogger(RewritingCoverageAnalyzer.class);
@@ -164,7 +164,7 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      * thread when the first model is loaded).
      */
     public static void warmUp() {
-        if (!REWRITE_KEEPS_LINKS) return; // nothing to warm up: rewriting is refused (logged by the link check)
+        if (!REWRITING_SUPPORTED) return; // nothing to warm up: rewriting is refused (logged by the link check)
         DynamicSignature sig = POPPBigraphSignature.create();
         POPPBigraph bigraph = new POPPBigraph(pureBuilder(sig).createMutable(), sig);
         POPPModel model = new POPPModel(); // only creates the nodes, the bigraph is filled by hand below
@@ -198,13 +198,12 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      * accepts, and reads states and reasons off the fixpoint bigraph. {@link #session} calls it on a freshly built
      * coverage bigraph, {@link IncrementalRewritingCoverageAnalyzer} on its synced bigraph, edited in place since the
      * last fixpoint. Sound as long as no state in {@code agent} is above the least fixpoint and every rule that may
-     * match is seeded or enabled by a seeded one. Needs a jLibBig whose AgentMatcher keeps links (see
-     * {@link #REWRITE_KEEPS_LINKS}).
+     * match is seeded or enabled by a seeded one. Needs the patched framework (see {@link #REWRITING_SUPPORTED}).
      */
     public Fixpoint rewriteToFixpoint(CoverageMode mode, PureBigraph agent, Predicate<CompiledRule> seed) {
-        if (!REWRITE_KEEPS_LINKS) {
-            throw new IllegalStateException("The jLibBig AgentMatcher on the classpath splits links between parameters and"
-                    + " deeper context nodes, rewriting would corrupt the relation edges (see REWRITE_KEEPS_LINKS)");
+        if (!REWRITING_SUPPORTED) {
+            throw new IllegalStateException("The framework on the classpath splits links during rewriting or its matchFirst"
+                    + " finds no matches, the coverage would be wrong (see REWRITING_SUPPORTED)");
         }
         boolean[] usable = usable(mode);
         List<Rule> initialWorklist = new ArrayList<>();
@@ -223,7 +222,13 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      * node nested deeper than the redex's root (the split-edge bug of the bundled jLibBig 0.0.4): rewrites
      * {@code A[S_e] || B[B[S_e]]} with {@code A[-] -> A[-]} and checks that the edge still has both points.
      */
-    public static final boolean REWRITE_KEEPS_LINKS = checkRewriteKeepsLinks();
+    /**
+     * Whether the framework on the classpath supports rewriting at all: its jLibBig keeps links
+     * ({@link #checkRewriteKeepsLinks()}) and its {@code matchFirst} finds existing matches
+     * ({@link #checkFirstMatch()}). Both are fixed in the patched framework build the extension requires. Without
+     * either, the analysis would silently compute a wrong coverage, so rewriting is refused.
+     */
+    public static final boolean REWRITING_SUPPORTED = checkRewriteKeepsLinks() & checkFirstMatch();
 
     private static boolean checkRewriteKeepsLinks() {
         try {
@@ -255,8 +260,6 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      * ({@code PureMatchIteratorImpl.FirstMatchOnly} does not run the engine). Checked once on a guard and an agent
      * built from it.
      */
-    public static final boolean FIRST_MATCH_WORKS = checkFirstMatch();
-
     private static boolean checkFirstMatch() {
         try {
             PureBigraph pattern = guardBigraph(new GuardShape(KINDS.iterator().next(), List.of()));
@@ -265,10 +268,10 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
             PureBigraph agent = agentBuilder.create();
             boolean ok = new PureBigraphMatcher().matchFirst(agent, new ParametricReactionRule<>(pattern, pattern))
                     .iterator().hasNext();
-            if (!ok) logger.info("matchFirst finds no match (bigraph-simulation 2.4.1 bug), guards enumerate all matches");
+            if (!ok) logger.error("matchFirst finds no match (unfixed bigraph-simulation 2.4.1), coverage analysis needs the patched framework");
             return ok;
         } catch (Exception e) {
-            logger.warn("matchFirst check failed, guards enumerate all matches", e);
+            logger.warn("matchFirst check failed, coverage analysis is disabled", e);
             return false;
         }
     }
@@ -286,7 +289,7 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
     private static final MonotoneFixpointRewriter REWRITER = MonotoneFixpointRewriter.builder(rewriterRules(true))
             .withProduceUseAnalyzer(new OverlapProduceUseAnalyzer())
             .withOrder(WorklistOrder.topological())
-            .withMatcher(FIRST_MATCH_WORKS ? Matcher.matchFirst() : Matcher.matchAll())
+            .withMatcher(Matcher.matchFirst())
             .withGuardEvaluator(GuardEvaluator.counting())
             .build();
 
