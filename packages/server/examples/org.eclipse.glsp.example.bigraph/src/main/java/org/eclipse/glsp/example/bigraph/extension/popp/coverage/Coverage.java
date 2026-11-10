@@ -19,8 +19,8 @@ public enum Coverage {
 
     /**
      * Whether a node of this kind can be covered through a relation at all, i.e. whether the metamodel has a
-     * propagating relation towards its kind. False for consequences (never covered) and for solutions (always
-     * covered by themselves), so both are left out of reports and gap lists.
+     * propagating kind pair towards its kind. False only for solutions (always covered by themselves), so they are
+     * left out of reports and gap lists.
      */
     public static boolean isCoverable(TreeNode<?> node) {
         return isCoverable(node.getKind());

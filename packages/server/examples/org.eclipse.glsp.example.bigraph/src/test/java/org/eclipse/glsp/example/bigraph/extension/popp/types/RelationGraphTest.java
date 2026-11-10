@@ -2,6 +2,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.types;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -30,9 +31,32 @@ class RelationGraphTest {
             new ExpectedRelation(Problem.class, RelationType.CAUSES, Consequence.class),
             new ExpectedRelation(Goal.class, RelationType.CAUSES, SuccessCriteria.class),
             new ExpectedRelation(Problem.class, RelationType.INVERTS, Goal.class),
+            new ExpectedRelation(Consequence.class, RelationType.INVERTS, SuccessCriteria.class),
             new ExpectedRelation(Solution.class, RelationType.REALIZES, Goal.class),
             new ExpectedRelation(Solution.class, RelationType.PRODUCES, SuccessProof.class),
             new ExpectedRelation(SuccessProof.class, RelationType.VALIDATES, SuccessCriteria.class));
+
+    @Test
+    void thePropagationBelongsToTheKindPairNotToTheRelationType() {
+        assertEquals(RelationType.CoveragePropagation.FORWARD,
+                RelationType.CAUSES.getCoveragePropagation(NodeKind.PROBLEM, NodeKind.CONSEQUENCE));
+        assertEquals(RelationType.CoveragePropagation.BACKWARD,
+                RelationType.CAUSES.getCoveragePropagation(NodeKind.GOAL, NodeKind.SUCCESS_CRITERIA));
+        assertEquals(RelationType.CoveragePropagation.BACKWARD,
+                RelationType.INVERTS.getCoveragePropagation(NodeKind.PROBLEM, NodeKind.GOAL));
+        assertEquals(RelationType.CoveragePropagation.NONE,
+                RelationType.INVERTS.getCoveragePropagation(NodeKind.CONSEQUENCE, NodeKind.SUCCESS_CRITERIA));
+        assertThrows(IllegalArgumentException.class,
+                () -> RelationType.CAUSES.getCoveragePropagation(NodeKind.SOLUTION, NodeKind.GOAL));
+
+        RelationGraph graph = new RelationGraph();
+        TreeNode<?> consequence = NODE_FACTORIES.get(Consequence.class).get();
+        TreeNode<?> criterion = NODE_FACTORIES.get(SuccessCriteria.class).get();
+        assertEquals(RelationResult.CREATED, graph.relate(criterion, consequence));
+        Relation relation = graph.outgoing(consequence).iterator().next();
+        assertEquals(RelationType.INVERTS, relation.type());
+        assertEquals(RelationType.CoveragePropagation.NONE, relation.coveragePropagation());
+    }
 
     @Test
     void resolvesEveryValidNodeKindCombination() {
@@ -58,7 +82,7 @@ class RelationGraphTest {
         Set<Set<Class<?>>> validKindPairs = VALID_RELATIONS.stream()
                 .map(r -> Set.of(r.from(), r.to()))
                 .collect(Collectors.toSet());
-        assertEquals(6, validKindPairs.size());
+        assertEquals(7, validKindPairs.size());
 
         List<Set<Class<?>>> unsupportedPairs = new ArrayList<>();
         for (int i = 0; i < kinds.length; i++) {
@@ -69,7 +93,7 @@ class RelationGraphTest {
                 }
             }
         }
-        assertEquals(9, unsupportedPairs.size(), "9 of the 15 possible node-kind pairs should be unsupported");
+        assertEquals(8, unsupportedPairs.size(), "8 of the 15 possible node-kind pairs should be unsupported");
 
         for (Set<Class<?>> pair : unsupportedPairs) {
             List<Class<?>> kindList = List.copyOf(pair);

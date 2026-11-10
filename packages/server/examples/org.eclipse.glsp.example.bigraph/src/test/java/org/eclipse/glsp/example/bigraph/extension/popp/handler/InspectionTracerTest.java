@@ -130,14 +130,15 @@ class InspectionTracerTest {
 
         assertEquals("UNCOVERED", result.coverage());
         assertEquals(List.of(problem.getId()), result.pathNodeIds());
-        assertEquals(Set.of("PROBLEM needs a consequence (causes)", "PROBLEM needs a goal (inverts)"),
+        assertEquals(Set.of("PROBLEM needs a goal (inverts)"),
                 Set.copyOf(result.gaps().stream().map(InspectionResult.GapInfo::message).toList()));
     }
 
     @Test
-    void aConsequenceHasNoRemedies() {
+    void aConsequenceIsCoveredThroughTheProblemThatCausesIt() {
         InspectionResult result = tracer.trace(analyzer, node(NodeKind.CONSEQUENCE, "c"), CoverageMode.PLANNING);
         assertEquals("UNCOVERED", result.coverage());
-        assertTrue(result.gaps().isEmpty());
+        assertEquals(Set.of("CONSEQUENCE needs a problem (causes)"),
+                Set.copyOf(result.gaps().stream().map(InspectionResult.GapInfo::message).toList()));
     }
 }

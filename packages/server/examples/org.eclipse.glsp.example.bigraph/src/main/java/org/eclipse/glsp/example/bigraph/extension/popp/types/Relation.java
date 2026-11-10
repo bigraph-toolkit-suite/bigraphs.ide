@@ -10,4 +10,9 @@ public record Relation(TreeNode<?> source, RelationType type, TreeNode<?> target
             throw new IllegalArgumentException("source and target must differ");
         }
     }
+
+    /** How coverage propagates over this relation, determined by its type and the kinds of its two nodes. */
+    public RelationType.CoveragePropagation coveragePropagation() {
+        return type.getCoveragePropagation(source.getKind(), target.getKind());
+    }
 }

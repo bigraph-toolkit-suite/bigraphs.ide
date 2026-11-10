@@ -261,13 +261,13 @@ public final class CoverageRewriteRules {
 
     private static void linkRules(List<RuleSpecification> out) {
         for (RelationType t : RelationType.values()) {
-            RelationType.CoveragePropagation dir = t.getCoveragePropagation();
-            if (dir.hasNoCoveragePropagation()) continue;
-            boolean fwd = dir == RelationType.CoveragePropagation.FORWARD;
-            String giverStub = (fwd ? POPPBigraphSignature.outgoingStubFor(t) : POPPBigraphSignature.incomingStubFor(t)).controlName();
-            String recvStub = (fwd ? POPPBigraphSignature.incomingStubFor(t) : POPPBigraphSignature.outgoingStubFor(t)).controlName();
-
             for (RelationType.NodeTypePair kinds : t.getSupportedNodeTypePair()) {
+                // the propagation belongs to the kind pair, not to the type: one type can propagate in both directions
+                RelationType.CoveragePropagation dir = t.getCoveragePropagation(kinds);
+                if (dir.hasNoCoveragePropagation()) continue;
+                boolean fwd = dir == RelationType.CoveragePropagation.FORWARD;
+                String giverStub = (fwd ? POPPBigraphSignature.outgoingStubFor(t) : POPPBigraphSignature.incomingStubFor(t)).controlName();
+                String recvStub = (fwd ? POPPBigraphSignature.incomingStubFor(t) : POPPBigraphSignature.outgoingStubFor(t)).controlName();
                 String giverKind = kind(fwd ? kinds.from() : kinds.to());
                 String recvKind = kind(fwd ? kinds.to() : kinds.from());
                 for (Coverage g : PARTIAL_OR_COVERED) {

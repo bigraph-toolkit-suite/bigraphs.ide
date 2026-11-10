@@ -2,6 +2,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -49,13 +50,14 @@ class CoverageReportBuilderTest {
     }
 
     @Test
-    void consequencesAndSolutionsAreNotListedButCounted() {
-        node(NodeKind.CONSEQUENCE, "consequence");
+    void solutionsAreNotListedButCounted() {
+        TreeNode<?> consequence = node(NodeKind.CONSEQUENCE, "consequence");
         node(NodeKind.SOLUTION, "solution");
 
         CoverageReport report = CoverageReportBuilder.build(model, analyzer, CoverageMode.PLANNING);
 
-        assertTrue(report.roots().isEmpty(), "neither kind can be covered through a relation");
+        // a consequence is covered through its problem, so it is listed, a solution cannot be covered through a relation
+        assertEquals(List.of(consequence.getId()), report.roots().stream().map(RootStatus::id).toList());
         assertEquals(Map.of("CONSEQUENCE", new TreeMetrics(1, 1, 1, 1), "SOLUTION", new TreeMetrics(1, 1, 1, 1)),
                 report.trees());
     }

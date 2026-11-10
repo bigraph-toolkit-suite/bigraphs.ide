@@ -15,6 +15,31 @@ class DomainCoverageAnalyzerTest {
     // ---- behaviour
 
     @Test
+    void aConsequenceIsCoveredOnceTheProblemThatCausesItIsCovered() {
+        POPPModel model = new POPPModel();
+        CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(CoverageInput.of(model, null));
+        TreeNode<?> problem = model.createNode(NodeKind.PROBLEM, "problem", 0, 0);
+        TreeNode<?> consequence = model.createNode(NodeKind.CONSEQUENCE, "consequence", 0, 0);
+        TreeNode<?> goal = model.createNode(NodeKind.GOAL, "goal", 0, 0);
+        TreeNode<?> criterion = model.createNode(NodeKind.SUCCESS_CRITERIA, "criterion", 0, 0);
+        assertEquals(RelationResult.CREATED, model.relate(problem, consequence));
+        assertEquals(RelationResult.CREATED, model.relate(problem, goal));
+        assertEquals(RelationResult.CREATED, model.relate(goal, criterion));
+        // provenance only: the criterion inverts the consequence, but neither covers the other
+        assertEquals(RelationResult.CREATED, model.relate(consequence, criterion));
+
+        assertEquals(Coverage.COVERED, analyzer.coverage(consequence, CoverageMode.PLANNING));
+        CoverageReason.Link reason = assertInstanceOf(CoverageReason.Link.class,
+                analyzer.explain(consequence, CoverageMode.PLANNING));
+        assertSame(problem, reason.relation().source());
+
+        // once the problem loses its goal, its consequence is uncovered again
+        assertEquals(RelationResult.REMOVED, model.unrelate(problem, goal));
+        assertEquals(Coverage.UNCOVERED, analyzer.coverage(problem, CoverageMode.PLANNING));
+        assertEquals(Coverage.UNCOVERED, analyzer.coverage(consequence, CoverageMode.PLANNING));
+    }
+
+    @Test
     void decompositionsDetermineCoverage() {
         POPPModel model = new POPPModel();
         CoverageAnalyzer analyzer = new DomainCoverageAnalyzer(CoverageInput.of(model, null));

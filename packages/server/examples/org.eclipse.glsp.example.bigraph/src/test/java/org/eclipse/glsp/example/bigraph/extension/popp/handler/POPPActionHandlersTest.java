@@ -384,7 +384,7 @@ class POPPActionHandlersTest {
         TreeNode<?> goal = node(NodeKind.GOAL, "Ship v2");
         TreeNode<?> child = node(NodeKind.GOAL, "child");
         model.decompose(goal, child);
-        node(NodeKind.CONSEQUENCE, "never covered, never listed");
+        TreeNode<?> consequence = node(NodeKind.CONSEQUENCE, "without a problem");
         RequestCoverageGapsAction request = new RequestCoverageGapsAction();
         request.setMode("PLANNING");
         inject(request, "requestId", "r3"); // set by the client in GLSP
@@ -394,8 +394,12 @@ class POPPActionHandlersTest {
 
         assertEquals("r3", response.getResponseId());
         assertEquals("PLANNING", response.getMode());
-        assertEquals(Set.of(goal.getId(), child.getId()),
+        assertEquals(Set.of(goal.getId(), child.getId(), consequence.getId()),
                 Set.copyOf(response.getGaps().stream().map(CoverageGapsAction.Gap::nodeId).toList()));
+        CoverageGapsAction.Gap consequenceGap = response.getGaps().stream()
+                .filter(g -> g.nodeId().equals(consequence.getId())).findFirst().orElseThrow();
+        assertTrue(consequenceGap.rootCause());
+        assertEquals("needs a problem (causes)", consequenceGap.message());
         CoverageGapsAction.Gap parentGap = response.getGaps().stream()
                 .filter(g -> g.nodeId().equals(goal.getId())).findFirst().orElseThrow();
         assertFalse(parentGap.rootCause(), "its child is the place to act");

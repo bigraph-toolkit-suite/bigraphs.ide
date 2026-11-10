@@ -54,7 +54,7 @@ public record CoverageGap(TreeNode<?> node, Coverage coverage, boolean rootCause
         List<CoverageGap.CoverageRemedy> remedies = new ArrayList<>();
         for (RelationType type : RelationType.values()) {
             for (RelationType.NodeTypePair pair : type.getSupportedNodeTypePair()) {
-                switch (type.getCoveragePropagation()) {
+                switch (type.getCoveragePropagation(pair)) {
                     case FORWARD -> {
                         if (pair.to().equals(kind)) {
                             remedies.add(new CoverageGap.CoverageRemedy(type, pair.from(), true));

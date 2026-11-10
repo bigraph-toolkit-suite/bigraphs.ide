@@ -43,10 +43,10 @@ public abstract class AbstractCoverageSession implements CoverageSession {
     protected final List<Candidate> candidates(TreeNode<?> node) {
         List<Candidate> out = new ArrayList<>();
         relations.incoming(node).stream()
-                .filter(r -> r.type().getCoveragePropagation() == RelationType.CoveragePropagation.FORWARD)
+                .filter(r -> r.coveragePropagation() == RelationType.CoveragePropagation.FORWARD)
                 .forEach(r -> out.add(new Candidate(r, r.source())));
         relations.outgoing(node).stream()
-               .filter(r -> r.type().getCoveragePropagation() == RelationType.CoveragePropagation.BACKWARD)
+               .filter(r -> r.coveragePropagation() == RelationType.CoveragePropagation.BACKWARD)
                .forEach(r -> out.add(new Candidate(r, r.target())));
         return out;
     }
@@ -93,11 +93,11 @@ public abstract class AbstractCoverageSession implements CoverageSession {
 
     /** The node a propagating relation covers (only meaningful for FORWARD and BACKWARD relations). */
     protected static TreeNode<?> receiverOf(Relation r) {
-        return r.type().getCoveragePropagation() == RelationType.CoveragePropagation.FORWARD ? r.target() : r.source();
+        return r.coveragePropagation() == RelationType.CoveragePropagation.FORWARD ? r.target() : r.source();
     }
 
     /** The node a propagating relation takes the coverage from (only meaningful for FORWARD and BACKWARD relations). */
     protected static TreeNode<?> giverOf(Relation r) {
-        return r.type().getCoveragePropagation() == RelationType.CoveragePropagation.FORWARD ? r.source() : r.target();
+        return r.coveragePropagation() == RelationType.CoveragePropagation.FORWARD ? r.source() : r.target();
     }
 }

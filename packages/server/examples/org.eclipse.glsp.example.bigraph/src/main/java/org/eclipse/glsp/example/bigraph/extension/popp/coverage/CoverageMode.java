@@ -116,14 +116,14 @@ public record CoverageMode(String name, String label, Set<NodeKind> emitters, Se
         return Collections.unmodifiableSet(out);
     }
 
-    /** Coverage flow between kinds over the propagating relation types ({@code backwards}: against the flow). */
+    /** Coverage flow between kinds over the propagating kind pairs of the relation types ({@code backwards}: against the flow). */
     private static Map<NodeKind, Set<NodeKind>> flow(boolean backwards) {
         Map<NodeKind, Set<NodeKind>> out = new EnumMap<>(NodeKind.class);
         for (NodeKind k : NodeKind.values()) out.put(k, EnumSet.noneOf(NodeKind.class));
         for (RelationType type : RelationType.values()) {
             for (RelationType.NodeTypePair pair : type.getSupportedNodeTypePair()) {
                 NodeKind giver, receiver;
-                switch (type.getCoveragePropagation()) {
+                switch (type.getCoveragePropagation(pair)) {
                     case FORWARD -> { giver = pair.from(); receiver = pair.to(); }
                     case BACKWARD -> { giver = pair.to(); receiver = pair.from(); }
                     default -> { continue; }

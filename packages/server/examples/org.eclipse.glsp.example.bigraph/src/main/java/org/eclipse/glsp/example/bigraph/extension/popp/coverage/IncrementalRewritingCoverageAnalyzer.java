@@ -271,7 +271,7 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
             // only the link rules of this relation type into the receiver's kind can match first, what they raise
             // enables the rest
             String type = op.edge().substring(0, Math.max(0, op.edge().indexOf(':')));
-            receiverOf(op.edge()).map(byName::get).ifPresent(receiver -> seededLinks.add(type + ":" + kind(receiver)));
+            receiverOf(op.edge()).ifPresent(receiver -> seededLinks.add(type + ":" + kind(receiver)));
         }
 
         private void relationRemoving(RelationRemoving op) {
@@ -451,8 +451,12 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
                     : POPPBigraphSignature.gateKindOf(control).orElseThrow();
         }
 
-        /** The receiver of a relation edge named {@code TYPE:source->target} (see {@link POPPBigraph#createRelation}). */
-        private static Optional<String> receiverOf(String edgeName) {
+        /**
+         * The receiver of a relation edge named {@code TYPE:source->target} (see {@link POPPBigraph#createRelation}),
+         * empty if the relation does not propagate coverage. The propagation depends on the kinds of both nodes, so
+         * both have to be known.
+         */
+        private Optional<BigraphEntity.NodeEntity<DynamicControl>> receiverOf(String edgeName) {
             int colon = edgeName.indexOf(':'), arrow = edgeName.indexOf("->");
             if (colon < 0 || arrow < colon) return Optional.empty();
             RelationType type;
@@ -461,9 +465,14 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
             } catch (IllegalArgumentException e) {
                 return Optional.empty();
             }
-            return switch (type.getCoveragePropagation()) {
-                case FORWARD -> Optional.of(edgeName.substring(arrow + 2));
-                case BACKWARD -> Optional.of(edgeName.substring(colon + 1, arrow));
+            var source = byName.get(edgeName.substring(colon + 1, arrow));
+            var target = byName.get(edgeName.substring(arrow + 2));
+            if (source == null || target == null) return Optional.empty();
+            RelationType.NodeTypePair kinds = new RelationType.NodeTypePair(kind(source), kind(target));
+            if (!type.getSupportedNodeTypePair().contains(kinds)) return Optional.empty();
+            return switch (type.getCoveragePropagation(kinds)) {
+                case FORWARD -> Optional.of(target);
+                case BACKWARD -> Optional.of(source);
                 case NONE -> Optional.empty();
             };
         }

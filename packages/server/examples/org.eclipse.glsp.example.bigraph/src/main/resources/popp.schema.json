@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "popp.schema.json",
   "title": "POPP model",
-  "description": "A Problem-Oriented Project Planning model: a forest of homogeneous trees per node kind and typed relations between nodes of different trees (format version 1). Rules the schema cannot express: ids are unique across the whole model; a relation's type must match the kinds of its source and target (causes: problem -> consequence or goal -> success criterion; inverts: problem -> goal; realizes: solution -> goal; produces: solution -> success proof; validates: success proof -> success criterion); two nodes have at most one relation.",
+  "description": "A Problem-Oriented Project Planning model: a forest of homogeneous trees per node kind and typed relations between nodes of different trees (format version 1). Rules the schema cannot express: ids are unique across the whole model; a relation's type must match the kinds of its source and target (causes: problem -> consequence or goal -> success criterion; inverts: problem -> goal or consequence -> success criterion; realizes: solution -> goal; produces: solution -> success proof; validates: success proof -> success criterion); two nodes have at most one relation.",
   "type": "object",
   "required": ["format", "version", "trees"],
   "additionalProperties": false,
