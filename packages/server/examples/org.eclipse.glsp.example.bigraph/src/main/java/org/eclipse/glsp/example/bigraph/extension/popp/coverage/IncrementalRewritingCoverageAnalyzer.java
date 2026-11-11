@@ -148,7 +148,7 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
             for (Op op : ops) mirror.apply(op);
             lastSync.put(mode, new SyncStats(ops.size(), mirror.resets));
             // start from the rules the edit can have enabled (see the class comment)
-            next = engine.rewriteToFixpoint(mode, mirror.forMatching(), mirror::seeds);
+            next = engine.rewriteToFixpoint(mode, mirror.forMatching(), rule -> mirror.seeds(rule, engine.ruleSet()));
         }
         synced.put(mode, new Synced(input.model(), source, head, next.bigraph(), next.session()));
         trimLog();
@@ -199,8 +199,8 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
             }
         }
 
-        boolean seeds(CompiledRule rule) {
-            Optional<NodeKind> kind = RewritingCoverageAnalyzer.receiverKind(rule);
+        boolean seeds(CompiledRule rule, CoverageRuleSet ruleSet) {
+            Optional<NodeKind> kind = ruleSet.receiverKind(rule);
             if (kind.isEmpty()) return false;
             return seeds.contains(kind.get())
                     || rule.isLinkRule() && seededLinks.contains(rule.relation() + ":" + kind.get());

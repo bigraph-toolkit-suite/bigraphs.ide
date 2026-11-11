@@ -1,6 +1,5 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
-import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraph;
 import org.bigraphs.framework.core.impl.pure.PureBigraphBuilder;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
@@ -72,8 +71,8 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
     private static final Logger logger = LoggerFactory.getLogger(RewritingCoverageAnalyzer.class);
 
-    private static final List<CompiledRule> RULES = CoverageRewriteRules.compile();
-    private static final DynamicSignature SIGNATURE = RULES.getFirst().rule().getRedex().getSignature();
+    private static final List<CompiledRule> RULES = CoverageRuleSet.DEFAULT.rules();
+    private static final DynamicSignature SIGNATURE = CoverageRuleSet.DEFAULT.signature();
     /** The controls of the domain nodes (one per node kind). */
     private static final Set<String> KINDS = new HashSet<>();
     static {
@@ -87,6 +86,11 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
 
     private final CoverageInput input;
     private final MonotoneFixpointRewriter rewriter;
+    private final CoverageRuleSet ruleSet;
+    /** Whether a session starts with the seed only (otherwise with every rule that can match in the mode). */
+    private final boolean seeded;
+    /** Whether only the rules that can match in the mode are used (otherwise every rule). */
+    private final boolean rulesPerMode;
 
     public RewritingCoverageAnalyzer(CoverageInput input) {
         this(input, REWRITER);
@@ -97,17 +101,36 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      * {@link #rewriterRules} (with or without guards), in that order.
      */
     RewritingCoverageAnalyzer(CoverageInput input, MonotoneFixpointRewriter rewriter) {
-        if (rewriter.rules().size() != RULES.size()) {
-            throw new IllegalArgumentException("The rewriter does not run the coverage rules");
+        this(input, rewriter, CoverageRuleSet.DEFAULT, true, true);
+    }
+
+    /**
+     * An analyzer on another rule set or with the seed or the rules per mode switched off. Only the benchmarks use it,
+     * to measure what each optimization contributes. The rewriter must run {@code ruleSet}'s
+     * {@link CoverageRuleSet#rewriterRules rules} (with or without guards), in that order.
+     */
+    RewritingCoverageAnalyzer(CoverageInput input, MonotoneFixpointRewriter rewriter, CoverageRuleSet ruleSet,
+                              boolean seeded, boolean rulesPerMode) {
+        List<CompiledRule> rules = ruleSet.rules();
+        if (rewriter.rules().size() != rules.size()) {
+            throw new IllegalArgumentException("The rewriter does not run the rules of the rule set");
         }
-        for (int i = 0; i < RULES.size(); i++) {
-            if (!rewriter.rules().get(i).name().equals(RULES.get(i).name())) {
-                throw new IllegalArgumentException("The rewriter's rules are not in the order of rules(): "
-                        + rewriter.rules().get(i).name());
+        for (int index = 0; index < rules.size(); index++) {
+            if (!rewriter.rules().get(index).name().equals(rules.get(index).name())) {
+                throw new IllegalArgumentException("The rewriter's rules are not in the order of the rule set: "
+                        + rewriter.rules().get(index).name());
             }
         }
         this.input = input;
         this.rewriter = rewriter;
+        this.ruleSet = ruleSet;
+        this.seeded = seeded;
+        this.rulesPerMode = rulesPerMode;
+    }
+
+    /** The rule set this analyzer applies. */
+    CoverageRuleSet ruleSet() {
+        return ruleSet;
     }
 
     /** The coverage rules, in the order the analyzer uses. */
@@ -118,43 +141,12 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      * guards, or with this analyzer's guards (one {@link Guard} object per guard shape).
      */
     static List<Rule> rewriterRules(boolean guarded) {
-        List<Rule> out = new ArrayList<>();
-        for (int i = 0; i < RULES.size(); i++) {
-            CompiledRule rule = RULES.get(i);
-            out.add(guarded ? Rule.guarded(rule.name(), rule.rule(), GUARDS.get(i)) : Rule.of(rule.name(), rule.rule()));
-        }
-        return out;
-    }
-
-    private static final Map<CompiledRule, Optional<NodeKind>> RECEIVER_KINDS = new IdentityHashMap<>();
-    static {
-        for (CompiledRule rule : RULES) {
-            Optional<NodeKind> kind = rule.rule().getRedex().getNodes().stream()
-                    .filter(node -> node.getName().equals(rule.receiverNode())).findFirst()
-                    .map(POPPBigraphSignature::forNode)
-                    .flatMap(control -> POPPBigraphSignature.isKindControl(control)
-                            ? Optional.of(POPPBigraphSignature.toNodeKind(control))
-                            : POPPBigraphSignature.gateKindOf(control));
-            RECEIVER_KINDS.put(rule, kind);
-        }
-    }
-
-    /** The kind of a link rule's giver (always a domain node), for link rules only. */
-    private static final Map<CompiledRule, NodeKind> GIVER_KINDS = new IdentityHashMap<>();
-    static {
-        for (CompiledRule rule : RULES) {
-            if (rule.giverNode() == null) continue;
-            rule.rule().getRedex().getNodes().stream()
-                    .filter(node -> node.getName().equals(rule.giverNode())).findFirst()
-                    .map(POPPBigraphSignature::forNode)
-                    .filter(POPPBigraphSignature::isKindControl)
-                    .ifPresent(control -> GIVER_KINDS.put(rule, POPPBigraphSignature.toNodeKind(control)));
-        }
+        return CoverageRuleSet.DEFAULT.rewriterRules(guarded);
     }
 
     /** The kind of a rule's receiver: of the domain node, or of the tree a gate node belongs to. */
     public static Optional<NodeKind> receiverKind(CompiledRule rule) {
-        return RECEIVER_KINDS.getOrDefault(rule, Optional.empty());
+        return CoverageRuleSet.DEFAULT.receiverKind(rule);
     }
 
     /**
@@ -205,10 +197,11 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
             throw new IllegalStateException("The framework on the classpath splits links during rewriting or its matchFirst"
                     + " finds no matches, the coverage would be wrong (see REWRITING_SUPPORTED)");
         }
-        boolean[] usable = usable(mode);
+        List<CompiledRule> rules = ruleSet.rules();
+        boolean[] usable = rulesPerMode ? ruleSet.usable(mode) : allTrue(rules.size());
         List<Rule> initialWorklist = new ArrayList<>();
-        for (int i = 0; i < RULES.size(); i++) {
-            if (usable[i] && seed.test(RULES.get(i))) initialWorklist.add(rewriter.rules().get(i));
+        for (int index = 0; index < rules.size(); index++) {
+            if (usable[index] && (!seeded || seed.test(rules.get(index)))) initialWorklist.add(rewriter.rules().get(index));
         }
         int maxRewrites = 2 * agent.getNodes().size() + 2; // every rewrite upgrades a state cell, at most twice per tree node
         MonotoneFixpointRewriter.Result result = rewriter.rewriteToFixpoint(agent, initialWorklist,
@@ -218,11 +211,6 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
     }
 
     /**
-     * Whether the jLibBig {@code AgentMatcher} on the classpath keeps a link between a parameter node and a context
-     * node nested deeper than the redex's root (the split-edge bug of the bundled jLibBig 0.0.4): rewrites
-     * {@code A[S_e] || B[B[S_e]]} with {@code A[-] -> A[-]} and checks that the edge still has both points.
-     */
-    /**
      * Whether the framework on the classpath supports rewriting at all: its jLibBig keeps links
      * ({@link #checkRewriteKeepsLinks()}) and its {@code matchFirst} finds existing matches
      * ({@link #checkFirstMatch()}). Both are fixed in the patched framework build the extension requires. Without
@@ -230,6 +218,11 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      */
     public static final boolean REWRITING_SUPPORTED = checkRewriteKeepsLinks() & checkFirstMatch();
 
+    /**
+     * Whether the jLibBig {@code AgentMatcher} on the classpath keeps a link between a parameter node and a context
+     * node nested deeper than the redex's root (the split-edge bug of the bundled jLibBig 0.0.4): rewrites
+     * {@code A[S_e] || B[B[S_e]]} with {@code A[-] -> A[-]} and checks that the edge still has both points.
+     */
     private static boolean checkRewriteKeepsLinks() {
         try {
             DynamicSignature sig = org.bigraphs.framework.core.factory.BigraphFactory.pureSignatureBuilder()
@@ -262,7 +255,7 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      */
     private static boolean checkFirstMatch() {
         try {
-            PureBigraph pattern = guardBigraph(new GuardShape(KINDS.iterator().next(), List.of()));
+            PureBigraph pattern = CoverageRuleSet.DEFAULT.guardPattern(KINDS.iterator().next());
             PureBigraphBuilder<DynamicSignature> agentBuilder = pureBuilder(SIGNATURE);
             agentBuilder.root().child(KINDS.iterator().next());
             PureBigraph agent = agentBuilder.create();
@@ -278,9 +271,6 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
 
     // The rule set, analysed once per JVM
 
-    /** Per rule, in the order of {@link #rules()}: its guard, one object per guard shape (see the class comment). */
-    private static final List<Guard> GUARDS = guards(RULES);
-
     /**
      * The rewriter all sessions share. Building it analyses the rule set (dependencies, worklist order) and reads every
      * rule and guard bigraph once, so that the lazy caches of the framework are filled before sessions of different
@@ -293,75 +283,14 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
             .withGuardEvaluator(GuardEvaluator.counting())
             .build();
 
-    /** Per mode, which rules can match at all (see the class comment), by rule index. */
-    private static final Map<CoverageMode, boolean[]> USABLE = new java.util.concurrent.ConcurrentHashMap<>();
-
     /** Per rule, in the order of {@link #rules()}: whether it can upgrade anything in {@code mode}. */
     static boolean[] usable(CoverageMode mode) {
-        return USABLE.computeIfAbsent(mode, key -> {
-            Set<NodeKind> raisable = key.raisableKinds();
-            boolean[] out = new boolean[RULES.size()];
-            for (int i = 0; i < out.length; i++) {
-                CompiledRule rule = RULES.get(i);
-                Optional<NodeKind> receiver = receiverKind(rule), giver = Optional.ofNullable(GIVER_KINDS.get(rule));
-                out[i] = receiver.isPresent() && raisable.contains(receiver.get())
-                        && (!rule.isLinkRule() || giver.isPresent()
-                        && (raisable.contains(giver.get()) || key.isIntrinsic(giver.get())));
-            }
-            return out;
-        });
+        return CoverageRuleSet.DEFAULT.usable(mode);
     }
 
-    private static String control(BigraphEntity<?> node) {
-        return ((BigraphEntity.NodeEntity<?>) node).getControl().getNamedType().stringValue();
-    }
-
-    /** A guard's shape: a node and its markers, with a site. */
-    private record GuardShape(String control, List<String> markers) {
-        String key() {
-            return control + "[" + String.join("|", markers) + "|-]";
-        }
-    }
-
-    /** The unlinked leaf children of a redex node (its markers), sorted. */
-    private static List<String> markers(PureBigraph redex, BigraphEntity.NodeEntity<?> node) {
-        List<String> out = new ArrayList<>();
-        for (BigraphEntity<?> child : redex.getChildrenOf(node)) {
-            if (child instanceof BigraphEntity.NodeEntity<?> marker && redex.getChildrenOf(marker).isEmpty()
-                    && marker.getControl().getArity().getValue().intValue() == 0) {
-                out.add(control(marker));
-            }
-        }
-        Collections.sort(out);
+    private static boolean[] allTrue(int size) {
+        boolean[] out = new boolean[size];
+        Arrays.fill(out, true);
         return out;
-    }
-
-    /** Per rule: its guard, the receiver with its markers and a site. Rules with the same shape share one guard. */
-    private static List<Guard> guards(List<CompiledRule> rules) {
-        Map<String, Guard> byKey = new HashMap<>();
-        List<Guard> out = new ArrayList<>();
-        for (CompiledRule rule : rules) {
-            PureBigraph redex = rule.rule().getRedex();
-            BigraphEntity.NodeEntity<?> receiver = redex.getNodes().stream()
-                    .filter(node -> node.getName().equals(rule.receiverNode())).findFirst()
-                    .orElseThrow(() -> new IllegalStateException("Rule " + rule.name() + " has no receiver node"));
-            GuardShape shape = new GuardShape(control(receiver), markers(redex, receiver));
-            out.add(byKey.computeIfAbsent(shape.key(), key -> {
-                try {
-                    return Guard.of(key, guardBigraph(shape));
-                } catch (Exception e) {
-                    throw new IllegalStateException("Guard " + key + " for rule " + rule.name(), e);
-                }
-            }));
-        }
-        return List.copyOf(out);
-    }
-
-    private static PureBigraph guardBigraph(GuardShape shape) throws Exception {
-        PureBigraphBuilder<DynamicSignature> builder = pureBuilder(SIGNATURE);
-        var node = builder.root().child(shape.control()).down();
-        for (String marker : shape.markers()) node = node.child(marker);
-        node.site();
-        return builder.create();
     }
 }

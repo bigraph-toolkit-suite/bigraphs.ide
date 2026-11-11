@@ -20,7 +20,8 @@ import java.util.*;
 public final class EditScript {
     public enum Action { LINK, TYPE, MOVE, NODE, MIXED }
 
-    private record Pair(TreeNode<?> a, TreeNode<?> b) {}
+    /** Two nodes: source and target of a relation, or parent and child. */
+    private record Pair(TreeNode<?> first, TreeNode<?> second) {}
 
     private final POPPModel model;
     private Random rnd;
@@ -37,7 +38,7 @@ public final class EditScript {
         this.model = model;
         this.rnd = new Random(seed);
         for (Relation r : model.getRelations().all()) relations.add(new Pair(r.source(), r.target()));
-        relations.sort(Comparator.comparing((Pair p) -> p.a().getDescription()).thenComparing(p -> p.b().getDescription()));
+        relations.sort(Comparator.comparing((Pair p) -> p.first().getDescription()).thenComparing(p -> p.second().getDescription()));
         List<TreeNode<?>> nodes = new ArrayList<>(model.getAllNodes());
         nodes.sort(Comparator.comparing(TreeNode::getDescription));
         for (TreeNode<?> n : nodes) {
@@ -60,8 +61,8 @@ public final class EditScript {
      * nodes and restores the decomposition types. The model is then structurally the one the script was created on.
      */
     public void undo() {
-        for (Pair p : relations) if (removed.remove(p)) model.relate(p.a(), p.b());
-        for (Pair p : children) if (detached.remove(p)) model.decompose(p.a(), p.b());
+        for (Pair p : relations) if (removed.remove(p)) model.relate(p.first(), p.second());
+        for (Pair p : children) if (detached.remove(p)) model.decompose(p.first(), p.second());
         for (TreeNode<?> n : created) model.deleteNode(n.getId());
         created.clear();
         types.forEach((n, t) -> { if (n.getDecompositionType() != t) n.setDecompositionType(t); });
@@ -83,12 +84,12 @@ public final class EditScript {
         if (relations.isEmpty()) return "no relation";
         Pair pair = relations.get(rnd.nextInt(relations.size()));
         if (removed.remove(pair)) {
-            model.relate(pair.a(), pair.b());
-            return "relate " + pair.a().getDescription() + " -> " + pair.b().getDescription();
+            model.relate(pair.first(), pair.second());
+            return "relate " + pair.first().getDescription() + " -> " + pair.second().getDescription();
         }
-        model.unrelate(pair.a(), pair.b());
+        model.unrelate(pair.first(), pair.second());
         removed.add(pair);
-        return "unrelate " + pair.a().getDescription() + " -> " + pair.b().getDescription();
+        return "unrelate " + pair.first().getDescription() + " -> " + pair.second().getDescription();
     }
 
     private String type() {
@@ -104,12 +105,12 @@ public final class EditScript {
         if (children.isEmpty()) return "no child";
         Pair pair = children.get(rnd.nextInt(children.size()));
         if (detached.remove(pair)) {
-            model.decompose(pair.a(), pair.b());
-            return "attach " + pair.b().getDescription() + " to " + pair.a().getDescription();
+            model.decompose(pair.first(), pair.second());
+            return "attach " + pair.second().getDescription() + " to " + pair.first().getDescription();
         }
-        pair.b().setParent(null);
+        pair.second().setParent(null);
         detached.add(pair);
-        return "detach " + pair.b().getDescription() + " from " + pair.a().getDescription();
+        return "detach " + pair.second().getDescription() + " from " + pair.first().getDescription();
     }
 
     private String node() {
