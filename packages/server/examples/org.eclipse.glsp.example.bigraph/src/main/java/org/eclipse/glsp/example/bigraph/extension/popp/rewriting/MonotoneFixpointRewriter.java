@@ -29,7 +29,7 @@ import java.util.function.Predicate;
  *   <tr><td>{@link Matcher}</td><td>finding a match of a rule or guard</td></tr>
  *   <tr><td>{@link Reactor}</td><td>applying a rule at a match</td></tr>
  *   <tr><td>{@link GuardEvaluator}</td><td>matching and caching guards</td></tr>
- *   <tr><td>{@link RewriteListener}</td><td>observing a run (traces, benchmarks: {@link RewriteTrace})</td></tr>
+ *   <tr><td>{@link RewriteListener}</td><td>observing a run (traces, measurements: {@link RewriteTrace})</td></tr>
  * </table>
  * <b>Extending.</b> The loop is a template ({@link #step}, {@link #guardsHold}, {@link #applyUntilNoMatch},
  * {@link #findMatch}, {@link #rewrite}, {@link #enqueueEnabled}), as are the per-run objects ({@link #newRun},

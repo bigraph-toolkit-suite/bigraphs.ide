@@ -18,7 +18,6 @@
     <description>GLSP Server example for Bigraph modeling with Node Explorer</description>
 
     <properties>
-        <jmh.version>1.37</jmh.version>
         <bigraph.version>2.4.1</bigraph.version>
         <package-type>jar</package-type>
     </properties>
@@ -92,15 +91,6 @@
             <version>${junit.jupiter.engine.version}</version>
             <scope>test</scope>
         </dependency>
-
-        <!-- Benchmarking (src/test/java/.../coverage/Coverage*Benchmark, run-benchmarks.sh); test scope, not part of
-             the shaded jar -->
-        <dependency>
-            <groupId>org.openjdk.jmh</groupId>
-            <artifactId>jmh-core</artifactId>
-            <version>${jmh.version}</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
@@ -137,27 +127,6 @@
 
                                 </transformer>
                             </transformers>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <executions>
-                    <!-- JMH generates META-INF/BenchmarkList from the @Benchmark methods. Only the test compilation
-                         runs the processor, so the main code is compiled exactly as before. Naming it explicitly
-                         also keeps it working on JDK 23+, where implicit annotation processing is off by default. -->
-                    <execution>
-                        <id>default-testCompile</id>
-                        <configuration>
-                            <annotationProcessorPaths>
-                                <path>
-                                    <groupId>org.openjdk.jmh</groupId>
-                                    <artifactId>jmh-generator-annprocess</artifactId>
-                                    <version>${jmh.version}</version>
-                                </path>
-                            </annotationProcessorPaths>
                         </configuration>
                     </execution>
                 </executions>

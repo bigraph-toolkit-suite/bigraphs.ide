@@ -41,7 +41,7 @@ public interface GuardEvaluator {
                 rewriter -> GuardEffects.analyze(rewriter.rules(), rewriter.guards())));
     }
 
-    /** Every guard matched anew whenever it is asked (a baseline for benchmarks). */
+    /** Every guard matched anew whenever it is asked (a baseline for comparisons). */
     static GuardEvaluator uncached() {
         return run -> new Session() {
             @Override public boolean holds(int guard) { return run.matchGuard(guard); }
@@ -49,7 +49,7 @@ public interface GuardEvaluator {
         };
     }
 
-    /** Guards are not matched: every rule is tried (a baseline for benchmarks). */
+    /** Guards are not matched: every rule is tried (a baseline for comparisons). */
     static GuardEvaluator ignoring() {
         return run -> new Session() {
             @Override public boolean holds(int guard) { return true; }

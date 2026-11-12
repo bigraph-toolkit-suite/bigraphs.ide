@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * A {@link RewriteListener} that records every matcher call and rewrite of a run with its start time
- * (relative to the start of the run) and duration, for traces and benchmarks. One instance per run.
+ * (relative to the start of the run) and duration, for traces and measurements. One instance per run.
  */
 public final class RewriteTrace implements RewriteListener {
     public enum Kind { GUARD, RULE, REWRITE }

@@ -37,7 +37,8 @@ class CoverageModeTest {
         assertEquals(Set.of(NodeKind.SUCCESS_CRITERIA, NodeKind.GOAL, NodeKind.PROBLEM),
                 CoverageMode.PROBLEMS_BY_PROOFS.gapKinds());
         assertEquals(Set.of(NodeKind.GOAL), CoverageMode.GOALS_BY_CRITERIA.gapKinds());
-        // the whole-model modes: every coverable kind that is not intrinsically covered
+        // the whole-model modes: every coverable kind that is not intrinsically covered, consequences included, since
+        // they are covered through the problems that cause them
         assertEquals(Set.of(NodeKind.SUCCESS_PROOF, NodeKind.GOAL, NodeKind.PROBLEM, NodeKind.CONSEQUENCE),
                 CoverageMode.PLANNING.gapKinds());
         assertEquals(Set.of(NodeKind.SUCCESS_PROOF, NodeKind.SUCCESS_CRITERIA, NodeKind.GOAL, NodeKind.PROBLEM,

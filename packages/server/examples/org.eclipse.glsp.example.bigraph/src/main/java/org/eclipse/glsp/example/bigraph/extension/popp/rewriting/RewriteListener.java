@@ -5,7 +5,7 @@ import org.bigraphs.framework.core.impl.pure.PureBigraph;
 import java.util.List;
 
 /**
- * Observes a run of a {@link MonotoneFixpointRewriter}, e.g. to trace or benchmark it ({@link RewriteTrace}). Every
+ * Observes a run of a {@link MonotoneFixpointRewriter}, e.g. to trace or measure it ({@link RewriteTrace}). Every
  * method has an empty default. Times are in nanoseconds, measured by the rewriter around the call they describe.
  * Called on the thread of the run.
  */

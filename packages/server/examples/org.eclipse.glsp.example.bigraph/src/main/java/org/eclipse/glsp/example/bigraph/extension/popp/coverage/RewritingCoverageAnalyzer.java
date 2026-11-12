@@ -86,46 +86,29 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
 
     private final CoverageInput input;
     private final MonotoneFixpointRewriter rewriter;
-    private final CoverageRuleSet ruleSet;
-    /** Whether a session starts with the seed only (otherwise with every rule that can match in the mode). */
-    private final boolean seeded;
-    /** Whether only the rules that can match in the mode are used (otherwise every rule). */
-    private final boolean rulesPerMode;
+    private final CoverageRuleSet ruleSet = CoverageRuleSet.DEFAULT;
 
     public RewritingCoverageAnalyzer(CoverageInput input) {
         this(input, REWRITER);
     }
 
     /**
-     * An analyzer on another configuration of the rewriter (benchmarks compare them). Its rules must be
+     * An analyzer on another configuration of the rewriter (e.g. with a listener in tests). Its rules must be
      * {@link #rewriterRules} (with or without guards), in that order.
      */
     RewritingCoverageAnalyzer(CoverageInput input, MonotoneFixpointRewriter rewriter) {
-        this(input, rewriter, CoverageRuleSet.DEFAULT, true, true);
-    }
-
-    /**
-     * An analyzer on another rule set or with the seed or the rules per mode switched off. Only the benchmarks use it,
-     * to measure what each optimization contributes. The rewriter must run {@code ruleSet}'s
-     * {@link CoverageRuleSet#rewriterRules rules} (with or without guards), in that order.
-     */
-    RewritingCoverageAnalyzer(CoverageInput input, MonotoneFixpointRewriter rewriter, CoverageRuleSet ruleSet,
-                              boolean seeded, boolean rulesPerMode) {
         List<CompiledRule> rules = ruleSet.rules();
         if (rewriter.rules().size() != rules.size()) {
-            throw new IllegalArgumentException("The rewriter does not run the rules of the rule set");
+            throw new IllegalArgumentException("The rewriter does not run the coverage rules");
         }
         for (int index = 0; index < rules.size(); index++) {
             if (!rewriter.rules().get(index).name().equals(rules.get(index).name())) {
-                throw new IllegalArgumentException("The rewriter's rules are not in the order of the rule set: "
+                throw new IllegalArgumentException("The rewriter's rules are not in the order of the coverage rules: "
                         + rewriter.rules().get(index).name());
             }
         }
         this.input = input;
         this.rewriter = rewriter;
-        this.ruleSet = ruleSet;
-        this.seeded = seeded;
-        this.rulesPerMode = rulesPerMode;
     }
 
     /** The rule set this analyzer applies. */
@@ -198,10 +181,10 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
                     + " finds no matches, the coverage would be wrong (see REWRITING_SUPPORTED)");
         }
         List<CompiledRule> rules = ruleSet.rules();
-        boolean[] usable = rulesPerMode ? ruleSet.usable(mode) : allTrue(rules.size());
+        boolean[] usable = ruleSet.usable(mode);
         List<Rule> initialWorklist = new ArrayList<>();
         for (int index = 0; index < rules.size(); index++) {
-            if (usable[index] && (!seeded || seed.test(rules.get(index)))) initialWorklist.add(rewriter.rules().get(index));
+            if (usable[index] && seed.test(rules.get(index))) initialWorklist.add(rewriter.rules().get(index));
         }
         int maxRewrites = 2 * agent.getNodes().size() + 2; // every rewrite upgrades a state cell, at most twice per tree node
         MonotoneFixpointRewriter.Result result = rewriter.rewriteToFixpoint(agent, initialWorklist,
@@ -288,9 +271,4 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
         return CoverageRuleSet.DEFAULT.usable(mode);
     }
 
-    private static boolean[] allTrue(int size) {
-        boolean[] out = new boolean[size];
-        Arrays.fill(out, true);
-        return out;
-    }
 }

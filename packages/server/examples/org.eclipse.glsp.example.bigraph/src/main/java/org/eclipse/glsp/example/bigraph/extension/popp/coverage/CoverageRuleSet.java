@@ -18,8 +18,7 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 /**
  * A compiled set of coverage rules and what the rewriting analyzers derive from it once: the guard of every rule, the
  * node kinds of its receiver and giver, and the rules that can match in a mode. {@link #DEFAULT} is the rule set of the
- * editor. Other rule sets over the same coverage signature (e.g. one gate rule per combination of slot states) are only
- * built by the benchmarks, see {@link CoverageRewriteRules#specs(boolean)}.
+ * editor, built once.
  */
 final class CoverageRuleSet {
 
@@ -35,7 +34,7 @@ final class CoverageRuleSet {
     private final Map<CompiledRule, NodeKind> giverKinds = new IdentityHashMap<>();
     private final Map<CoverageMode, boolean[]> usable = new ConcurrentHashMap<>();
 
-    CoverageRuleSet(List<CompiledRule> rules) {
+    private CoverageRuleSet(List<CompiledRule> rules) {
         this.rules = List.copyOf(rules);
         this.signature = rules.getFirst().rule().getRedex().getSignature();
         for (CompiledRule rule : rules) {

@@ -91,18 +91,8 @@ public final class CoverageRewriteRules {
      * </ul>
      */
     static List<RuleSpecification> specs() {
-        return specs(true);
-    }
-
-    /**
-     * The rule specifications with the gate rules as thresholds (the analyzers' rule set), or with one gate rule per
-     * combination of slot states ({@link #combinationGateRules}). Both reach the same fixpoint. The combination rules
-     * are only used to compare the two rule sets in the benchmarks.
-     */
-    static List<RuleSpecification> specs(boolean thresholdGates) {
         List<RuleSpecification> out = new ArrayList<>();
-        if (thresholdGates) thresholdGateRules(out);
-        else combinationGateRules(out);
+        thresholdGateRules(out);
         liftRules(out);
         linkRules(out);
         return out;
@@ -129,36 +119,6 @@ public final class CoverageRewriteRules {
 
     /** One slot of a gate node: a node with {@code control} in {@code state}, and whatever else it contains. */
     private record Slot(String control, Coverage state) {}
-
-    /**
-     * One gate rule per combination of slot states: for a gate node with one domain slot, two domain slots, or a domain
-     * slot and the next gate node, every combination of slot states whose aggregation raises the gate node. Only for the
-     * comparison of the two rule sets in the benchmarks, see {@link #specs(boolean)}.
-     */
-    private static void combinationGateRules(List<RuleSpecification> out) {
-        List<Coverage> all = List.of(Coverage.UNCOVERED, Coverage.PARTIAL, Coverage.COVERED);
-        for (DecompositionType type : List.of(DecompositionType.AND, DecompositionType.OR)) {
-            for (Coverage current : List.of(Coverage.UNCOVERED, Coverage.PARTIAL)) {
-                for (NodeKind nk : NodeKind.values()) {
-                    String kindControl = kind(nk);
-                    String gateControl = gate(type, nk);
-                    for (Coverage slot : all) addGate(out, type, current, nk, List.of(new Slot(kindControl, slot)));
-                    for (int first = 0; first < all.size(); first++) {
-                        for (int second = first; second < all.size(); second++) {
-                            addGate(out, type, current, nk, List.of(new Slot(kindControl, all.get(first)),
-                                    new Slot(kindControl, all.get(second))));
-                        }
-                    }
-                    for (Coverage domainSlot : all) {
-                        for (Coverage gateSlot : all) {
-                            addGate(out, type, current, nk, List.of(new Slot(kindControl, domainSlot),
-                                    new Slot(gateControl, gateSlot)));
-                        }
-                    }
-                }
-            }
-        }
-    }
 
     /**
      * The gate rules as thresholds. The aggregation is monotone, so a gate node can be upgraded as soon as enough of
@@ -331,14 +291,9 @@ public final class CoverageRewriteRules {
 
     /** The coverage rules, each with where to find receiver and giver in a match. Used by both rewriting analyzers. */
     public static List<CompiledRule> compile() {
-        return compile(specs());
-    }
-
-    /** Compiles {@code specs} over the coverage signature, in their order. */
-    static List<CompiledRule> compile(List<RuleSpecification> specs) {
         DynamicSignature signature = CoverageSignature.get();
         List<CompiledRule> out = new ArrayList<>();
-        for (RuleSpecification spec : specs) {
+        for (RuleSpecification spec : specs()) {
             Effect effect = Objects.requireNonNull(spec.effect(), "Spec without effect: " + spec.name());
             try {
                 PureBigraph redex = side(signature, spec.redex()), reactum = side(signature, spec.reactum());

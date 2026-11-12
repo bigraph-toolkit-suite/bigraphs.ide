@@ -94,17 +94,11 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
     private final Map<CoverageMode, Synced> synced = new ConcurrentHashMap<>();
     private final Map<CoverageMode, Object> modeLocks = new ConcurrentHashMap<>();
 
-    /** What the last sync of a mode replayed: the operations, and the states it reset to UNCOVERED (its reach). */
-    record SyncStats(int operations, int resets) {}
-
-    /** The last sync of each mode, for benchmarks and traces. */
-    private final Map<CoverageMode, SyncStats> lastSync = new ConcurrentHashMap<>();
-
     public IncrementalRewritingCoverageAnalyzer(CoverageInput input) {
         this(input, new RewritingCoverageAnalyzer(input));
     }
 
-    /** An incremental analyzer whose fixpoints {@code engine} computes (benchmarks compare rewriter configurations). */
+    /** An incremental analyzer whose fixpoints {@code engine} computes (e.g. with a listener in tests). */
     IncrementalRewritingCoverageAnalyzer(CoverageInput input, RewritingCoverageAnalyzer engine) {
         this.input = input;
         this.engine = engine;
@@ -138,26 +132,26 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
         }
         RewritingCoverageAnalyzer.Fixpoint next;
         if (fromScratch) {
-            lastSync.put(mode, new SyncStats(0, 0));
             next = engine.rewriteToFixpoint(mode, CoverageBigraph.build(source, mode), RewritingCoverageAnalyzer.LINK_RULES);
         } else if (previous.cursor() == head) {
-            lastSync.put(mode, new SyncStats(0, 0));
             return previous.session();
         } else {
-            Mirror mirror = new Mirror(previous.coverage(), mode);
-            for (Op op : ops) mirror.apply(op);
-            lastSync.put(mode, new SyncStats(ops.size(), mirror.resets));
-            // start from the rules the edit can have enabled (see the class comment)
-            next = engine.rewriteToFixpoint(mode, mirror.forMatching(), rule -> mirror.seeds(rule, engine.ruleSet()));
+            try {
+                Mirror mirror = new Mirror(previous.coverage(), mode);
+                for (Op op : ops) mirror.apply(op);
+                // start from the rules the edit can have enabled (see the class comment)
+                next = engine.rewriteToFixpoint(mode, mirror.forMatching(), rule -> mirror.seeds(rule, engine.ruleSet()));
+            } catch (RuntimeException | Error failure) {
+                // The mirror edits the previous coverage bigraph in place, so after a failure part of the operations
+                // is applied to it while its cursor still points before them. Replaying them again would apply them
+                // twice: the mode starts from scratch next time instead.
+                synced.remove(mode);
+                throw failure;
+            }
         }
         synced.put(mode, new Synced(input.model(), source, head, next.bigraph(), next.session()));
         trimLog();
         return next.session();
-    }
-
-    /** What the last session of {@code mode} replayed (nothing for a session from scratch or without a change). */
-    SyncStats lastSync(CoverageMode mode) {
-        return lastSync.getOrDefault(mode, new SyncStats(0, 0));
     }
 
     /** Drops the operations every mode has replayed. A mode in its first session is not counted, see {@link #sessionOf}. */
@@ -185,8 +179,6 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
         final Set<NodeKind> seeds = EnumSet.noneOf(NodeKind.class);
         /** Added relations, as (relation type, receiver kind): only the link rules for those are seeded. */
         final Set<String> seededLinks = new HashSet<>();
-        /** States reset to UNCOVERED so far. */
-        int resets;
 
         Mirror(PureBigraph coverage, CoverageMode mode) {
             this.signature = coverage.getSignature();
@@ -330,7 +322,6 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
             seeds.add(kind(node));
             if (CoverageBigraph.isIntrinsic(POPPBigraphSignature.forNode(node), mode)) return; // covered by definition
             if (state(node) == Coverage.UNCOVERED) return; // nothing rests on an uncovered node
-            resets++;
             List<BigraphEntity.NodeEntity<DynamicControl>> receivers = receiversOf(node);
             markers(node).forEach(this::removeSubtree);
             cell(node, CoverageMarker.UNC);
