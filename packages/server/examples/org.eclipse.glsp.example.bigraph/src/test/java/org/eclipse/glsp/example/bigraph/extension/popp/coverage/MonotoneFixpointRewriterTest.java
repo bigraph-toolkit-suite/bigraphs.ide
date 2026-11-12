@@ -20,7 +20,7 @@ class MonotoneFixpointRewriterTest {
 
     /** The coverage rules with the analyzer's guards as pattern guards, one {@link Guard} object per guard key. */
     private static List<Rule> coverageRules() {
-        return RewritingCoverageAnalyzer.rewriterRules(true);
+        return CoverageRuleSet.DEFAULT.rewriterRules(true);
     }
 
     private static Matcher matcher() {
@@ -30,7 +30,7 @@ class MonotoneFixpointRewriterTest {
     /** The link rules of {@code rewriter} (the seed of a session from scratch). */
     private static List<Rule> seed(MonotoneFixpointRewriter rewriter) {
         List<Rule> seed = new ArrayList<>();
-        for (int i = 0; i < rewriter.rules().size(); i++) if (RewritingCoverageAnalyzer.rules().get(i).isLinkRule()) seed.add(rewriter.rules().get(i));
+        for (int i = 0; i < rewriter.rules().size(); i++) if (CoverageRuleSet.DEFAULT.rules().get(i).isLinkRule()) seed.add(rewriter.rules().get(i));
         return seed;
     }
 
@@ -54,7 +54,7 @@ class MonotoneFixpointRewriterTest {
             CoverageInput in = CoverageInput.of(popp.model, popp.bigraph);
             for (CoverageMode mode : CoverageMode.presets()) {
                 CoverageSession want = new DomainCoverageAnalyzer(in).session(mode);
-                boolean[] usable = RewritingCoverageAnalyzer.usable(mode);
+                boolean[] usable = CoverageRuleSet.DEFAULT.usable(mode);
                 for (var variant : variants.entrySet()) {
                     MonotoneFixpointRewriter rewriter = variant.getValue();
                     PureBigraph agent = CoverageBigraph.build(popp.bigraph, mode);

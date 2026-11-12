@@ -7,6 +7,7 @@ import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.bigraphs.framework.core.reactivesystem.ParametricReactionRule;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature.Control;
 
 import java.util.*;
 import java.util.function.Function;
@@ -27,14 +28,9 @@ public final class POPPValidationPatterns {
     /** The signature the patterns and the validator's snapshots are built over. */
     public static final DynamicSignature SIGNATURE = POPPBigraphSignature.create();
 
-    private static final List<POPPBigraphSignature> KINDS = List.of(
-            POPPBigraphSignature.PROBLEM, POPPBigraphSignature.GOAL, POPPBigraphSignature.CONSEQUENCE,
-            POPPBigraphSignature.SOLUTION, POPPBigraphSignature.SUCCESS_CRITERIA, POPPBigraphSignature.SUCCESS_PROOF);
-    /** Every gate control (one per kind and decomposition type). */
-    private static final List<POPPBigraphSignature> GATES = Arrays.stream(POPPBigraphSignature.values())
-            .filter(POPPBigraphSignature::isDecompControl).toList();
-    private static final List<POPPBigraphSignature> STUBS = Arrays.stream(POPPBigraphSignature.values())
-            .filter(POPPBigraphSignature::isStubControl).toList();
+    private static final List<Control> KINDS = POPPBigraphSignature.controls().stream().filter(Control::isDomain).toList();
+    private static final List<Control> GATES = POPPBigraphSignature.controls().stream().filter(Control::isGate).toList();
+    private static final List<Control> STUBS = POPPBigraphSignature.controls().stream().filter(Control::isStub).toList();
 
     private static final List<ValidationPattern> ALL = build();
 
@@ -44,7 +40,7 @@ public final class POPPValidationPatterns {
         return ALL;
     }
 
-    // -- pattern tree --------------------------------------------------------------------------------------------
+    // pattern tree
 
     /** A redex node: control, name, optional link ({@code OPEN} outer name or {@code CLOSED} edge), children. */
     private record Node(String control, String name, Link link, List<Node> children) {
@@ -55,22 +51,22 @@ public final class POPPValidationPatterns {
 
     private enum Link { OPEN, CLOSED }
 
-    private static Node node(POPPBigraphSignature control, String name, Node... children) {
+    private static Node node(Control control, String name, Node... children) {
         return new Node(control.controlName(), name, null, List.of(children));
     }
 
-    private static Node stub(POPPBigraphSignature control, String name, Link link) {
+    private static Node stub(Control control, String name, Link link) {
         return new Node(control.controlName(), name, link, List.of());
     }
 
-    // -- the conditions --------------------------------------------------------------------------------------------
+    // the conditions
 
     private static List<ValidationPattern> build() {
         List<ValidationPattern> out = new ArrayList<>();
-        POPPBigraphSignature popp = POPPBigraphSignature.POPP;
+        Control popp = POPPBigraphSignature.CONTAINER;
 
         // A gate node directly in the container: decomposition structure that belongs to no decomposed node.
-        for (POPPBigraphSignature gate : GATES) {
+        for (Control gate : GATES) {
             out.add(pattern("gate-in-container-" + gate.controlName(), ValidationIssue.Code.GATE_OUTSIDE_DECOMPOSITION,
                     node(popp, "container", node(gate, "gate", Node.SITE), Node.SITE),
                     List.of("gate"),
@@ -79,8 +75,8 @@ public final class POPPValidationPatterns {
         }
 
         // An empty gate node: a decomposition type without decomposed children.
-        for (POPPBigraphSignature gate : GATES) {
-            String type = POPPBigraphSignature.decompositionTypeOf(gate).name();
+        for (Control gate : GATES) {
+            String type = gate.decompositionType().name();
             out.add(pattern("empty-" + gate.controlName(), ValidationIssue.Code.EMPTY_DECOMPOSITION,
                     node(gate, "gate"),
                     List.of("gate"),
@@ -88,7 +84,7 @@ public final class POPPValidationPatterns {
                     false));
         }
 
-        for (POPPBigraphSignature stub : STUBS) {
+        for (Control stub : STUBS) {
             // A stub whose edge has no second point: one end of a relation is missing.
             out.add(pattern("dangling-" + stub.controlName(), ValidationIssue.Code.DANGLING_STUB,
                     stub(stub, "stub", Link.CLOSED),
@@ -101,7 +97,7 @@ public final class POPPValidationPatterns {
                     List.of("stub"),
                     s -> stub.controlName() + " stub directly in the POPP container, not in a node",
                     false));
-            for (POPPBigraphSignature gate : GATES) {
+            for (Control gate : GATES) {
                 out.add(pattern("stub-in-" + gate.controlName() + "-" + stub.controlName(), ValidationIssue.Code.MISPLACED_STUB,
                         node(gate, "gate", stub(stub, "stub", Link.OPEN), Node.SITE),
                         List.of("stub"),
@@ -111,8 +107,8 @@ public final class POPPValidationPatterns {
         }
 
         // A domain node directly inside another one: a child attached without the decomposition gate.
-        for (POPPBigraphSignature parent : KINDS) {
-            for (POPPBigraphSignature child : KINDS) {
+        for (Control parent : KINDS) {
+            for (Control child : KINDS) {
                 out.add(pattern("direct-" + parent.controlName() + "-" + child.controlName(),
                         ValidationIssue.Code.CHILD_WITHOUT_DECOMPOSITION,
                         node(parent, "parent", node(child, "child", Node.SITE), Node.SITE),
@@ -125,7 +121,7 @@ public final class POPPValidationPatterns {
 
         // Two roots of the same kind: the model has more than one tree of that kind. The redex is one root, so it has
         // one occurrence per root (a redex with two roots would have one per ordered pair); the defect is two or more.
-        for (POPPBigraphSignature kind : KINDS) {
+        for (Control kind : KINDS) {
             out.add(pattern("trees-" + kind.controlName(), ValidationIssue.Code.MULTIPLE_TREES,
                     node(popp, "container", node(kind, "root", Node.SITE), Node.SITE),
                     List.of("root"),

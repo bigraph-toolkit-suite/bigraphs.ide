@@ -6,6 +6,7 @@ import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature.Control;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -51,9 +52,8 @@ public class CoverageBigraph {
      * Whether a tree node with {@code control} (a domain or a gate control) is covered from the start in {@code mode}:
      * its kind, or the kind of its tree, is intrinsically covered.
      */
-    public static boolean isIntrinsic(POPPBigraphSignature control, CoverageMode mode) {
-        if (POPPBigraphSignature.isKindControl(control)) return mode.isIntrinsic(POPPBigraphSignature.toNodeKind(control));
-        return POPPBigraphSignature.gateKindOf(control).map(mode::isIntrinsic).orElse(false);
+    public static boolean isIntrinsic(Control control, CoverageMode mode) {
+        return control.treeKind().map(mode::isIntrinsic).orElse(false);
     }
 
     /** Copies the place graph. */
@@ -85,8 +85,8 @@ public class CoverageBigraph {
     private static void annotate(POPPBigraph source, PureBigraphMutable bigraph, DynamicSignature sig, CoverageMode mode,
                                  Map<String, BigraphEntity.NodeEntity<DynamicControl>> copies) {
         for (BigraphEntity.NodeEntity<DynamicControl> old : source.getBigraph().getNodes()) {
-            POPPBigraphSignature control = POPPBigraphSignature.forNode(old);
-            if (!POPPBigraphSignature.isTreeControl(control)) continue; // container and stubs have no state
+            Control control = POPPBigraphSignature.forNode(old).orElse(POPPBigraphSignature.CONTAINER);
+            if (!control.isTree()) continue; // container and stubs have no state
             var copy = copies.get(old.getName());
             if (isIntrinsic(control, mode)) {
                 cell(bigraph, sig, copy, CoverageMarker.COV, ".state");

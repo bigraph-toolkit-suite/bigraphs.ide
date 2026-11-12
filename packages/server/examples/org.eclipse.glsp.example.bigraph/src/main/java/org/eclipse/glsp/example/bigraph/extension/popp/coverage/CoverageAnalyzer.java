@@ -45,13 +45,8 @@ public interface CoverageAnalyzer {
         return session(mode).explain(node);
     }
 
-    /** What nodes are lacking coverage? */
-    default CoverageGap.CoverageGaps gaps(Collection<? extends TreeNode<?>> scope, CoverageMode mode) {
-        return session(mode).gaps(scope);
-    }
-
-    /** Gaps among all nodes of {@code model}, which must be the model this analyzer evaluates. */
-    default CoverageGap.CoverageGaps gaps(POPPModel model, CoverageMode mode) {
+    /** Which nodes of {@code model}, which must be the model this analyzer evaluates, are not covered? */
+    default List<CoverageGap> gaps(POPPModel model, CoverageMode mode) {
         return session(mode).gaps(model.getAllNodes());
     }
 }

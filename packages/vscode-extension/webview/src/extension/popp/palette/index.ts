@@ -83,7 +83,7 @@ class PoppVariantPalette implements IVariantPalette {
         this.gapsCard = null;
     }
 
-    // -- creation tools -----------------------------------------------------
+    // creation tools
 
     private bindCardClicks(): void {
         const root = this.container!;
@@ -154,7 +154,7 @@ class PoppVariantPalette implements IVariantPalette {
         this.clearActiveCard();
     }
 
-    // -- inspection, uncovered, report ---------------------------------------
+    // inspection, uncovered, report
 
     private bindInspection(): void {
         const root = this.container!;
@@ -230,7 +230,7 @@ class PoppVariantPalette implements IVariantPalette {
         }
     }
 
-    // -- display ----------------------------------------------------------------
+    // display
 
     private bindKindColors(): void {
         const toggle = this.container!.querySelector<HTMLInputElement>('[data-popp-kind-colors]');
@@ -241,7 +241,7 @@ class PoppVariantPalette implements IVariantPalette {
         }
     }
 
-    // -- validation status ----------------------------------------------------
+    // validation status
 
     private bindValidity(): void {
         const button = this.container!.querySelector<HTMLElement>('[data-popp-validity]');

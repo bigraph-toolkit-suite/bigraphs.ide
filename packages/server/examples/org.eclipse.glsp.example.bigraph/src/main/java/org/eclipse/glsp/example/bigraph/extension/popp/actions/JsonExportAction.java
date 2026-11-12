@@ -3,8 +3,9 @@ package org.eclipse.glsp.example.bigraph.extension.popp.actions;
 import org.eclipse.glsp.server.actions.Action;
 
 /**
- * The current POPP model as a POPP JSON document ({@code POPPJson}), with a suggested file name. The client hands it
- * to the VS Code extension, which asks where to save it.
+ * Answer to {@link RequestJsonExportAction}: the current POPP model as a POPP JSON document
+ * ({@link org.eclipse.glsp.example.bigraph.extension.popp.io.POPPJson}), with a suggested file name. The client hands
+ * it to the VS Code extension, which asks where to save it.
  */
 public class JsonExportAction extends Action {
     public static final String KIND = "popp.jsonExport";
@@ -23,7 +24,5 @@ public class JsonExportAction extends Action {
     }
 
     public String getJson() { return json; }
-    public void setJson(final String json) { this.json = json; }
     public String getFileName() { return fileName; }
-    public void setFileName(final String fileName) { this.fileName = fileName; }
 }

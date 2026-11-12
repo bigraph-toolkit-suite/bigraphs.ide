@@ -129,7 +129,7 @@ export class PoppAnalysisController implements IActionHandler {
         this.dispatcher.dispatch(CenterAction.create(ids, { animate: true, retainZoom: true }));
     }
 
-    // -- report + gaps ------------------------------------------------------
+    // report + gaps
 
     protected scheduleRefresh(delay = REFRESH_DEBOUNCE_MS): void {
         if (this.refreshTimer) {
@@ -158,7 +158,7 @@ export class PoppAnalysisController implements IActionHandler {
         }
     }
 
-    // -- highlight uncovered -------------------------------------------------
+    // highlight uncovered
 
     protected applyHighlights(): void {
         this.removeHighlights();
@@ -187,7 +187,7 @@ export class PoppAnalysisController implements IActionHandler {
         }
     }
 
-    // -- sidebar relay -------------------------------------------------------
+    // sidebar relay
 
     /** Coalesces the updates of one tick into one message. */
     protected postToHost(): void {

@@ -21,7 +21,11 @@ import java.util.stream.Collectors;
 
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 
-/** Builds the coverage rules for the rewriting analyzers: one {@link CompiledRule} per state upgrade a match justifies. */
+/**
+ * Generates the coverage rules: states each rule as terms ({@link RuleSpecification}) and compiles it to a reaction rule
+ * of the framework ({@link CompiledRule}). What the analyzers derive from the compiled rules (guards, kinds, the rules
+ * of a mode) is in {@link CoverageRuleSet}.
+ */
 public final class CoverageRewriteRules {
     private static final Logger logger = LoggerFactory.getLogger(CoverageRewriteRules.class);
 
@@ -37,16 +41,14 @@ public final class CoverageRewriteRules {
     }
 
     /**
-     * What a rule does, stated once and explicitly: the redex node whose state cell is upgraded
-     * ({@code receiver}), the redex node it takes the coverage from over a link ({@code giver}, only link rules),
-     * the state it is upgraded to and the reason marker that justifies it.
-     * The schedule uses it (receiver kind, link rule or not). The reactum does the same by rewriting.
+     * Where a rule's effect lies, which the analyzers need without reading the bigraphs: the redex node it raises
+     * ({@code receiver}) and, for a link rule, the redex node it takes the coverage from ({@code giver}) over a
+     * relation of type {@code relation}.
      */
-    record Effect(Term receiver, Term giver, Coverage target, CoverageMarker reason,
-                  RelationType relation, Coverage giverState, Coverage receiverState) {
-        /** Non-link rules: no relation guard. */
-        public Effect(Term receiver, Term giver, Coverage target, CoverageMarker reason) {
-            this(receiver, giver, target, reason, null, null, null);
+    record Effect(Term receiver, Term giver, RelationType relation) {
+        /** A gate or lift rule: no giver and no relation. */
+        static Effect place(Term receiver) {
+            return new Effect(receiver, null, null);
         }
     }
 
@@ -57,13 +59,11 @@ public final class CoverageRewriteRules {
     record RuleSpecification(String name, List<Term> redex, List<Term> reactum, Map<Term, Term> pairs, Effect effect) {}
 
     /**
-     * A rule ready for matching. {@code receiverNode} / {@code giverNode} are node names in the redex
-     * bigraph. Look them up in the match's redex-to-agent node embedding to find the agent nodes.
+     * A rule ready for matching, with its {@link Effect}: {@code receiverNode} and {@code giverNode} are node names in
+     * the redex.
      */
     public record CompiledRule(String name, ParametricReactionRule<PureBigraph> rule,
-                               String receiverNode, String giverNode,
-                               Coverage target, CoverageMarker reason,
-                               RelationType relation, Coverage giverState, Coverage receiverState) {
+                               String receiverNode, String giverNode, RelationType relation) {
         /** Whether this is a link rule, i.e. has a relation type. Place rules (gate, lift) have none. */
         public boolean isLinkRule() { return relation != null; }
     }
@@ -100,10 +100,10 @@ public final class CoverageRewriteRules {
 
     private static Term state(Coverage coverage) { return Term.node(CoverageMarker.of(coverage).controlName()); }
 
-    private static String kind(NodeKind kind) { return POPPBigraphSignature.getByNodeKind(kind).controlName(); }
+    private static String kind(NodeKind kind) { return POPPBigraphSignature.of(kind).controlName(); }
 
     private static String gate(DecompositionType decompositionType, NodeKind kind) {
-        return POPPBigraphSignature.getGateControl(kind, decompositionType).controlName();
+        return POPPBigraphSignature.gate(kind, decompositionType).controlName();
     }
 
     private static CoverageMarker whyMarker(Coverage target, boolean link) {
@@ -125,8 +125,9 @@ public final class CoverageRewriteRules {
      * its slots are: OR is COVERED once one slot is, PARTIAL once one slot is PARTIAL (or better). AND is PARTIAL once
      * one slot is PARTIAL or COVERED. Those rules name the one slot and leave the rest of the gate node to a site,
      * instead of one rule per combination of all slot states. Only AND to COVERED needs every slot and keeps the exact
-     * shapes (one K slot, two K slots, a K slot and the next gate node). The same fixpoint as one rule per combination of
-     * slot states, with fewer rules, and a slot that changes state enables only the thresholds of its new state.
+     * shapes (one K slot, two K slots, a K slot and the next gate node). This gives the same fixpoint as one rule per
+     * combination of slot states, with fewer rules, and a slot that changes state enables only the thresholds of its
+     * new state.
      */
     private static void thresholdGateRules(List<RuleSpecification> out) {
         for (NodeKind nk : NodeKind.values()) {
@@ -172,7 +173,7 @@ public final class CoverageRewriteRules {
         Term reactumNode = Term.node(gate(type, nk), reactumKids.toArray(Term[]::new));
         String name = "gate-" + type + "-" + nk + "-" + cur + "-" + target + "-if-" + slot + "_" + slotState;
         out.add(new RuleSpecification(name, List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
-                new Effect(redexNode, null, target, whyMarker(target, false))));
+                Effect.place(redexNode)));
     }
 
     private static void addGate(List<RuleSpecification> out, DecompositionType type, Coverage cur, NodeKind nk, List<Slot> slots) {
@@ -196,7 +197,7 @@ public final class CoverageRewriteRules {
         String name = "gate-" + type + "-" + nk + "-" + cur + "-"
                 + slots.stream().map(s -> s.control() + "_" + s.state()).collect(Collectors.joining("+"));
         out.add(new RuleSpecification(name, List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
-                new Effect(redexNode, null, target, whyMarker(target, false))));
+                Effect.place(redexNode)));
     }
 
     /**
@@ -252,7 +253,7 @@ public final class CoverageRewriteRules {
                         Term reactumNode = Term.node(kindControl, state(s), why(s, false), Term.SITE, topGate);
                         out.add(new RuleSpecification("lift-" + type + "-" + nk + "-" + c + "-" + s,
                                 List.of(redexNode), List.of(reactumNode), pair(redexNode, reactumNode),
-                                new Effect(redexNode, null, s, whyMarker(s, false))));
+                                Effect.place(redexNode)));
                     }
                 }
             }
@@ -262,12 +263,11 @@ public final class CoverageRewriteRules {
     private static void linkRules(List<RuleSpecification> out) {
         for (RelationType t : RelationType.values()) {
             for (RelationType.NodeTypePair kinds : t.getSupportedNodeTypePair()) {
-                // the propagation belongs to the kind pair, not to the type: one type can propagate in both directions
                 RelationType.CoveragePropagation dir = t.getCoveragePropagation(kinds);
                 if (dir.hasNoCoveragePropagation()) continue;
                 boolean fwd = dir == RelationType.CoveragePropagation.FORWARD;
-                String giverStub = (fwd ? POPPBigraphSignature.outgoingStubFor(t) : POPPBigraphSignature.incomingStubFor(t)).controlName();
-                String recvStub = (fwd ? POPPBigraphSignature.incomingStubFor(t) : POPPBigraphSignature.outgoingStubFor(t)).controlName();
+                String giverStub = POPPBigraphSignature.stub(t, fwd).controlName();
+                String recvStub = POPPBigraphSignature.stub(t, !fwd).controlName();
                 String giverKind = kind(fwd ? kinds.from() : kinds.to());
                 String recvKind = kind(fwd ? kinds.to() : kinds.from());
                 for (Coverage g : PARTIAL_OR_COVERED) {
@@ -282,7 +282,7 @@ public final class CoverageRewriteRules {
 
                         out.add(new RuleSpecification("link-" + t + "-" + kinds.from() + "-" + kinds.to() + "-" + g + "-" + c,
                                 List.of(giver, redexRecv), List.of(giver, reactumRecv), pair(redexRecv, reactumRecv),
-                                new Effect(redexRecv, giver, target, whyMarker(target, true), t, g, c)));
+                                new Effect(redexRecv, giver, t)));
                     }
                 }
             }
@@ -304,8 +304,7 @@ public final class CoverageRewriteRules {
                 var redexNames = names(redex, spec.redex());
                 out.add(new CompiledRule(spec.name(), rule,
                         redexNames.get(effect.receiver()),
-                        effect.giver() == null ? null : redexNames.get(effect.giver()),
-                        effect.target(), effect.reason(), effect.relation(), effect.giverState(), effect.receiverState()));
+                        effect.giver() == null ? null : redexNames.get(effect.giver()), effect.relation()));
             } catch (InvalidReactionRuleException e) {
                 throw new IllegalStateException("Invalid coverage rule " + spec.name(), e);
             }

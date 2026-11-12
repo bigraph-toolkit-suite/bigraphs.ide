@@ -70,7 +70,7 @@ final class CoverageRandomModels {
         var bigraph = popp.bigraph.getBigraph();
         var parent = popp.bigraph.getById(node.getId()).orElseThrow();
         String control = org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature
-                .getGateControl(node.getKind(), type).controlName();
+                .gate(node.getKind(), type).controlName();
         bigraph.addNode(parent, popp.bigraph.getSignature().getControlByName(control), node.getId() + "_DECOMP");
     }
 

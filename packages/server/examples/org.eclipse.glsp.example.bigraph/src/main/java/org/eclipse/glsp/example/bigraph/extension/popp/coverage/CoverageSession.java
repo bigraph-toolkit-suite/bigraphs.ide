@@ -1,9 +1,9 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 
-import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * The coverage of one model revision in one mode. Results are only valid until the model changes.
@@ -14,12 +14,8 @@ public interface CoverageSession {
 
     CoverageReason explain(TreeNode<?> node);
 
-    /** Gaps among {@code scope} (e.g. all nodes, or one selected subtree). Not-COVERED nodes only. */
-    CoverageGap.CoverageGaps gaps(Collection<? extends TreeNode<?>> scope);
-
-    default CoverageGap.CoverageGaps gaps(POPPModel model) {
-        return gaps(model.getAllNodes());
-    }
+    /** The nodes of {@code scope} that are not covered. */
+    List<CoverageGap> gaps(Collection<? extends TreeNode<?>> scope);
 }
 
 

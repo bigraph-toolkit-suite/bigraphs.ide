@@ -13,9 +13,10 @@ import java.util.Optional;
  *   <li>COV_INTRINSIC, COV_DECOMP, COV_LINK: reason markers for COVERED.</li>
  *   <li>PART_DECOMP, PART_LINK: reason markers for PARTIAL.</li>
  * </ul>
- * The reason markers appear in the rules' reactums and name a rule's reason ({@code Derivation}). In an agent only
- * {@code CovIntrinsic} and, on PARTIAL gate nodes, {@code PartDecomp} occur. The link markers have arity 1 and are
- * connected to the relation edge in the reactum.
+ * A reason marker is added by the reactum of the rule that raised the state and names its reason ({@code Derivation}),
+ * except {@code CovIntrinsic}, which the coverage bigraph starts with. The only reason marker a redex names is
+ * {@code PartDecomp}, on a PARTIAL gate node. The link markers have arity 1 and are linked to the relation edge the
+ * rule propagated over.
  */
 public enum CoverageMarker {
     // coverage state markers

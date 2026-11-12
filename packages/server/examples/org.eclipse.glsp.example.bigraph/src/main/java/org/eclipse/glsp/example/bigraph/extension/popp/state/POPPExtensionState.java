@@ -13,9 +13,8 @@ import java.util.Map;
 
 /**
  * Per-session state of the POPP extension and its composition root: the model, its bigraph and GModel, and the
- * coverage analyzer. The analyzer is the {@link IncrementalRewritingCoverageAnalyzer} (one coverage bigraph per mode, edited in
- * place and rewritten with worklist, seed and guards). It observes the current bigraph and reads model and bigraph
- * lazily from here, so it follows a model that is replaced when a file is (re)loaded.
+ * coverage analyzer, an {@link IncrementalRewritingCoverageAnalyzer}. The analyzer observes the current bigraph and
+ * reads model and bigraph lazily from here, so it follows a model that is replaced when a file is (re)loaded.
  */
 public class POPPExtensionState {
     private final IBigraphModelState bigraphModelState;

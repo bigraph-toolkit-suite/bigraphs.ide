@@ -67,7 +67,7 @@ public abstract class AbstractCoverageSession implements CoverageSession {
     }
 
     @Override
-    public CoverageGap.CoverageGaps gaps(Collection<? extends TreeNode<?>> scope) {
+    public List<CoverageGap> gaps(Collection<? extends TreeNode<?>> scope) {
         List<CoverageGap> out = new ArrayList<>();
         for (TreeNode<?> node : scope) {
             Coverage coverage = coverage(node);
@@ -77,7 +77,7 @@ public abstract class AbstractCoverageSession implements CoverageSession {
             boolean root = !hasUncoveredBlocker(node);
             out.add(new CoverageGap(node, coverage, root, root ? CoverageGap.remediesFor(node.getKind()) : List.of()));
         }
-        return new CoverageGap.CoverageGaps(List.copyOf(out));
+        return List.copyOf(out);
     }
 
     /** Whether something beneath or behind this node is itself not covered. */

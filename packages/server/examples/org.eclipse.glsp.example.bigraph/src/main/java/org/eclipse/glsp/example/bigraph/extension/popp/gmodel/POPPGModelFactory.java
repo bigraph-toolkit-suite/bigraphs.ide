@@ -1,7 +1,6 @@
 package org.eclipse.glsp.example.bigraph.extension.popp.gmodel;
 
 import org.eclipse.glsp.example.bigraph.extension.popp.types.Relation;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.SuccessProof;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.TreeNode;
 import org.eclipse.glsp.graph.*;
 import org.eclipse.glsp.graph.builder.impl.GEdgeBuilder;
@@ -9,7 +8,6 @@ import org.eclipse.glsp.graph.builder.impl.GLabelBuilder;
 import org.eclipse.glsp.graph.builder.impl.GNodeBuilder;
 import org.eclipse.glsp.graph.builder.impl.GPortBuilder;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,13 +21,13 @@ public class POPPGModelFactory {
     static List<String> wrap(String text, int maxChars) {
         List<String> lines = new ArrayList<>();
         StringBuilder cur = new StringBuilder();
-        for (String w : text.trim().split("\\s+")) {
-            if (cur.length() > 0 && cur.length() + 1 + w.length() > maxChars) {
+        for (String word : text.trim().split("\\s+")) {
+            if (cur.length() > 0 && cur.length() + 1 + word.length() > maxChars) {
                 lines.add(cur.toString());
                 cur.setLength(0);
             }
             if (cur.length() > 0) cur.append(' ');
-            cur.append(w);
+            cur.append(word);
         }
         lines.add(cur.toString());
         return lines;

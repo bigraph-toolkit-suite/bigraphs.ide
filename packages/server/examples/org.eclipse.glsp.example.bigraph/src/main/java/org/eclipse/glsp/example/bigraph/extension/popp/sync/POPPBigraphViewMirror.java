@@ -31,7 +31,7 @@ public class POPPBigraphViewMirror implements POPPBigraphListener {
 
     @Override
     public void onBigraphEvent(final POPPBigraphEvent event) {
-        // If language standard is updated to 21 replace with switch casting
+        // a pattern switch over the sealed events (Java 21, the project is on 17) would be checked for exhaustiveness
         if (event instanceof POPPBigraphEvent.NodeAdded added) nodeAdded(added.node(), added.parent());
         else if (event instanceof POPPBigraphEvent.NodeRemoved removed) nodeRemoved(removed.node());
         else if (event instanceof POPPBigraphEvent.NodeReparented reparented) nodeReparented(reparented.child(), reparented.newParent());

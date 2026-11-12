@@ -16,18 +16,6 @@ public interface CoverageInput {
     /** The model's bigraph, kept in sync by the bigraph synchronizer. Only used by the rewriting analyzers. */
     POPPBigraph bigraph();
 
-    /**
-     * Identifies the model state results depend on: equal revisions mean equal results. The default is the model's
-     * identity plus its version, so a reloaded model never reuses results of the old one. {@code null} (no model)
-     * disables caching.
-     */
-    default Object revision() {
-        POPPModel model = model();
-        return model == null ? null : new Revision(model, model.getVersion());
-    }
-
-    record Revision(POPPModel model, long version) {}
-
     /** Reads model and bigraph from the suppliers on every access, e.g. from the extension state. */
     static CoverageInput lazy(Supplier<POPPModel> model, Supplier<POPPBigraph> bigraph) {
         return new CoverageInput() {

@@ -4,6 +4,7 @@ import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraphMutable;
 import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature.Control;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,10 +15,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * The bigraph encoding of a POPP model, kept in sync with it through explicit calls and announced to listeners.
  *
- * <p>Encoding: every domain node is a node whose control is its kind ({@code Problem}, {@code Goal}, ...). An AND/OR
- * decomposition with n children becomes a decomposition chain of n-1 binary gate nodes ({@code GoalAnd}, {@code ProblemOr}, ...) under the
- * decomposed node (one empty gate node without children, one gate node for a single child). The gate node
- * directly under a domain node is the first one. A relation is an edge between two arity-1 stub nodes, one under each
+ * <p>Encoding (see {@link POPPBigraphSignature}): every domain node is a node whose control is its kind. An AND/OR
+ * decomposition with n children becomes a decomposition chain of n-1 binary gate nodes under the decomposed node (one
+ * gate node for a single child, one without children for an empty decomposition). The gate node directly under a
+ * domain node is the first one. A relation is an edge between two arity-1 stub nodes, one under each
  * endpoint. Every node is addressable by its id ({@code nodesById}): domain nodes by their model id, gate nodes by
  * {@code <id>_DECOMP[_i]}, stubs by {@code <STUB_CONSTANT>:<source id>-><target id>}. The edge is named
  * {@code <TYPE>:<source id>-><target id>} (so ids must not contain {@code ->}).</p>
@@ -73,29 +74,28 @@ public class POPPBigraph {
 
     /** Whether {@code node} is a domain node, i.e. its control is a node kind. */
     public boolean isDomainNode(BigraphEntity.NodeEntity<?> node) {
-        return POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(node));
+        return POPPBigraphSignature.forNode(node).map(Control::isDomain).orElse(false);
     }
 
     /** Whether {@code node} is a gate node ({@code GoalAnd}, {@code ProblemOr}, ...). */
     public boolean isGateNode(BigraphEntity.NodeEntity<?> node) {
-        return POPPBigraphSignature.isDecompControl(POPPBigraphSignature.forNode(node));
+        return POPPBigraphSignature.forNode(node).map(Control::isGate).orElse(false);
     }
 
     /** The domain kind of a node. Empty for gate nodes, stubs and the container. */
     public Optional<NodeKind> kindOf(BigraphEntity.NodeEntity<?> node) {
-        POPPBigraphSignature control = POPPBigraphSignature.forNode(node);
-        return POPPBigraphSignature.isKindControl(control) ? Optional.of(POPPBigraphSignature.toNodeKind(control)) : Optional.empty();
+        return POPPBigraphSignature.forNode(node).filter(Control::isDomain).map(Control::kind);
     }
 
     /** The decomposition type of a gate node. {@code NONE} for every other node. */
     public DecompositionType decompositionTypeOf(BigraphEntity.NodeEntity<?> node) {
-        return POPPBigraphSignature.decompositionTypeOf(POPPBigraphSignature.forNode(node));
+        return POPPBigraphSignature.forNode(node).map(Control::decompositionType).orElse(DecompositionType.NONE);
     }
 
     /** Creates and announces a gate node. Callers must not announce it again. */
     private BigraphEntity.NodeEntity<DynamicControl> addGateNode(
             BigraphEntity.NodeEntity<DynamicControl> parent, NodeKind kind, DecompositionType type, String id) {
-        POPPBigraphSignature control = POPPBigraphSignature.getGateControl(kind, type);
+        Control control = POPPBigraphSignature.gate(kind, type);
         var gate = addNode(parent, control, id);
         emit(new POPPBigraphEvent.NodeAdded(gate, parent));
         return gate;
@@ -142,7 +142,7 @@ public class POPPBigraph {
 
     public BigraphEntity.NodeEntity<DynamicControl> findPOPPContainer(BigraphEntity.RootEntity root) {
         for (BigraphEntity<?> child : bigraph.getChildrenOf(root)) {
-            if (child instanceof BigraphEntity.NodeEntity<?> node && POPPBigraphSignature.POPP.matches(node)) {
+            if (child instanceof BigraphEntity.NodeEntity<?> node && POPPBigraphSignature.CONTAINER.matches(node)) {
                 return (BigraphEntity.NodeEntity<DynamicControl>) node;
             }
         }
@@ -156,11 +156,11 @@ public class POPPBigraph {
             nodesById.putIfAbsent("POPP", existing);
             return existing;
         }
-        return addNode(root, POPPBigraphSignature.POPP, "POPP");
+        return addNode(root, POPPBigraphSignature.CONTAINER, "POPP");
     }
 
     /** Raw add: registers the node in the cache but does NOT notify the listeners, callers do that. */
-    private BigraphEntity.NodeEntity<DynamicControl> addNode(BigraphEntity<?> parent, POPPBigraphSignature control, String id) {
+    private BigraphEntity.NodeEntity<DynamicControl> addNode(BigraphEntity<?> parent, Control control, String id) {
         DynamicControl ctrl = requireSignature().getControlByName(control.controlName());
         BigraphEntity.NodeEntity<DynamicControl> entity = bigraph.addNode(parent, ctrl, id);
         nodesById.put(id, entity);
@@ -171,7 +171,7 @@ public class POPPBigraph {
     /** Adds a domain node to the POPP container (created if missing) and builds its decomposition chain. */
     public BigraphEntity.NodeEntity<DynamicControl> addTreeNode(TreeNode<? extends TreeNode<?>> node) {
         BigraphEntity.NodeEntity<DynamicControl> container = getOrCreatePOPPContainer();
-        BigraphEntity.NodeEntity<DynamicControl> entity = addNode(container, POPPBigraphSignature.getByNodeKind(node.getKind()), node.getId());
+        BigraphEntity.NodeEntity<DynamicControl> entity = addNode(container, POPPBigraphSignature.of(node.getKind()), node.getId());
         putAttributes(entity, Map.of(
                 "description", node.getDescription() == null ? "" : node.getDescription(),
                 "layout.x", node.getX(),
@@ -395,8 +395,8 @@ public class POPPBigraph {
     public BigraphEntity.Edge createRelation(Relation relation) {
         BigraphEntity.NodeEntity<DynamicControl> source = getOrAdd(relation.source());
         BigraphEntity.NodeEntity<DynamicControl> target = getOrAdd(relation.target());
-        POPPBigraphSignature sourceStubControl = POPPBigraphSignature.getSourceStub(relation);
-        POPPBigraphSignature targetStubControl = POPPBigraphSignature.getTargetStub(relation);
+        Control sourceStubControl = POPPBigraphSignature.stub(relation.type(), true);
+        Control targetStubControl = POPPBigraphSignature.stub(relation.type(), false);
 
         BigraphEntity.NodeEntity<DynamicControl> sourceStub = addNode(
                 source, sourceStubControl, sourceStubControl + ":" + source.getName() + "->" + target.getName());

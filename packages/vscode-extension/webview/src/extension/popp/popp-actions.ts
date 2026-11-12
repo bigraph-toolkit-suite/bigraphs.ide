@@ -49,9 +49,7 @@ export function coverageModeLabel(mode: string): string {
 }
 export type PoppCoverage = 'COVERED' | 'PARTIAL' | 'UNCOVERED';
 
-// ---------------------------------------------------------------------------
 // Operations (mutate the model)
-// ---------------------------------------------------------------------------
 const SWITCH_DECOMPOSITION_TYPE_KIND = 'popp.switchDecompositionType';
 
 /** Mirrors the server's {@code SwitchDecompositionTypeOperation}, no generated client-side action class exists for it. */
@@ -68,9 +66,7 @@ export function createSwitchDecompositionTypeOperation(
     return { kind: SWITCH_DECOMPOSITION_TYPE_KIND, isOperation: true, nodeId, newType };
 }
 
-// ---------------------------------------------------------------------------
 // Inspection (read-only requests + client-only toggle)
-// ---------------------------------------------------------------------------
 export interface InspectionResult {
     nodeId: string;
     label: string;
@@ -147,9 +143,7 @@ export const SetInspectionAction = {
         return { kind: 'popp.setInspection', active, mode };
     }
 };
-// ---------------------------------------------------------------------------
 // Coverage gaps (read-only request)
-// ---------------------------------------------------------------------------
 export interface CoverageGap {
     nodeId: string;
     label: string;
@@ -177,9 +171,7 @@ export interface CoverageGapsAction extends ResponseAction {
     gaps: CoverageGap[];
 }
 
-// ---------------------------------------------------------------------------
 // Validation (asynchronous: the server pushes a result after every structural change)
-// ---------------------------------------------------------------------------
 export type PoppSeverity = 'ERROR' | 'WARNING';
 
 export interface ValidationIssue {
@@ -224,9 +216,7 @@ export const ValidationResultAction = {
     KIND: 'popp.validationResult' as const
 };
 
-// ---------------------------------------------------------------------------
 // Description editing right after creation (server -> client)
-// ---------------------------------------------------------------------------
 /** Sent by the server after the update that contains a newly created node: open its description editor. */
 export interface StartDescriptionEditAction extends Action {
     kind: 'popp.startDescriptionEdit';
@@ -236,9 +226,7 @@ export const StartDescriptionEditAction = {
     KIND: 'popp.startDescriptionEdit' as const
 };
 
-// ---------------------------------------------------------------------------
 // JSON export / import of the POPP model (see the server's POPPJson)
-// ---------------------------------------------------------------------------
 /** Asks the server for the model as a POPP JSON document; answered with a {@link JsonExportAction}. */
 export interface RequestJsonExportAction extends Action {
     kind: 'popp.requestJsonExport';

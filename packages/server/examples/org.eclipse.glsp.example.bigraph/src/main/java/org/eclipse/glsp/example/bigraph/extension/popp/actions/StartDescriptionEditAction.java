@@ -8,6 +8,7 @@ import org.eclipse.glsp.server.actions.Action;
  */
 public class StartDescriptionEditAction extends Action {
     public static final String KIND = "popp.startDescriptionEdit";
+
     private String labelId;
 
     public StartDescriptionEditAction() {
@@ -20,5 +21,4 @@ public class StartDescriptionEditAction extends Action {
     }
 
     public String getLabelId() { return labelId; }
-    public void setLabelId(final String labelId) { this.labelId = labelId; }
 }

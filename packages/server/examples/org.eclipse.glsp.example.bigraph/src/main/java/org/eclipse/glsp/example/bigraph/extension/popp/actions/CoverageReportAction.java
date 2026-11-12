@@ -4,12 +4,12 @@ import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReportBu
 import org.eclipse.glsp.server.actions.ResponseAction;
 
 /**
- * Answer to {@link RequestCoverageReportAction}.
- *
- * @see org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReportBuilder.CoverageReport
+ * Answer to {@link RequestCoverageReportAction}: the {@link CoverageReportBuilder.CoverageReport} of the requested
+ * mode.
  */
 public class CoverageReportAction extends ResponseAction {
     public static final String KIND = "popp.coverageReport";
+
     private CoverageReportBuilder.CoverageReport report;
 
     public CoverageReportAction() {
@@ -22,5 +22,4 @@ public class CoverageReportAction extends ResponseAction {
     }
 
     public CoverageReportBuilder.CoverageReport getReport() { return report; }
-    public void setReport(final CoverageReportBuilder.CoverageReport report) { this.report = report; }
 }

@@ -99,7 +99,7 @@ class POPPBigraphTest {
         return new Chain(solution, proof, criteria);
     }
 
-    // ---- tree nodes -------------------------------------------------------------------------------------------
+    // tree nodes
 
     @Test
     void addTreeNodeRegistersTheNodeWithItsKindAsControl() {
@@ -107,7 +107,7 @@ class POPPBigraphTest {
         var entity = popp.addTreeNode(node);
 
         assertSame(entity, popp.getById(node.getId()).orElseThrow());
-        assertEquals(POPPBigraphSignature.SUCCESS_CRITERIA, POPPBigraphSignature.forNode(entity));
+        assertEquals(POPPBigraphSignature.of(NodeKind.SUCCESS_CRITERIA), POPPBigraphSignature.forNode(entity).orElseThrow());
         assertEquals(NodeKind.SUCCESS_CRITERIA, popp.kindOf(entity).orElseThrow());
         assertTrue(popp.isDomainNode(entity));
         assertFalse(popp.isGateNode(entity));
@@ -149,7 +149,7 @@ class POPPBigraphTest {
         for (NodeKind kind : NodeKind.values()) {
             TreeNode<?> node = model.createNode(kind, "n " + kind, 0, 0);
             var entity = popp.addTreeNode(node);
-            assertEquals(POPPBigraphSignature.getByNodeKind(kind), POPPBigraphSignature.forNode(entity), kind.toString());
+            assertEquals(POPPBigraphSignature.of(kind), POPPBigraphSignature.forNode(entity).orElseThrow(), kind.toString());
             assertEquals(kind, popp.kindOf(entity).orElseThrow(), kind.toString());
         }
     }
@@ -190,8 +190,8 @@ class POPPBigraphTest {
         var first = popp.getById(parent.getId() + "_DECOMP").orElseThrow();
         var second = popp.getById(parent.getId() + "_DECOMP_1").orElseThrow();
 
-        assertEquals(POPPBigraphSignature.SUCCESS_CRITERIA_OR, POPPBigraphSignature.forNode(first));
-        assertEquals(POPPBigraphSignature.SUCCESS_CRITERIA_OR, POPPBigraphSignature.forNode(second));
+        assertEquals(POPPBigraphSignature.gate(NodeKind.SUCCESS_CRITERIA, DecompositionType.OR), POPPBigraphSignature.forNode(first).orElseThrow());
+        assertEquals(POPPBigraphSignature.gate(NodeKind.SUCCESS_CRITERIA, DecompositionType.OR), POPPBigraphSignature.forNode(second).orElseThrow());
         assertTrue(popp.isGateNode(first));
         assertEquals(DecompositionType.OR, popp.decompositionTypeOf(first));
         assertSame(entity(parent), popp.getBigraph().getParent(first));
@@ -233,7 +233,7 @@ class POPPBigraphTest {
         assertEquals(before, nodeCount());
     }
 
-    // ---- hydrate ----------------------------------------------------------------------------------------------
+    // hydrate
 
     @Test
     void hydrateRebuildsTheCacheFromAnExistingBigraph() {
@@ -267,7 +267,7 @@ class POPPBigraphTest {
         assertTrue(reloaded.getById(parent.getId() + "_DECOMP").isEmpty());
     }
 
-    // ---- decomposition ----------------------------------------------------------------------------------------
+    // decomposition
 
     private Set<String> decodedChildIds(SuccessCriteria parent) {
         return popp.decodeDecomposition(entity(parent)).children().stream()
@@ -381,7 +381,7 @@ class POPPBigraphTest {
         assertEquals(Set.of(child.getId()), decodedChildIds(parent));
     }
 
-    // ---- relations --------------------------------------------------------------------------------------------
+    // relations
 
     @Test
     void createRelationEncodesAnEdgeAndTwoStubs() {
@@ -499,7 +499,7 @@ class POPPBigraphTest {
         assertThrows(IllegalStateException.class, () -> readOnly.addTreeNode(criteria("a")));
     }
 
-    // ---- queries and attributes -------------------------------------------------------------------------------
+    // queries and attributes
 
     @Test
     void nodeQueriesTellDomainNodesGateNodesAndStubsApart() {
@@ -508,7 +508,7 @@ class POPPBigraphTest {
         popp.createRelation(relation(chain.proof(), chain.criteria()));
         var domain = entity(parent);
         var gateNode = popp.getById(parent.getId() + "_DECOMP").orElseThrow();
-        var stub = popp.getBigraph().getNodes().stream().filter(POPPBigraphSignature.VALIDATES_INCOMING::matches)
+        var stub = popp.getBigraph().getNodes().stream().filter(POPPBigraphSignature.stub(RelationType.VALIDATES, false)::matches)
                 .findFirst().orElseThrow();
 
         assertTrue(popp.isDomainNode(domain));
@@ -562,7 +562,7 @@ class POPPBigraphTest {
 
         var container = popp.findPOPPContainer(popp.getDefaultRoot());
         assertNotNull(container);
-        assertEquals(1, popp.getBigraph().getNodes().stream().filter(POPPBigraphSignature.POPP::matches).count());
+        assertEquals(1, popp.getBigraph().getNodes().stream().filter(POPPBigraphSignature.CONTAINER::matches).count());
         assertEquals(1, popp.getBigraph().getRoots().size());
     }
 }

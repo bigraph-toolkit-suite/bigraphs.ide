@@ -10,12 +10,12 @@ import java.util.function.Predicate;
 
 /**
  * Rewrites an agent with a set of reaction rules until no rule matches anymore, for rule sets whose result does not
- * depend on the order of the rewrites (e.g. monotone rules that only raise labels). It knows nothing about the rules
- * beyond what it is given. Every match, of a rule or of a guard, is found by the {@link Matcher}.
+ * depend on the order of the rewrites, at least in the part the caller reads (e.g. the labels of monotone rules that
+ * only raise them). Every match, of a rule or of a guard, is found by the {@link Matcher}.
  * <p>
  * <b>Worklist.</b> A rule is taken from the worklist and applied until it has no match. If it rewrote something, every
  * rule it enables is queued (each at most once). A rule that is not queued has no match, so an empty worklist is a
- * fixpoint. There are no waves: the queue is ordered by the {@link WorklistOrder}, ties in the order of queueing.
+ * fixpoint. The worklist is ordered by the {@link WorklistOrder}, ties in the order of queueing.
  * <p>
  * <b>Guards.</b> A rule is only tried if all its {@link Guard guards} match. When they are matched, and how long an
  * answer is kept, is up to the {@link GuardEvaluator}.
@@ -39,7 +39,8 @@ import java.util.function.Predicate;
  * <p>
  * <b>Contract.</b> The rewriter cannot check these, the caller has to make sure that
  * <ol>
- *   <li>the fixpoint does not depend on the order of the rewrites (e.g. monotone rules, a least fixpoint),</li>
+ *   <li>the part of the fixpoint it reads does not depend on the order of the rewrites (e.g. the labels of monotone
+ *       rules, a least fixpoint),</li>
  *   <li>the {@link ProduceUseAnalyzer} over-approximates the real dependencies,</li>
  *   <li>every guard embeds into the redex of every rule it guards,</li>
  *   <li>no run needs more than {@code maxRewrites} rewrites (otherwise it fails instead of running forever).</li>
@@ -120,7 +121,6 @@ public class MonotoneFixpointRewriter {
         private final Map<Rule, Integer> indexOf = new IdentityHashMap<>();
         private final List<Guard> guards = new ArrayList<>();
         private final int[][] guardsOf;
-        private final boolean[][] enables;
         private final int[][] enabled;
         private final int[][] invalidates;
         private final int[] priority;
@@ -154,7 +154,6 @@ public class MonotoneFixpointRewriter {
             }
             int[] priorities = builder.order.priorities(rules, enablesMatrix);
             if (priorities.length != ruleCount) throw new IllegalStateException("The worklist order does not fit the rule set");
-            this.enables = enablesMatrix;
             this.priority = priorities;
 
             this.enabled = new int[ruleCount][];
@@ -352,24 +351,9 @@ public class MonotoneFixpointRewriter {
 
     public List<Guard> guards() { return Collections.unmodifiableList(analysis.guards); }
 
-    /** Indices of the guards of rule {@code rule}. */
-    public int[] guardsOf(int rule) { return analysis.guardsOf[rule].clone(); }
-
-    /** {@code enables()[rule][other]}: a rewrite by {@code rule} can give {@code other} a new match. A copy. */
-    public boolean[][] enables() {
-        boolean[][] out = new boolean[analysis.enables.length][];
-        for (int i = 0; i < out.length; i++) out[i] = analysis.enables[i].clone();
-        return out;
-    }
-
-    /** The rules queued after rule {@code rule} rewrote something (the enabled ones but itself). */
-    public int[] enabledBy(int rule) { return analysis.enabled[rule].clone(); }
-
     /**
      * The guards whose answer a rewrite by {@code rule} can change from "does not match" to "matches" (the guards of
      * the rules it enables). Not a copy, since the guard evaluator asks after every rewrite: do not modify.
      */
     public int[] invalidatedBy(int rule) { return analysis.invalidates[rule]; }
-
-    public int[] priorities() { return analysis.priority.clone(); }
 }

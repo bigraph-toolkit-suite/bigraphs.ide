@@ -40,7 +40,7 @@ public final class InspectionTracer {
         }
         coverage.put(id, reason.coverage().name());
 
-        // If language standard is updated to 21 replace with switch casting
+        // a pattern switch over the sealed reasons (Java 21, the project is on 17) would be checked for exhaustiveness
         if (reason instanceof CoverageReason.Decomposition decomposition) {
             for (CoverageReason child : decomposition.children()) {
                 edges.add(factory.toDecompositionEdgeId(decomposition.node(), child.node()));

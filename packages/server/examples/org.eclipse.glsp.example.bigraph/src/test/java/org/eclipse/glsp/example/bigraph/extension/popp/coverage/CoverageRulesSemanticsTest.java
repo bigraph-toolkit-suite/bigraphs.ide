@@ -165,7 +165,7 @@ class CoverageRulesSemanticsTest {
         assertEquals(Coverage.COVERED, planning.coverage(criteria));
     }
 
-    // ---- gaps (same scenarios as DomainCoverageAnalyzerTest)
+    // gaps (same scenarios as DomainCoverageAnalyzerTest)
 
     @Test
     void gapsSeparateRootCausesFromAffectedNodes() {
@@ -177,13 +177,13 @@ class CoverageRulesSemanticsTest {
         assertEquals(RelationResult.CREATED, popp.model.relate(problem, goal));
         assertEquals(RelationResult.CREATED, popp.model.relate(goal, criteria));
 
-        CoverageGap.CoverageGaps gaps = analyzer.gaps(popp.model, CoverageMode.VERIFY);
+        List<CoverageGap> gaps = analyzer.gaps(popp.model, CoverageMode.VERIFY);
         assertNotNull(gaps, "gaps() is not implemented for this analyzer's session");
         assertFalse(gaps.isEmpty());
-        assertEquals(List.of(criteria), gaps.rootCauses().stream().map(CoverageGap::node).toList());
-        assertFalse(gaps.rootCauses().getFirst().missing().isEmpty());
-        assertEquals(Set.of(problem, goal), gaps.affected().stream().map(CoverageGap::node).collect(Collectors.toSet()));
-        assertTrue(gaps.affected().stream().allMatch(g -> g.missing().isEmpty()));
+        assertEquals(List.of(criteria), rootCauses(gaps).stream().map(CoverageGap::node).toList());
+        assertFalse(rootCauses(gaps).getFirst().missing().isEmpty());
+        assertEquals(Set.of(problem, goal), affected(gaps).stream().map(CoverageGap::node).collect(Collectors.toSet()));
+        assertTrue(affected(gaps).stream().allMatch(g -> g.missing().isEmpty()));
 
         SuccessProof proof = (SuccessProof) popp.model.createNode(NodeKind.SUCCESS_PROOF, "proof", 0, 0);
         Solution solution = (Solution) popp.model.createNode(NodeKind.SOLUTION, "solution", 0, 0);
@@ -207,11 +207,11 @@ class CoverageRulesSemanticsTest {
         popp.model.relate(proof, solution);
         popp.model.relate(proven, proof);
 
-        CoverageGap.CoverageGaps gaps = analyzer.gaps(popp.model, CoverageMode.VERIFY);
+        List<CoverageGap> gaps = analyzer.gaps(popp.model, CoverageMode.VERIFY);
         assertNotNull(gaps, "gaps() is not implemented for this analyzer's session");
-        assertEquals(List.of(unproven), gaps.rootCauses().stream().map(CoverageGap::node).toList());
-        assertEquals(List.of(and), gaps.affected().stream().map(CoverageGap::node).toList());
-        assertEquals(Coverage.PARTIAL, gaps.affected().getFirst().coverage());
+        assertEquals(List.of(unproven), rootCauses(gaps).stream().map(CoverageGap::node).toList());
+        assertEquals(List.of(and), affected(gaps).stream().map(CoverageGap::node).toList());
+        assertEquals(Coverage.PARTIAL, affected(gaps).getFirst().coverage());
     }
 
     @Test
@@ -223,7 +223,7 @@ class CoverageRulesSemanticsTest {
         assertFalse(popp.analyzer.gaps(popp.model, CoverageMode.VERIFY).isEmpty());
     }
 
-    // ---- agreement with the domain analyzer, which is the oracle
+    // agreement with the domain analyzer, which is the oracle
     //
     // These tests are about correctness of the coverage rules as the extension evaluates them
     // (RewritingCoverageAnalyzer).
@@ -287,5 +287,14 @@ class CoverageRulesSemanticsTest {
         for (TreeNode<?> node : popp.model.getAllNodes()) {
             assertNotNull(session.explain(node), "No explanation for " + node);
         }
+    }
+
+    private static List<CoverageGap> rootCauses(List<CoverageGap> gaps) {
+        return gaps.stream().filter(CoverageGap::rootCause).toList();
+    }
+
+    /** The gaps that are not covered only because something below or behind them is not. */
+    private static List<CoverageGap> affected(List<CoverageGap> gaps) {
+        return gaps.stream().filter(gap -> !gap.rootCause()).toList();
     }
 }

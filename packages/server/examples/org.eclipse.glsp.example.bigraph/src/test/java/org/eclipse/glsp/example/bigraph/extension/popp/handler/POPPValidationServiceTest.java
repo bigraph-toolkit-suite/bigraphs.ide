@@ -43,7 +43,7 @@ class POPPValidationServiceTest {
                 injector.getProvider(ActionDispatcher.class)));
     }
 
-    // -- the service in a session ----------------------------------------------------------------------------
+    // the service in a session
 
     private static POPPTestSession settled() {
         var session = new POPPTestSession();

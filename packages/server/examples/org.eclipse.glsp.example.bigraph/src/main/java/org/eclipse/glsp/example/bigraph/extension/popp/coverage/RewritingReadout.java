@@ -3,6 +3,7 @@ package org.eclipse.glsp.example.bigraph.extension.popp.coverage;
 import org.bigraphs.framework.core.impl.BigraphEntity;
 import org.bigraphs.framework.core.impl.pure.PureBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature.Control;
 
 import java.util.*;
 
@@ -23,7 +24,7 @@ record RewritingReadout(Map<String, Coverage> coverage, Map<String, Derivation> 
         Map<String, Coverage> cov = new HashMap<>();
         Map<String, Derivation> why = new HashMap<>();
         for (BigraphEntity.NodeEntity<?> owner : bigraph.getNodes()) {
-            if (!POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(owner))) continue;
+            if (!POPPBigraphSignature.forNode(owner).map(Control::isDomain).orElse(false)) continue;
             Coverage state = null;
             List<BigraphEntity.NodeEntity<?>> markers = new ArrayList<>();
             for (BigraphEntity<?> c : bigraph.getChildrenOf(owner)) {

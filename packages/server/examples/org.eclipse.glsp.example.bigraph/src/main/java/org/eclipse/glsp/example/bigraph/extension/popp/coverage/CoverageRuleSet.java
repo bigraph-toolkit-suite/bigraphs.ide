@@ -5,6 +5,7 @@ import org.bigraphs.framework.core.impl.pure.PureBigraph;
 import org.bigraphs.framework.core.impl.pure.PureBigraphBuilder;
 import org.bigraphs.framework.core.impl.signature.DynamicSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature.Control;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageRewriteRules.CompiledRule;
 import org.eclipse.glsp.example.bigraph.extension.popp.rewriting.Guard;
 import org.eclipse.glsp.example.bigraph.extension.popp.rewriting.Rule;
@@ -39,15 +40,11 @@ final class CoverageRuleSet {
         this.signature = rules.getFirst().rule().getRedex().getSignature();
         for (CompiledRule rule : rules) {
             receiverKinds.put(rule, nodeOf(rule, rule.receiverNode())
-                    .map(POPPBigraphSignature::forNode)
-                    .flatMap(control -> POPPBigraphSignature.isKindControl(control)
-                            ? Optional.of(POPPBigraphSignature.toNodeKind(control))
-                            : POPPBigraphSignature.gateKindOf(control)));
+                    .flatMap(POPPBigraphSignature::forNode).flatMap(Control::treeKind));
             if (rule.giverNode() != null) {
                 nodeOf(rule, rule.giverNode())
-                        .map(POPPBigraphSignature::forNode)
-                        .filter(POPPBigraphSignature::isKindControl)
-                        .ifPresent(control -> giverKinds.put(rule, POPPBigraphSignature.toNodeKind(control)));
+                        .flatMap(POPPBigraphSignature::forNode).filter(Control::isDomain)
+                        .ifPresent(control -> giverKinds.put(rule, control.kind()));
             }
         }
         this.guards = guards(rules);

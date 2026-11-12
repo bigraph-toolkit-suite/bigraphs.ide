@@ -57,7 +57,7 @@ class POPPActionHandlersTest {
         return model.createNode(kind, description, 0, 0);
     }
 
-    // -- AbstractPOPPActionHandler -----------------------------------------------------------------------------
+    // AbstractPOPPActionHandler
 
     @Test
     void aSuccessfulChangeMarksTheModelDirtyAndUpdatesTheClient() {
@@ -96,7 +96,7 @@ class POPPActionHandlersTest {
         assertTrue(session.dispatcher.dispatched(SetDirtyStateAction.class).isEmpty());
     }
 
-    // -- CreateNodeOperationHandler ------------------------------------------------------------------------------
+    // CreateNodeOperationHandler
 
     @Test
     void createsANodeOfTheRequestedKindAtTheLocationAndOpensItsEditor() {
@@ -133,7 +133,7 @@ class POPPActionHandlersTest {
         assertEquals(List.of("POPP: Invalid Node Type"), errors());
     }
 
-    // -- EditDescriptionNodeHandler -------------------------------------------------------------------------------
+    // EditDescriptionNodeHandler
 
     @Test
     void editingADescriptionLabelChangesTheNode() {
@@ -165,7 +165,7 @@ class POPPActionHandlersTest {
         assertEquals(List.of("POPP: Node not found"), errors());
     }
 
-    // -- SwitchDecompositionTypeHandler ---------------------------------------------------------------------------
+    // SwitchDecompositionTypeHandler
 
     @Test
     void switchesANodeWithChildren() {
@@ -211,7 +211,7 @@ class POPPActionHandlersTest {
         assertEquals(List.of("POPP: No such node: missing"), errors());
     }
 
-    // -- EdgeCreationHandler and POPPEdgeCreationChecker ----------------------------------------------------------
+    // EdgeCreationHandler and POPPEdgeCreationChecker
 
     private EdgeCreationHandler handler() {
         EdgeCreationHandler handler = new EdgeCreationHandler();
@@ -316,7 +316,7 @@ class POPPActionHandlersTest {
         return gnode(node).getChildren().stream().filter(c -> c.getType().equals(type)).findFirst().orElseThrow();
     }
 
-    // -- read-only handlers -----------------------------------------------------------------------------------------
+    // read-only handlers
 
     @Test
     void answersTheRequestWithTheTrace() {
@@ -395,17 +395,17 @@ class POPPActionHandlersTest {
         assertEquals("r3", response.getResponseId());
         assertEquals("PLANNING", response.getMode());
         assertEquals(Set.of(goal.getId(), child.getId(), consequence.getId()),
-                Set.copyOf(response.getGaps().stream().map(CoverageGapsAction.Gap::nodeId).toList()));
-        CoverageGapsAction.Gap consequenceGap = response.getGaps().stream()
+                Set.copyOf(response.getGaps().stream().map(CoverageGapDto::nodeId).toList()));
+        CoverageGapDto consequenceGap = response.getGaps().stream()
                 .filter(g -> g.nodeId().equals(consequence.getId())).findFirst().orElseThrow();
         assertTrue(consequenceGap.rootCause());
         assertEquals("needs a problem (causes)", consequenceGap.message());
-        CoverageGapsAction.Gap parentGap = response.getGaps().stream()
+        CoverageGapDto parentGap = response.getGaps().stream()
                 .filter(g -> g.nodeId().equals(goal.getId())).findFirst().orElseThrow();
         assertFalse(parentGap.rootCause(), "its child is the place to act");
         assertEquals("", parentGap.message());
         assertEquals("goal \"Ship v2\"", parentGap.label());
-        CoverageGapsAction.Gap leafGap = response.getGaps().stream()
+        CoverageGapDto leafGap = response.getGaps().stream()
                 .filter(g -> g.nodeId().equals(child.getId())).findFirst().orElseThrow();
         assertTrue(leafGap.rootCause());
         assertEquals("UNCOVERED", leafGap.coverage());
@@ -425,13 +425,13 @@ class POPPActionHandlersTest {
         request.setMode("PROBLEMS_BY_GOALS");
         CoverageGapsAction byGoals = (CoverageGapsAction) reading(new CoverageGapsHandler()).executeAction(request).getFirst();
         assertEquals("PROBLEMS_BY_GOALS", byGoals.getMode());
-        assertEquals(List.of(other.getId()), byGoals.getGaps().stream().map(CoverageGapsAction.Gap::nodeId).toList(),
+        assertEquals(List.of(other.getId()), byGoals.getGaps().stream().map(CoverageGapDto::nodeId).toList(),
                 "the goal is covered by itself, the criterion is not asked about");
 
         request.setMode("PROBLEMS_BY_PROOFS");
         CoverageGapsAction byProofs = (CoverageGapsAction) reading(new CoverageGapsHandler()).executeAction(request).getFirst();
         assertEquals(Set.of(problem.getId(), other.getId(), goal.getId(), criterion.getId()),
-                Set.copyOf(byProofs.getGaps().stream().map(CoverageGapsAction.Gap::nodeId).toList()),
+                Set.copyOf(byProofs.getGaps().stream().map(CoverageGapDto::nodeId).toList()),
                 "problems, the goal and the criterion lie between proofs and problems");
     }
 

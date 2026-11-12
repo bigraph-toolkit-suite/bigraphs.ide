@@ -76,7 +76,6 @@ public final class POPPJson {
 
     public record Link(RelationType type, String source, String target) {}
 
-    // ------------------------------------------------------------------------------------------------------------
     // Export
 
     /** Writes {@code model} as a POPP JSON document (with layout positions). */
@@ -137,7 +136,6 @@ public final class POPPJson {
         };
     }
 
-    // ------------------------------------------------------------------------------------------------------------
     // Import
 
     /** Parses and checks a POPP JSON document. Throws {@link InvalidDocumentException} with every problem found. */

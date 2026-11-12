@@ -7,6 +7,7 @@ import org.bigraphs.framework.core.impl.signature.DynamicControl;
 import org.bigraphs.framework.simulation.matching.pure.PureBigraphMatch;
 import org.bigraphs.framework.simulation.matching.pure.PureBigraphMatcher;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature.Control;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,10 +20,9 @@ import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
  *
  * <p>Two phases, so that only the first one has to run on the GLSP dispatch thread: {@link #snapshot} copies the
  * live bigraph (place graph and links, descriptions only as labels) into an independent bigraph over the patterns'
- * signature, and
- * {@link #validate} matches every pattern against that copy, which is safe on any thread. A census of the
- * snapshot's controls skips patterns that cannot occur, so a model without, say, any stubs never pays for the stub
- * patterns.</p>
+ * signature, and {@link #validate} matches every pattern against that copy, which is safe on any thread. A census of
+ * the snapshot's controls skips patterns that cannot occur, so a model without, say, any stubs never pays for the
+ * stub patterns.</p>
  */
 public final class POPPModelValidator {
     private static final Logger LOGGER = LoggerFactory.getLogger(POPPModelValidator.class);
@@ -100,12 +100,12 @@ public final class POPPModelValidator {
             var copiedNode = copy.addNode(parent, control, node.getName());
             census.merge(controlName, 1, Integer::sum);
 
-            POPPBigraphSignature kind = POPPBigraphSignature.forNode(node);
-            if (POPPBigraphSignature.isKindControl(kind)) {
+            Optional<Control> kind = POPPBigraphSignature.forNode(node).filter(Control::isDomain);
+            if (kind.isPresent()) {
                 owner = node.getName();
                 Object description = node.getAttributes().get("description");
                 String text = description == null ? "" : description.toString().strip();
-                ownerLabel = kind.controlName() + (text.isEmpty() ? " " + shortId(owner) : " \"" + text + "\"");
+                ownerLabel = kind.get().controlName() + (text.isEmpty() ? " " + shortId(owner) : " \"" + text + "\"");
             }
             if (owner != null) ownerOf.put(node.getName(), owner);
             labelOf.put(node.getName(), ownerLabel != null ? ownerLabel : node.getName());

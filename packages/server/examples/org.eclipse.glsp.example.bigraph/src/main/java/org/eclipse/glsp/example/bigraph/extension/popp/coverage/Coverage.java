@@ -20,7 +20,7 @@ public enum Coverage {
     /**
      * Whether a node of this kind can be covered through a relation at all, i.e. whether the metamodel has a
      * propagating kind pair towards its kind. False only for solutions (always covered by themselves), so they are
-     * left out of reports and gap lists. Consequences are coverable, through the problems that cause them.
+     * left out of reports and gap lists.
      */
     public static boolean isCoverable(TreeNode<?> node) {
         return isCoverable(node.getKind());
@@ -31,7 +31,7 @@ public enum Coverage {
         return !CoverageGap.remediesFor(kind).isEmpty();
     }
 
-    /** The kinds {@link #isCoverable(NodeKind)} holds for: problems, goals, success criteria and success proofs. */
+    /** The kinds {@link #isCoverable(NodeKind)} holds for: every kind but solutions. */
     public static final Set<NodeKind> COVERABLE_KINDS = Set.copyOf(Arrays.stream(NodeKind.values())
             .filter(Coverage::isCoverable).collect(() -> EnumSet.noneOf(NodeKind.class), Set::add, Set::addAll));
 }

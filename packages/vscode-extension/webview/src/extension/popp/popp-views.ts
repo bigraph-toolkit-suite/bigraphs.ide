@@ -42,9 +42,7 @@ const POPP_NODE_ICON_CLASS = 'popp-node-icon';
 const POPP_ARROW_CLASS = 'popp-arrow';
 const POPP_RELATION_LABEL_CLASS = 'popp-relation-label';
 
-// ---------------------------------------------------------------------------
 // Tree nodes: rounded box + codicon in the top-left corner + description label
-// ---------------------------------------------------------------------------
 @injectable()
 export class POPPNodeView extends ShapeView {
     override render(node: Readonly<GNode & ArgsAware>, context: RenderingContext): VNode | undefined {
@@ -73,9 +71,7 @@ export class POPPNodeView extends ShapeView {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Relations: line + arrow head + relation name on the line
-// ---------------------------------------------------------------------------
 @injectable()
 export class POPPRelationEdgeView extends PolylineEdgeView {
     protected override renderAdditionals(edge: GEdge, segments: Point[], context: RenderingContext): VNode[] {
@@ -128,9 +124,7 @@ export class POPPRelationEdgeView extends PolylineEdgeView {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Decompositions: plain line + port
-// ---------------------------------------------------------------------------
 @injectable()
 export class POPPDecompositionEdgeView extends PolylineEdgeView {
     // plain line, no arrow, nothing else
@@ -154,9 +148,7 @@ export class POPPDecompositionPortView extends ShapeView {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Node Descriptions: Label with the description of the node
-// ---------------------------------------------------------------------------
 const CHAR_W = 6.5;
 const LINE_H = 16;
 

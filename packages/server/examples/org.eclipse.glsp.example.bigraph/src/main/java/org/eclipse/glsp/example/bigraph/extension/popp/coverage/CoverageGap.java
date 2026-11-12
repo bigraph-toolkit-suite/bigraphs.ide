@@ -19,26 +19,6 @@ import java.util.List;
  */
 public record CoverageGap(TreeNode<?> node, Coverage coverage, boolean rootCause, List<CoverageGap.CoverageRemedy> missing) {
     /**
-     * Everything a "highlight coverage gaps" action needs, computed from one {@link CoverageSession}.
-     */
-    public record CoverageGaps(List<CoverageGap> gaps) {
-        public List<CoverageGap> rootCauses() {
-            return gaps.stream().filter(CoverageGap::rootCause).toList();
-        }
-
-        /**
-         * Non-root gaps: nodes that are UNCOVERED/PARTIAL only because something beneath or behind them is.
-         */
-        public List<CoverageGap> affected() {
-            return gaps.stream().filter(g -> !g.rootCause()).toList();
-        }
-
-        public boolean isEmpty() {
-            return gaps.isEmpty();
-        }
-    }
-
-    /**
      * One way a node could still become covered: a missing neighbour of {@code missingKind} connected via {@code type},
      * as the relation's source if {@code missingIsSource}.
      */

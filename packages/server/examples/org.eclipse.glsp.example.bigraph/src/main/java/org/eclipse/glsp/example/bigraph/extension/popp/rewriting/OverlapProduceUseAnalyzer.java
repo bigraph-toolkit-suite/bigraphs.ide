@@ -26,7 +26,7 @@ import java.util.*;
  *   unknown, so such a rule enables every rule.</li>
  * </ul>
  * <b>Gluing.</b> Two nodes can be glued if they have the same control, their children can be glued (see
- * {@link #childrenFit}), and their parents can be glued as well, up to the first pattern root on either side, where the
+ * {@link Gluer#childrenFit}), and their parents can be glued as well, up to the first pattern root on either side, where the
  * context may supply anything. Links are not compared. Leaving out constraints only adds dependencies, so the result
  * over-approximates the real dependencies, as the {@link MonotoneFixpointRewriter} requires.
  * <p>

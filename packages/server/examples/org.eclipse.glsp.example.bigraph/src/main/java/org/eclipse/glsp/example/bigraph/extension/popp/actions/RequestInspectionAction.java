@@ -3,12 +3,12 @@ package org.eclipse.glsp.example.bigraph.extension.popp.actions;
 import org.eclipse.glsp.server.actions.RequestAction;
 
 /**
- * Asks for inspection data for one node, containing if and why this node is covered.
- *
- * @see org.eclipse.glsp.example.bigraph.extension.popp.actions.InspectionResultAction
+ * Asks whether and why the node {@code nodeId} is covered in {@code mode}. Answered with an
+ * {@link InspectionResultAction}.
  */
 public class RequestInspectionAction extends RequestAction<InspectionResultAction> {
     public static final String KIND = "popp.requestInspection";
+
     private String nodeId;
     private String mode;
 

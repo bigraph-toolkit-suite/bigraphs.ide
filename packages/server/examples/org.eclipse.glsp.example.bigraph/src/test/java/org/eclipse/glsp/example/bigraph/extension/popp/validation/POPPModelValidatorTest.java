@@ -96,7 +96,7 @@ class POPPModelValidatorTest {
 
         // 1) the goal-side stub of the relation is lost
         var goalStub = bigraph.getNodes().stream()
-                .filter(n -> POPPBigraphSignature.INVERTS_INCOMING.matches(n) && bigraph.getParent(n) == node(bigraph, goal.getId()))
+                .filter(n -> POPPBigraphSignature.stub(RelationType.INVERTS, false).matches(n) && bigraph.getParent(n) == node(bigraph, goal.getId()))
                 .findFirst().orElseThrow();
         bigraph.removeNode(goalStub);
         // 2) a gate node directly in the container
@@ -146,7 +146,7 @@ class POPPModelValidatorTest {
         SuccessCriteria criterion = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "sc", 0, 0);
         popp.model.relate(goal, criterion);
         PureBigraphMutable bigraph = popp.bigraph.getBigraph();
-        var stub = bigraph.getNodes().stream().filter(POPPBigraphSignature.CAUSES_OUTGOING::matches).findFirst().orElseThrow();
+        var stub = bigraph.getNodes().stream().filter(POPPBigraphSignature.stub(RelationType.CAUSES, true)::matches).findFirst().orElseThrow();
         bigraph.moveNode(stub, popp.bigraph.findPOPPContainer(popp.bigraph.getDefaultRoot()));
 
         List<ValidationIssue> misplaced = issues(validate(popp), ValidationIssue.Code.MISPLACED_STUB);
@@ -165,7 +165,7 @@ class POPPModelValidatorTest {
         SuccessCriteria criterion = (SuccessCriteria) popp.model.createNode(NodeKind.SUCCESS_CRITERIA, "sc", 0, 0);
         popp.model.relate(parent, criterion);
         PureBigraphMutable bigraph = popp.bigraph.getBigraph();
-        var stub = bigraph.getNodes().stream().filter(POPPBigraphSignature.CAUSES_OUTGOING::matches).findFirst().orElseThrow();
+        var stub = bigraph.getNodes().stream().filter(POPPBigraphSignature.stub(RelationType.CAUSES, true)::matches).findFirst().orElseThrow();
         bigraph.moveNode(stub, node(bigraph, parent.getId() + "_DECOMP"));
 
         List<ValidationIssue> misplaced = issues(validate(popp), ValidationIssue.Code.MISPLACED_STUB);
@@ -193,7 +193,7 @@ class POPPModelValidatorTest {
     @Test
     void aControlOutsideTheSignatureIsReportedAndItsSubtreeIsNotCopied() {
         List<BigraphTestSupport.ControlSpec> controls = new java.util.ArrayList<>();
-        for (POPPBigraphSignature c : POPPBigraphSignature.values()) {
+        for (POPPBigraphSignature.Control c : POPPBigraphSignature.controls()) {
             controls.add(new BigraphTestSupport.ControlSpec(c.controlName(), c.arity()));
         }
         controls.add(new BigraphTestSupport.ControlSpec("Foreign", 0));

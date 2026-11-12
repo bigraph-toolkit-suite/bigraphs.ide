@@ -5,8 +5,7 @@ import java.util.*;
 
 /**
  * A node of one of the six homogeneous POPP trees (CRTP: {@code T} is the concrete node type, so children and parent
- * are statically of the same kind). Sealed, so that code dispatching over the node kinds (e.g.
- * {@link POPPModel#decompose}) is checked for exhaustiveness by the compiler.
+ * are statically of the same kind). Sealed: the set of node kinds is closed and stated in one place.
  * <p>
  * Every node forwards the events of its children to its own listeners, so a listener on a root (the
  * {@link POPPModel}) hears about the whole tree. Invariant: the decomposition type is {@code NONE} exactly while the

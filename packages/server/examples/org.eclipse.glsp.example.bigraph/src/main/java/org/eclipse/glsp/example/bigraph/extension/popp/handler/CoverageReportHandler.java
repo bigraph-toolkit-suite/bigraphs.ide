@@ -6,7 +6,6 @@ import org.eclipse.glsp.example.bigraph.extension.popp.actions.RequestCoverageRe
 import org.eclipse.glsp.example.bigraph.extension.popp.actions.CoverageReportAction;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageMode;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageReportBuilder;
-import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
 import org.eclipse.glsp.server.actions.AbstractActionHandler;
 import org.eclipse.glsp.server.actions.Action;
 

@@ -13,6 +13,7 @@ import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphEvent;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphListener;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
+import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature.Control;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageRewriteRules.CompiledRule;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.NodeKind;
 import org.eclipse.glsp.example.bigraph.extension.popp.types.POPPModel;
@@ -26,17 +27,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * its fixpoint once and from then on edited in place. A listener of {@link POPPBigraph} (next to the synchronizer's
  * view mirror) records the structural operations. The next session of a mode replays them on that mode's coverage
  * bigraph, resets the states that rested on what changed, rewrites the bigraph to its fixpoint again (with
- * {@link RewritingCoverageAnalyzer#rewriteToFixpoint}, seeded as below) and reads the
- * session off it. There is no state table besides the bigraph: states are the state cells, reasons the reason markers
- * the rewrites left, and what a state rests on is read off the bigraph.
+ * {@link RewritingCoverageAnalyzer#rewriteToFixpoint}, seeded as below) and reads the session off it. There is no
+ * state table besides the bigraph: states are the state cells, reasons the reason markers the rewrites left.
  * <p>
  * <b>Sync.</b> The structure bigraph announces every node (container, domain and gate nodes, stubs) and every
  * relation, in order (see {@link POPPBigraphEvent}). The coverage bigraph keeps the structure bigraph's node names
  * through rewriting, so the operations are replayed by name: a node is added (a tree node with a fresh state cell,
  * {@code Unc}, or {@code Cov} and {@code CovIntrinsic} if its kind is intrinsic in the mode, see
  * {@link CoverageBigraph}), removed or moved. A relation edge is added between its stubs, or removed together with
- * them. Rewriting renames edges, so a relation is found through its
- * stubs, not by its edge name.
+ * them. Rewriting renames edges, so a relation is found through its stubs, not by its edge name.
  * <p>
  * <b>Reset.</b> Coverage is the least fixpoint of monotone rules. A change that only adds (a relation, a node, an OR
  * child) can only raise states, so the old fixpoint is a valid start. A change that removes support (a relation, a
@@ -51,7 +50,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Resetting a node removes its state cell and reason markers, adds {@code Unc} and resets, transitively, everything
  * that rests on it: its parent if that is a gate node or a domain node with a decomposition reason, and every domain
  * node whose reason marker sits on one of its relation edges. Derivations were established in order, so they form a
- * DAG, and this leaves only states that are still derivable. A node added, removed or moved below a tree node resets
+ * DAG, and this leaves only states that are still derivable. This relies on every reason marker being valid, not on
+ * which of the valid reasons the order of the rewrites produced. A node added, removed or moved below a tree node resets
  * that node by the first two rules. A relation removed resets the receivers whose reason marker is linked to its edge.
  * Intrinsic nodes (domain and gate nodes of an intrinsically covered kind) are never reset.
  * <p>
@@ -204,7 +204,7 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
         }
 
         void apply(Op op) {
-            // If language standard is updated to 21 replace with switch casting
+            // a pattern switch over the sealed operations (Java 21, the project is on 17) would be checked for exhaustiveness
             if (op instanceof Added added) added(added);
             else if (op instanceof Removed removed) removed(removed);
             else if (op instanceof Moved moved) moved(moved);
@@ -221,7 +221,7 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
             if (!isTree(node)) return; // container, stubs: no state
             NodeKind kind = kind(node);
             seeds.add(kind);
-            if (CoverageBigraph.isIntrinsic(POPPBigraphSignature.forNode(node), mode)) {
+            if (CoverageBigraph.isIntrinsic(control(node), mode)) {
                 cell(node, CoverageMarker.COV);
                 cell(node, CoverageMarker.COV_INTRINSIC);
             } else {
@@ -238,8 +238,8 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
             // A domain node still below it was moved out without an announcement (the structure bigraph moves a node
             // to the container before rebuilding the chain it leaves). It is announced again at its final place.
             for (BigraphEntity<?> entity : new ArrayList<>(bigraph.getChildrenOf(node))) {
-                if (entity instanceof BigraphEntity.NodeEntity<?> child && isTree(child)
-                        && POPPBigraphSignature.isKindControl(POPPBigraphSignature.forNode(child))) {
+                if (entity instanceof BigraphEntity.NodeEntity<?> child
+                        && POPPBigraphSignature.forNode(child).map(Control::isDomain).orElse(false)) {
                     bigraph.moveNode((BigraphEntity.NodeEntity<DynamicControl>) child, container());
                 }
             }
@@ -292,7 +292,7 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
 
         private BigraphEntity.NodeEntity<DynamicControl> container() {
             return byName.values().stream()
-                    .filter(node -> POPPBigraphSignature.forNode(node) == POPPBigraphSignature.POPP)
+                    .filter(POPPBigraphSignature.CONTAINER::matches)
                     .findFirst().orElseThrow();
         }
 
@@ -304,7 +304,7 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
             if (!(entity instanceof BigraphEntity.NodeEntity<?> raw) || !isTree(raw)) return;
             var node = (BigraphEntity.NodeEntity<DynamicControl>) raw;
             seeds.add(kind(node));
-            if (POPPBigraphSignature.isDecompControl(POPPBigraphSignature.forNode(node))) {
+            if (control(node).isGate()) {
                 reset(node);
                 return;
             }
@@ -320,7 +320,7 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
         /** Back to UNCOVERED, and everything that rests on {@code node} (see the class comment). */
         private void reset(BigraphEntity.NodeEntity<DynamicControl> node) {
             seeds.add(kind(node));
-            if (CoverageBigraph.isIntrinsic(POPPBigraphSignature.forNode(node), mode)) return; // covered by definition
+            if (CoverageBigraph.isIntrinsic(control(node), mode)) return; // covered by definition
             if (state(node) == Coverage.UNCOVERED) return; // nothing rests on an uncovered node
             List<BigraphEntity.NodeEntity<DynamicControl>> receivers = receiversOf(node);
             markers(node).forEach(this::removeSubtree);
@@ -432,14 +432,17 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
         }
 
         private static boolean isTree(BigraphEntity.NodeEntity<?> node) {
-            return marker(node).isEmpty() && POPPBigraphSignature.isTreeControl(POPPBigraphSignature.forNode(node));
+            return POPPBigraphSignature.forNode(node).map(Control::isTree).orElse(false);
+        }
+
+        /** The control of a node of the structure bigraph, i.e. not of a marker. */
+        private static Control control(BigraphEntity.NodeEntity<?> node) {
+            return POPPBigraphSignature.forNode(node).orElseThrow();
         }
 
         /** The kind of a tree node: of the domain node, or of the tree a gate node belongs to. */
         private static NodeKind kind(BigraphEntity.NodeEntity<?> node) {
-            POPPBigraphSignature control = POPPBigraphSignature.forNode(node);
-            return POPPBigraphSignature.isKindControl(control) ? POPPBigraphSignature.toNodeKind(control)
-                    : POPPBigraphSignature.gateKindOf(control).orElseThrow();
+            return control(node).treeKind().orElseThrow();
         }
 
         /**
@@ -475,7 +478,7 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
      */
     @Override
     public synchronized void onBigraphEvent(POPPBigraphEvent event) {
-        // If language standard is updated to 21 replace with switch casting
+        // a pattern switch over the sealed events (Java 21, the project is on 17) would be checked for exhaustiveness
         if (event instanceof POPPBigraphEvent.NodeAdded nodeAdded) {
             String parentName = nodeAdded.parent() instanceof BigraphEntity.NodeEntity<?> parent ? parent.getName() : null;
             log.add(new Added(nodeAdded.node().getName(), nodeAdded.node().getControl().getNamedType().stringValue(), parentName));

@@ -3,18 +3,13 @@ package org.eclipse.glsp.example.bigraph.extension.popp.types;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
- * Represents the POPP model edited in the editor.
- * It stores all root nodes in {@link NodeRegistry}s of a certain node kind,
- * and acts as a facade for many operations like creating, deleting, decomposing, relating
- * and unrelating nodes. After these operations have been executed, the model also alerts its
- * subscribers about the changes. Many other operations can still be done directly on the {@link TreeNode}s
- * due to events being forwarded to the subscribers of the {@link POPPModel}.
- * The emitted events keep the GModel and the bigraph in sync through the subscribers
- * {@code POPPGModelSynchronizer} and {@code POPPBigraphSynchronizer} (package {@code integration}).
+ * The POPP model edited in the editor: every node by id, the roots of every kind ({@link NodeRegistry}) and the
+ * relations. The operations that concern more than one node go through it (creating, deleting, decomposing, relating
+ * and unrelating nodes), operations on a single node (e.g. its description) are called on the {@link TreeNode}. It
+ * forwards the events of every node and of the relation graph to its subscribers, which keep the GModel and the bigraph
+ * in sync ({@code POPPGModelSynchronizer} and {@code POPPBigraphSynchronizer}, package {@code sync}).
  */
 public class POPPModel extends POPPEventEmitter implements POPPEventListener {
     private final Map<String, TreeNode<?>> nodeRegistry = new HashMap<>();
@@ -27,7 +22,7 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
     private final NodeRegistry<SuccessProof> successProofs = new NodeRegistry<>(SuccessProof::new, SuccessProof::new);
 
     private final RelationGraph relations = new RelationGraph();
-    /** Bumped after every event that can change coverage. See {@link #publish}. */
+    /** Bumped after every structural event. See {@link #publish}. */
     private final AtomicLong version = new AtomicLong();
 
     public POPPModel() {
@@ -113,15 +108,15 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         return relations;
     }
 
-    /** Changes with every model change that can affect coverage. Cached coverage sessions are valid for one version. */
+    /** Changes with every structural change, e.g. to tell which model a validation report is about. */
     public long getVersion() {
         return version.get();
     }
 
     /**
      * Emits the event to all listeners, then bumps the version. The bump comes last so that listeners such as the
-     * bigraph synchronizer have already applied the change when a cache sees the new version. Moves and description
-     * edits do not affect coverage and leave the version alone.
+     * bigraph synchronizer have already applied the change when a reader sees the new version. Moves and description
+     * edits are not structural and leave the version alone.
      */
     private void publish(POPPEvent event) {
         try {
@@ -145,15 +140,15 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
 
     /**
      * Attaches {@code child} below {@code parent} when both are of the same kind. The entry point for callers that
-     * only know the nodes as {@code TreeNode<?>} (e.g. the editor's connect tool): the exhaustive switch over the sealed
-     * node types recovers the concrete type, and {@link Class#cast} checks the child at runtime, so no unchecked cast
-     * is needed anywhere. Code that knows the types calls {@link TreeNode#addChild} directly.
+     * only know the nodes as {@code TreeNode<?>} (e.g. the editor's connect tool): the dispatch over the node types
+     * recovers the concrete type, and {@link Class#cast} checks the child at runtime, so no unchecked cast is needed.
+     * Code that knows the types calls {@link TreeNode#addChild} directly.
      */
     public DecompositionResult decompose(TreeNode<?> parent, TreeNode<?> child) {
         if (parent == null || child == null) {
             return DecompositionResult.NULL_ARGUMENT;
         }
-        // If language standard is updated to 21 replace with switch casting
+        // a pattern switch over the sealed types (Java 21, the project is on 17) would be checked for exhaustiveness
         if (parent instanceof Problem problem) return attach(problem, child, Problem.class);
         if (parent instanceof Goal goal) return attach(goal, child, Goal.class);
         if (parent instanceof Consequence consequence) return attach(consequence, child, Consequence.class);
@@ -254,7 +249,7 @@ public class POPPModel extends POPPEventEmitter implements POPPEventListener {
         boolean lostRootStatus = event.oldParent() == null && event.newParent() != null;
         if (!becameRoot && !lostRootStatus) return;
 
-        // If language standard is updated to 21 replace with switch casting
+        // a pattern switch over the sealed types (Java 21, the project is on 17) would be checked for exhaustiveness
         TreeNode<?> node = event.node();
         if (node instanceof Problem problem) {
             if (becameRoot) problems.addRoot(problem); else problems.removeRoot(problem);

@@ -7,12 +7,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class DomainCoverageAnalyzerTest {
 
-    // ---- behaviour
+    // behaviour
 
     @Test
     void aConsequenceIsCoveredOnceTheProblemThatCausesItIsCovered() {
@@ -83,7 +84,7 @@ class DomainCoverageAnalyzerTest {
         assertInstanceOf(CoverageReason.Link.class, reason.children().getFirst());
     }
 
-    // ---- planning mode (regression: the mode decides which kinds are intrinsically covered)
+    // planning mode (regression: the mode decides which kinds are intrinsically covered)
 
     @Test
     void planningModeCoversPlannedKindsAndVerifyModeDoesNot() {
@@ -128,7 +129,7 @@ class DomainCoverageAnalyzerTest {
         assertEquals(Coverage.COVERED, planning.coverage(criteria)); // asking VERIFY in between changed nothing
     }
 
-    // ---- gaps
+    // gaps
 
     @Test
     void gapsSeparateRootCausesFromAffectedNodes() {
@@ -141,12 +142,12 @@ class DomainCoverageAnalyzerTest {
         assertEquals(RelationResult.CREATED, model.relate(goal, criteria));
 
         // nothing proves the criteria: it is the actionable gap, the goal and the problem only wait for it
-        CoverageGap.CoverageGaps gaps = analyzer.gaps(model, CoverageMode.VERIFY);
+        List<CoverageGap> gaps = analyzer.gaps(model, CoverageMode.VERIFY);
         assertFalse(gaps.isEmpty());
-        assertEquals(java.util.List.of(criteria), gaps.rootCauses().stream().map(CoverageGap::node).toList());
-        assertFalse(gaps.rootCauses().getFirst().missing().isEmpty());
-        assertEquals(java.util.Set.of(problem, goal), gaps.affected().stream().map(CoverageGap::node).collect(java.util.stream.Collectors.toSet()));
-        assertTrue(gaps.affected().stream().allMatch(g -> g.missing().isEmpty()));
+        assertEquals(java.util.List.of(criteria), rootCauses(gaps).stream().map(CoverageGap::node).toList());
+        assertFalse(rootCauses(gaps).getFirst().missing().isEmpty());
+        assertEquals(java.util.Set.of(problem, goal), affected(gaps).stream().map(CoverageGap::node).collect(java.util.stream.Collectors.toSet()));
+        assertTrue(affected(gaps).stream().allMatch(g -> g.missing().isEmpty()));
 
         // evidence closes every gap
         SuccessProof proof = (SuccessProof) model.createNode(NodeKind.SUCCESS_PROOF, "proof", 0, 0);
@@ -171,10 +172,10 @@ class DomainCoverageAnalyzerTest {
         model.relate(proof, solution);
         model.relate(proven, proof);
 
-        CoverageGap.CoverageGaps gaps = analyzer.gaps(model, CoverageMode.VERIFY);
-        assertEquals(java.util.List.of(unproven), gaps.rootCauses().stream().map(CoverageGap::node).toList());
-        assertEquals(java.util.List.of(and), gaps.affected().stream().map(CoverageGap::node).toList());
-        assertEquals(Coverage.PARTIAL, gaps.affected().getFirst().coverage());
+        List<CoverageGap> gaps = analyzer.gaps(model, CoverageMode.VERIFY);
+        assertEquals(java.util.List.of(unproven), rootCauses(gaps).stream().map(CoverageGap::node).toList());
+        assertEquals(java.util.List.of(and), affected(gaps).stream().map(CoverageGap::node).toList());
+        assertEquals(Coverage.PARTIAL, affected(gaps).getFirst().coverage());
     }
 
     @Test
@@ -187,7 +188,7 @@ class DomainCoverageAnalyzerTest {
         assertFalse(analyzer.gaps(model, CoverageMode.VERIFY).isEmpty());
     }
 
-    // ---- responsiveness
+    // responsiveness
     //
     // Requirement: every user-visible action, including inspecting coverage, answers in under 500 ms. The GLSP
     // handlers, serialization and the browser take part of that, so each action must cost only a fraction here.
@@ -282,5 +283,14 @@ class DomainCoverageAnalyzerTest {
         reloaded.relate(p2, c2);
         current[0] = reloaded;
         assertTrue(analyzer.isCovered(c2, CoverageMode.VERIFY));
+    }
+
+    private static List<CoverageGap> rootCauses(List<CoverageGap> gaps) {
+        return gaps.stream().filter(CoverageGap::rootCause).toList();
+    }
+
+    /** The gaps that are not covered only because something below or behind them is not. */
+    private static List<CoverageGap> affected(List<CoverageGap> gaps) {
+        return gaps.stream().filter(gap -> !gap.rootCause()).toList();
     }
 }

@@ -85,11 +85,6 @@ public final class CoverageReportBuilder {
         return new CoverageReport(mode.name(), summaries(nodes, sessions), roots, metrics(nodes));
     }
 
-    /** A {@link ModeSummary} per preset. One session each (cached per model revision by the analyzer). */
-    public static List<ModeSummary> summaries(List<TreeNode<?>> nodes, CoverageAnalyzer analyzer) {
-        return summaries(nodes, analyzer.sessions(CoverageMode.presets()));
-    }
-
     /** A {@link ModeSummary} per preset, from the given sessions (which must contain every preset). */
     private static List<ModeSummary> summaries(List<TreeNode<?>> nodes, Map<CoverageMode, CoverageSession> sessions) {
         List<ModeSummary> out = new ArrayList<>();

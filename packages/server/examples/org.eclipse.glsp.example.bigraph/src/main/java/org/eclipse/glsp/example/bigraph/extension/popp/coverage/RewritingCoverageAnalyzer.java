@@ -10,7 +10,6 @@ import org.bigraphs.framework.simulation.matching.pure.PureReactiveSystem;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraph;
 import org.eclipse.glsp.example.bigraph.extension.popp.bigraph.POPPBigraphSignature;
 import org.eclipse.glsp.example.bigraph.extension.popp.coverage.CoverageRewriteRules.CompiledRule;
-import org.eclipse.glsp.example.bigraph.extension.popp.rewriting.Guard;
 import org.eclipse.glsp.example.bigraph.extension.popp.rewriting.GuardEvaluator;
 import org.eclipse.glsp.example.bigraph.extension.popp.rewriting.Matcher;
 import org.eclipse.glsp.example.bigraph.extension.popp.rewriting.MonotoneFixpointRewriter;
@@ -27,59 +26,35 @@ import java.util.function.Predicate;
 import static org.bigraphs.framework.core.factory.BigraphFactory.pureBuilder;
 
 /**
- * Coverage analysis by forward chaining with the coverage rules ({@link CoverageRewriteRules}) over the whole coverage
- * bigraph ({@link CoverageBigraph}), matched with the Bigraph Framework's {@link PureBigraphMatcher} (jLibBig
- * underneath) and applied by rewriting. The rules are run to their fixpoint by the generic
- * {@link MonotoneFixpointRewriter}. This class only supplies what is specific to coverage: the rules, their guards,
- * which rules can match in a mode, and the seed. Evaluates every session from scratch. The POPP extension uses it
- * through {@link IncrementalRewritingCoverageAnalyzer}, which keeps the fixpoint bigraph and only re-derives what an
- * edit affected.
+ * Coverage analysis by rewriting: builds the coverage bigraph of a mode ({@link CoverageBigraph}), rewrites it with the
+ * coverage rules ({@link CoverageRuleSet}) to its fixpoint, using the generic {@link MonotoneFixpointRewriter}, and
+ * reads states and reasons off the fixpoint ({@link RewritingReadout}). Every session is evaluated from scratch. The
+ * editor uses it through {@link IncrementalRewritingCoverageAnalyzer}, which keeps the fixpoint and only re-derives
+ * what an edit affected.
  * <p>
- * Which rule to match when is decided from what the rules themselves say, not from tables over the model: every
- * decision not to call the matcher for a rule follows from the rule set (a static analysis), from the mode, or from a
- * matcher call on a smaller pattern (a guard).
- * <p>
- * <b>Rule worklist.</b> The rewriter takes a rule from its worklist and rewrites with it until it has no match. A rule
- * that rewrote something queues every rule it <i>enables</i>, as the generic overlap analysis
- * ({@link OverlapProduceUseAnalyzer}) finds them: {@code r} enables {@code s} if what {@code r} creates or changes can
- * be glued onto the redex of {@code s} (a produce-use dependency as in critical pair analysis). The worklist is ordered
- * by the strongly connected components of that relation in topological order ({@link WorklistOrder#topological()}), so
- * a rule is tried only once no rule that could still enable it is queued.
- * <p>
- * <b>Mode.</b> A rule whose receiver kind no coverage can reach in the mode ({@link CoverageMode#raisableKinds()}), or
- * a link rule whose giver kind is neither intrinsic nor reachable, can never match in that mode and is never queued.
- * <p>
- * <b>Guards.</b> Each rule has a guard: its receiver node with its marker children and a site, e.g.
- * {@code Goal[Unc | -]} ("some goal is still uncovered") or {@code GoalAnd[Part | -]}. The guard embeds into the rule's
- * redex, and embeddings compose, so if the guard has no match in the agent, the rule has none either. Rules share
- * guards (36 guards for 147 rules), so one matcher call can rule out a whole group. Guards are counted
- * ({@link GuardEvaluator#counting()}): each one is counted once by the matcher, and from then on its count follows
- * from the rewrites, by an analysis of what each rule does to each guard.
- * <p>
- * <b>Seed.</b> The rules queued at the start. On a freshly built coverage bigraph only link rules can match first: the
- * trees of intrinsic kinds start covered (gate nodes included, see {@link CoverageBigraph}) and all others uncovered,
- * so no gate or lift rule has an input until a link rule raised something.
- * <p>
- * <b>Applying the rules.</b> Every match is turned into the next agent by the framework's
- * {@code PureReactiveSystem.buildParametricReaction} (context, instantiated reactum and parameters composed), and the
- * states and reasons are read off the fixpoint bigraph by one walk ({@link RewritingReadout#ofRewritten}). The agent
- * <i>is</i> the state: there is no state map. This needs a jLibBig whose {@code AgentMatcher} keeps links between
- * parameters and deeper context nodes (the bundled 0.0.4 splits them), and a framework whose {@code matchFirst}
- * finds existing matches (bigraph-simulation 2.4.1 does not), otherwise rewriting is refused (see
- * {@link #REWRITING_SUPPORTED}). Guards and rules stop at their first match ({@code matchFirst}).
+ * The rewriter is configured with what the coverage rules allow:
+ * <ul>
+ *   <li><b>Worklist.</b> A rule that rewrote something queues the rules it enables, as the
+ *       {@link OverlapProduceUseAnalyzer} finds them, in the topological order of their strongly connected components
+ *       ({@link WorklistOrder#topological()}).</li>
+ *   <li><b>Mode.</b> A rule whose receiver kind no coverage can reach in the mode ({@link CoverageMode#raisableKinds()}),
+ *       or a link rule whose giver kind is neither intrinsic nor reachable, can never match and is never queued.</li>
+ *   <li><b>Guards.</b> The guard of a rule is its receiver with its markers and a site, e.g. {@code Goal[Unc | -]}
+ *       ("some goal is still uncovered"). It embeds into the redex, so a rule whose guard has no match has none
+ *       either. Rules with the same receiver share a guard, and guards are counted ({@link GuardEvaluator#counting()}).</li>
+ *   <li><b>Seed.</b> On a freshly built coverage bigraph only link rules can match first: the trees of intrinsic kinds
+ *       start covered and all others uncovered, so no gate or lift rule has an input until a link rule raised
+ *       something.</li>
+ * </ul>
+ * Every match is applied by the framework's {@code PureReactiveSystem.buildParametricReaction}, so the coverage bigraph
+ * is the only state. This needs a jLibBig whose {@code AgentMatcher} keeps links between parameters and deeper context
+ * nodes (the bundled 0.0.4 splits them), and a framework whose {@code matchFirst} finds existing matches
+ * (bigraph-simulation 2.4.1 does not), otherwise rewriting is refused ({@link #REWRITING_SUPPORTED}).
  */
 public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
     private static final Logger logger = LoggerFactory.getLogger(RewritingCoverageAnalyzer.class);
 
-    private static final List<CompiledRule> RULES = CoverageRuleSet.DEFAULT.rules();
     private static final DynamicSignature SIGNATURE = CoverageRuleSet.DEFAULT.signature();
-    /** The controls of the domain nodes (one per node kind). */
-    private static final Set<String> KINDS = new HashSet<>();
-    static {
-        for (POPPBigraphSignature control : POPPBigraphSignature.values()) {
-            if (POPPBigraphSignature.isKindControl(control)) KINDS.add(control.controlName());
-        }
-    }
 
     /** The rules queued at the start of a session from scratch (see the class comment). */
     static final Predicate<CompiledRule> LINK_RULES = CompiledRule::isLinkRule;
@@ -94,7 +69,7 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
 
     /**
      * An analyzer on another configuration of the rewriter (e.g. with a listener in tests). Its rules must be
-     * {@link #rewriterRules} (with or without guards), in that order.
+     * {@link CoverageRuleSet#rewriterRules} (with or without guards), in that order.
      */
     RewritingCoverageAnalyzer(CoverageInput input, MonotoneFixpointRewriter rewriter) {
         List<CompiledRule> rules = ruleSet.rules();
@@ -114,22 +89,6 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
     /** The rule set this analyzer applies. */
     CoverageRuleSet ruleSet() {
         return ruleSet;
-    }
-
-    /** The coverage rules, in the order the analyzer uses. */
-    public static List<CompiledRule> rules() { return RULES; }
-
-    /**
-     * The coverage rules for the generic {@link MonotoneFixpointRewriter}, in the order of {@link #rules()}: without
-     * guards, or with this analyzer's guards (one {@link Guard} object per guard shape).
-     */
-    static List<Rule> rewriterRules(boolean guarded) {
-        return CoverageRuleSet.DEFAULT.rewriterRules(guarded);
-    }
-
-    /** The kind of a rule's receiver: of the domain node, or of the tree a gate node belongs to. */
-    public static Optional<NodeKind> receiverKind(CompiledRule rule) {
-        return CoverageRuleSet.DEFAULT.receiverKind(rule);
     }
 
     /**
@@ -238,9 +197,10 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      */
     private static boolean checkFirstMatch() {
         try {
-            PureBigraph pattern = CoverageRuleSet.DEFAULT.guardPattern(KINDS.iterator().next());
+            String control = POPPBigraphSignature.of(NodeKind.GOAL).controlName();
+            PureBigraph pattern = CoverageRuleSet.DEFAULT.guardPattern(control);
             PureBigraphBuilder<DynamicSignature> agentBuilder = pureBuilder(SIGNATURE);
-            agentBuilder.root().child(KINDS.iterator().next());
+            agentBuilder.root().child(control);
             PureBigraph agent = agentBuilder.create();
             boolean ok = new PureBigraphMatcher().matchFirst(agent, new ParametricReactionRule<>(pattern, pattern))
                     .iterator().hasNext();
@@ -259,16 +219,11 @@ public final class RewritingCoverageAnalyzer implements CoverageAnalyzer {
      * rule and guard bigraph once, so that the lazy caches of the framework are filled before sessions of different
      * modes run in parallel (class initialization happens-before every use of the class).
      */
-    private static final MonotoneFixpointRewriter REWRITER = MonotoneFixpointRewriter.builder(rewriterRules(true))
+    private static final MonotoneFixpointRewriter REWRITER = MonotoneFixpointRewriter.builder(CoverageRuleSet.DEFAULT.rewriterRules(true))
             .withProduceUseAnalyzer(new OverlapProduceUseAnalyzer())
             .withOrder(WorklistOrder.topological())
             .withMatcher(Matcher.matchFirst())
             .withGuardEvaluator(GuardEvaluator.counting())
             .build();
-
-    /** Per rule, in the order of {@link #rules()}: whether it can upgrade anything in {@code mode}. */
-    static boolean[] usable(CoverageMode mode) {
-        return CoverageRuleSet.DEFAULT.usable(mode);
-    }
 
 }

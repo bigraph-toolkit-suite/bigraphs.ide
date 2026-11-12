@@ -27,7 +27,7 @@ public class POPPGModelSynchronizer implements POPPEventListener {
 
     @Override
     public void onPOPPEvent(final POPPEvent event) {
-        // If language standard is updated to 21 replace with switch casting
+        // a pattern switch over the sealed events (Java 21, the project is on 17) would be checked for exhaustiveness
         if (event instanceof POPPEvent.NodeCreated created) nodeCreated(created);
         else if (event instanceof POPPEvent.NodeDescriptionChanged descriptionChanged) nodeDescriptionChanged(descriptionChanged);
         else if (event instanceof POPPEvent.NodeMoved moved) nodeMoved(moved);
