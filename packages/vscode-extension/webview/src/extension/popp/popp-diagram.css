@@ -4,3 +4,8 @@
 }
 .sprotty .popp-decomp-and { fill: var(--vscode-editor-foreground); }  /* composition: filled */
 .sprotty .popp-decomp-or  { fill: var(--vscode-editor-background); }  /* aggregation: hollow */
+
+:where(.popp-node) .popp-node-box {
+    fill: color-mix(in srgb, var(--vscode-editor-foreground, #cccccc) 8%, var(--vscode-editor-background, #1e1e1e));
+    stroke: color-mix(in srgb, var(--vscode-editor-foreground, #cccccc) 60%, var(--vscode-editor-background, #1e1e1e));
+}
