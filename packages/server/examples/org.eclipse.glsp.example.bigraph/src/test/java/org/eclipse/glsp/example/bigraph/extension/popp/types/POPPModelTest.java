@@ -45,9 +45,9 @@ class POPPModelTest {
         root.addChild(child);
         child.addChild(grandchild);
 
-        assertEquals(root, model.getProblemRoots().getFirst());
+        assertEquals(root, model.getProblemRoots().get(0));
         assertEquals(3, nodesOf(model, NodeKind.PROBLEM).size());
-        assertEquals(root, nodesOf(model, NodeKind.PROBLEM).getFirst());
+        assertEquals(root, nodesOf(model, NodeKind.PROBLEM).get(0));
         assertTrue(nodesOf(model, NodeKind.GOAL).isEmpty());
     }
 
@@ -60,15 +60,15 @@ class POPPModelTest {
         SuccessCriteria successCriteriaRoot = (SuccessCriteria) model.createNode(NodeKind.SUCCESS_CRITERIA, "sc-root", 0, 0);
         SuccessProof successProofRoot = (SuccessProof) model.createNode(NodeKind.SUCCESS_PROOF, "proof-root", 0, 0);
 
-        assertEquals(goalRoot, model.getGoalRoots().getFirst());
+        assertEquals(goalRoot, model.getGoalRoots().get(0));
         assertEquals(List.of(goalRoot), nodesOf(model, NodeKind.GOAL));
-        assertEquals(solutionRoot, model.getSolutionRoots().getFirst());
+        assertEquals(solutionRoot, model.getSolutionRoots().get(0));
         assertEquals(List.of(solutionRoot), nodesOf(model, NodeKind.SOLUTION));
-        assertEquals(consequenceRoot, model.getConsequenceRoots().getFirst());
+        assertEquals(consequenceRoot, model.getConsequenceRoots().get(0));
         assertEquals(List.of(consequenceRoot), nodesOf(model, NodeKind.CONSEQUENCE));
-        assertEquals(successCriteriaRoot, model.getSuccessCriteriaRoots().getFirst());
+        assertEquals(successCriteriaRoot, model.getSuccessCriteriaRoots().get(0));
         assertEquals(List.of(successCriteriaRoot), nodesOf(model, NodeKind.SUCCESS_CRITERIA));
-        assertEquals(successProofRoot, model.getSuccessProofRoots().getFirst());
+        assertEquals(successProofRoot, model.getSuccessProofRoots().get(0));
         assertEquals(List.of(successProofRoot), nodesOf(model, NodeKind.SUCCESS_PROOF));
 
         assertTrue(model.getProblemRoots().isEmpty());

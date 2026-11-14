@@ -81,7 +81,7 @@ class DomainCoverageAnalyzerTest {
         CoverageReason.Decomposition reason = assertInstanceOf(CoverageReason.Decomposition.class,
                 analyzer.explain(or, CoverageMode.VERIFY));
         assertEquals(2, reason.children().size());
-        assertInstanceOf(CoverageReason.Link.class, reason.children().getFirst());
+        assertInstanceOf(CoverageReason.Link.class, reason.children().get(0));
     }
 
     // planning mode (regression: the mode decides which kinds are intrinsically covered)
@@ -145,7 +145,7 @@ class DomainCoverageAnalyzerTest {
         List<CoverageGap> gaps = analyzer.gaps(model, CoverageMode.VERIFY);
         assertFalse(gaps.isEmpty());
         assertEquals(java.util.List.of(criteria), rootCauses(gaps).stream().map(CoverageGap::node).toList());
-        assertFalse(rootCauses(gaps).getFirst().missing().isEmpty());
+        assertFalse(rootCauses(gaps).get(0).missing().isEmpty());
         assertEquals(java.util.Set.of(problem, goal), affected(gaps).stream().map(CoverageGap::node).collect(java.util.stream.Collectors.toSet()));
         assertTrue(affected(gaps).stream().allMatch(g -> g.missing().isEmpty()));
 
@@ -175,7 +175,7 @@ class DomainCoverageAnalyzerTest {
         List<CoverageGap> gaps = analyzer.gaps(model, CoverageMode.VERIFY);
         assertEquals(java.util.List.of(unproven), rootCauses(gaps).stream().map(CoverageGap::node).toList());
         assertEquals(java.util.List.of(and), affected(gaps).stream().map(CoverageGap::node).toList());
-        assertEquals(Coverage.PARTIAL, affected(gaps).getFirst().coverage());
+        assertEquals(Coverage.PARTIAL, affected(gaps).get(0).coverage());
     }
 
     @Test
@@ -225,8 +225,8 @@ class DomainCoverageAnalyzerTest {
         stage(depth, "coverage report", () ->
                 assertNotNull(CoverageReportBuilder.build(model, analyzer, CoverageMode.VERIFY)));
 
-        SuccessCriteria leaf = tree.leaves().getFirst();
-        SuccessProof proof = tree.proofs().getFirst();
+        SuccessCriteria leaf = tree.leaves().get(0);
+        SuccessProof proof = tree.proofs().get(0);
         stage(depth, "edit relation, inspect root, undo", () -> {
             assertEquals(RelationResult.REMOVED, model.unrelate(leaf, proof));
             analyzer.coverage(tree.root(), CoverageMode.VERIFY);

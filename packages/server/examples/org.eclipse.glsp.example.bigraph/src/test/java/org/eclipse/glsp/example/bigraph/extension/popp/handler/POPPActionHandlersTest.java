@@ -62,7 +62,7 @@ class POPPActionHandlersTest {
 
     private static void assertModelUpdate(List<Action> result) {
         assertEquals(1, result.size());
-        assertInstanceOf(UpdateModelAction.class, result.getFirst());
+        assertInstanceOf(UpdateModelAction.class, result.get(0));
     }
 
     private TreeNode<?> node(NodeKind kind, String description) {
@@ -80,8 +80,8 @@ class POPPActionHandlersTest {
                 .executeAction(new ApplyLabelEditOperation(ids.toDescriptionId(goal), "new"));
 
         assertModelUpdate(result);
-        assertSame(session.gmodelRoot(), ((UpdateModelAction) result.getFirst()).getNewRoot());
-        assertTrue(session.dispatcher.dispatched(SetDirtyStateAction.class).getFirst().isDirty());
+        assertSame(session.gmodelRoot(), ((UpdateModelAction) result.get(0)).getNewRoot());
+        assertTrue(session.dispatcher.dispatched(SetDirtyStateAction.class).get(0).isDirty());
     }
 
     @Test
@@ -127,7 +127,7 @@ class POPPActionHandlersTest {
                 .executeAction(new CreateNodeOperation("popp:goal", point(0, 0), null, Map.of("nodeType", "GOAL")));
 
         assertTrue(result.isEmpty());
-        assertTrue(errors().getFirst().startsWith("POPP operation failed"), errors()::toString);
+        assertTrue(errors().get(0).startsWith("POPP operation failed"), errors()::toString);
         assertTrue(session.dispatcher.dispatched(SetDirtyStateAction.class).isEmpty());
     }
 
@@ -365,7 +365,7 @@ class POPPActionHandlersTest {
 
         List<Action> result = reading(new InspectionActionHandler()).executeAction(request);
 
-        InspectionResultAction response = assertInstanceOf(InspectionResultAction.class, result.getFirst());
+        InspectionResultAction response = assertInstanceOf(InspectionResultAction.class, result.get(0));
         assertEquals("r1", response.getResponseId());
         assertEquals("COVERED", response.getResult().coverage());
         assertEquals(List.of(goal.getId(), criterion.getId()), response.getResult().pathNodeIds());
@@ -378,7 +378,7 @@ class POPPActionHandlersTest {
         request.setMode("SOMETHING");
 
         InspectionResult result = ((InspectionResultAction) reading(new InspectionActionHandler())
-                .executeAction(request).getFirst()).getResult();
+                .executeAction(request).get(0)).getResult();
 
         assertEquals("UNKNOWN", result.coverage());
         assertEquals("PLANNING", result.mode());
@@ -392,7 +392,7 @@ class POPPActionHandlersTest {
         inject(request, "requestId", "r2"); // set by the client in GLSP
 
         CoverageReportAction response = (CoverageReportAction) reading(new CoverageReportHandler())
-                .executeAction(request).getFirst();
+                .executeAction(request).get(0);
 
         assertEquals("r2", response.getResponseId());
         assertEquals("VERIFY", response.getReport().mode());
@@ -408,7 +408,7 @@ class POPPActionHandlersTest {
         RequestCoverageReportAction request = new RequestCoverageReportAction();
         request.setMode("PLANNING");
 
-        CoverageReportAction response = (CoverageReportAction) handler.executeAction(request).getFirst();
+        CoverageReportAction response = (CoverageReportAction) handler.executeAction(request).get(0);
 
         assertTrue(response.getReport().roots().isEmpty());
         assertTrue(response.getReport().trees().isEmpty());
@@ -425,7 +425,7 @@ class POPPActionHandlersTest {
         inject(request, "requestId", "r3"); // set by the client in GLSP
 
         CoverageGapsAction response = (CoverageGapsAction) reading(new CoverageGapsHandler())
-                .executeAction(request).getFirst();
+                .executeAction(request).get(0);
 
         assertEquals("r3", response.getResponseId());
         assertEquals("PLANNING", response.getMode());
@@ -458,13 +458,13 @@ class POPPActionHandlersTest {
         RequestCoverageGapsAction request = new RequestCoverageGapsAction();
 
         request.setMode("PROBLEMS_BY_GOALS");
-        CoverageGapsAction byGoals = (CoverageGapsAction) reading(new CoverageGapsHandler()).executeAction(request).getFirst();
+        CoverageGapsAction byGoals = (CoverageGapsAction) reading(new CoverageGapsHandler()).executeAction(request).get(0);
         assertEquals("PROBLEMS_BY_GOALS", byGoals.getMode());
         assertEquals(List.of(other.getId()), byGoals.getGaps().stream().map(CoverageGapDto::nodeId).toList(),
                 "the goal is covered by itself, the criterion is not asked about");
 
         request.setMode("PROBLEMS_BY_PROOFS");
-        CoverageGapsAction byProofs = (CoverageGapsAction) reading(new CoverageGapsHandler()).executeAction(request).getFirst();
+        CoverageGapsAction byProofs = (CoverageGapsAction) reading(new CoverageGapsHandler()).executeAction(request).get(0);
         assertEquals(Set.of(problem.getId(), other.getId(), goal.getId(), criterion.getId()),
                 Set.copyOf(byProofs.getGaps().stream().map(CoverageGapDto::nodeId).toList()),
                 "problems, the goal and the criterion lie between proofs and problems");
@@ -482,6 +482,6 @@ class POPPActionHandlersTest {
         ValidationResultAction result = session.dispatcher.await(ValidationResultAction.class,
                 a -> a.getReport().modelVersion() == model.getVersion(), 5000).orElseThrow();
         assertTrue(result.getReport().valid(), "two trees of a kind are only a warning");
-        assertEquals("MULTIPLE_TREES", result.getReport().issues().getFirst().code());
+        assertEquals("MULTIPLE_TREES", result.getReport().issues().get(0).code());
     }
 }

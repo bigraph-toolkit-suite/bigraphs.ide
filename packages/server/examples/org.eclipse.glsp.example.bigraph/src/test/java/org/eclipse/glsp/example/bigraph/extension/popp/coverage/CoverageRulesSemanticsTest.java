@@ -79,7 +79,7 @@ class CoverageRulesSemanticsTest {
         CoverageReason.Decomposition reason = assertInstanceOf(CoverageReason.Decomposition.class,
                 analyzer.explain(or, CoverageMode.VERIFY));
         assertEquals(2, reason.children().size());
-        assertInstanceOf(CoverageReason.Link.class, reason.children().getFirst());
+        assertInstanceOf(CoverageReason.Link.class, reason.children().get(0));
     }
 
     @Test
@@ -181,7 +181,7 @@ class CoverageRulesSemanticsTest {
         assertNotNull(gaps, "gaps() is not implemented for this analyzer's session");
         assertFalse(gaps.isEmpty());
         assertEquals(List.of(criteria), rootCauses(gaps).stream().map(CoverageGap::node).toList());
-        assertFalse(rootCauses(gaps).getFirst().missing().isEmpty());
+        assertFalse(rootCauses(gaps).get(0).missing().isEmpty());
         assertEquals(Set.of(problem, goal), affected(gaps).stream().map(CoverageGap::node).collect(Collectors.toSet()));
         assertTrue(affected(gaps).stream().allMatch(g -> g.missing().isEmpty()));
 
@@ -211,7 +211,7 @@ class CoverageRulesSemanticsTest {
         assertNotNull(gaps, "gaps() is not implemented for this analyzer's session");
         assertEquals(List.of(unproven), rootCauses(gaps).stream().map(CoverageGap::node).toList());
         assertEquals(List.of(and), affected(gaps).stream().map(CoverageGap::node).toList());
-        assertEquals(Coverage.PARTIAL, affected(gaps).getFirst().coverage());
+        assertEquals(Coverage.PARTIAL, affected(gaps).get(0).coverage());
     }
 
     @Test

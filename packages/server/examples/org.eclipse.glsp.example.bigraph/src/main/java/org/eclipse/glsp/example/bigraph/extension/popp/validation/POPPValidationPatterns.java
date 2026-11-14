@@ -80,7 +80,7 @@ public final class POPPValidationPatterns {
             out.add(pattern("empty-" + gate.controlName(), ValidationIssue.Code.EMPTY_DECOMPOSITION,
                     node(gate, "gate"),
                     List.of("gate"),
-                    s -> s.getFirst() + " has an " + type + " decomposition without children",
+                    s -> s.get(0) + " has an " + type + " decomposition without children",
                     false));
         }
 
@@ -89,7 +89,7 @@ public final class POPPValidationPatterns {
             out.add(pattern("dangling-" + stub.controlName(), ValidationIssue.Code.DANGLING_STUB,
                     stub(stub, "stub", Link.CLOSED),
                     List.of("stub"),
-                    s -> s.getFirst() + ": " + stub.controlName() + " stub without a partner (relation end missing)",
+                    s -> s.get(0) + ": " + stub.controlName() + " stub without a partner (relation end missing)",
                     false));
             // Stubs belong directly inside domain nodes, never in the container or in a gate node.
             out.add(pattern("stub-in-container-" + stub.controlName(), ValidationIssue.Code.MISPLACED_STUB,
@@ -101,7 +101,7 @@ public final class POPPValidationPatterns {
                 out.add(pattern("stub-in-" + gate.controlName() + "-" + stub.controlName(), ValidationIssue.Code.MISPLACED_STUB,
                         node(gate, "gate", stub(stub, "stub", Link.OPEN), Node.SITE),
                         List.of("stub"),
-                        s -> s.getFirst() + ": " + stub.controlName() + " stub inside a decomposition node instead of the node itself",
+                        s -> s.get(0) + ": " + stub.controlName() + " stub inside a decomposition node instead of the node itself",
                         false));
             }
         }
@@ -113,7 +113,7 @@ public final class POPPValidationPatterns {
                         ValidationIssue.Code.CHILD_WITHOUT_DECOMPOSITION,
                         node(parent, "parent", node(child, "child", Node.SITE), Node.SITE),
                         List.of("parent", "child"),
-                        s -> s.get(1) + " is attached directly to " + s.getFirst()
+                        s -> s.get(1) + " is attached directly to " + s.get(0)
                                 + (parent == child ? " without a decomposition node" : " (a different kind)"),
                         false));
             }

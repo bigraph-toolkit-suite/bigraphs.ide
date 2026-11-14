@@ -217,7 +217,7 @@ class POPPBigraphTest {
         popp.updatePosition(node.getId(), 3.5, 4.5);
 
         assertEquals(1, recorder.positions.size());
-        assertArrayEquals(new double[]{3.5, 4.5}, recorder.positions.getFirst());
+        assertArrayEquals(new double[]{3.5, 4.5}, recorder.positions.get(0));
     }
 
     @Test
@@ -344,7 +344,7 @@ class POPPBigraphTest {
     @Test
     void rebuildCanExcludeAndIncludeAChild() {
         SuccessCriteria parent = parentWithChildren(DecompositionType.AND, 3);
-        String excluded = parent.getChildren().getFirst().getId();
+        String excluded = parent.getChildren().get(0).getId();
 
         popp.rebuildDecomposition(parent, excluded);
 
@@ -408,7 +408,7 @@ class POPPBigraphTest {
         popp.createRelation(relation);
 
         assertEquals(1, recorder.relationsAdded.size());
-        var stubs = recorder.relationsAdded.getFirst();
+        var stubs = recorder.relationsAdded.get(0);
         assertEquals(2, stubs.size());
         Set<Object> parents = stubs.stream().map(s -> popp.getBigraph().getParent(s)).collect(Collectors.toSet());
         assertEquals(Set.of(entity(relation.source()), entity(relation.target())), parents);
@@ -445,11 +445,11 @@ class POPPBigraphTest {
         popp.removeRelation(relation);
 
         assertEquals(1, recorder.relationsRemoving.size());
-        var stubs = recorder.relationsRemoving.getFirst();
+        var stubs = recorder.relationsRemoving.get(0);
         assertEquals(2, stubs.size());
         assertTrue(stubs.stream().allMatch(s -> s instanceof BigraphEntity.NodeEntity<?>),
                 "listeners get the stub nodes, not the link's ports");
-        assertTrue(recorder.stubsAttachedWhenRemoving.getFirst(), "announced before the removal");
+        assertTrue(recorder.stubsAttachedWhenRemoving.get(0), "announced before the removal");
     }
 
     @Test

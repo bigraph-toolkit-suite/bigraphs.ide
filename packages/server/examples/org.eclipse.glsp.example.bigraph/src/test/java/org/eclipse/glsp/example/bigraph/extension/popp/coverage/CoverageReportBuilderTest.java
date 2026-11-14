@@ -70,7 +70,7 @@ class CoverageReportBuilderTest {
         CoverageReport report = CoverageReportBuilder.build(model, analyzer, CoverageMode.PLANNING);
 
         assertEquals(1, report.roots().size());
-        assertEquals(root.getId(), report.roots().getFirst().id());
+        assertEquals(root.getId(), report.roots().get(0).id());
     }
 
     @Test

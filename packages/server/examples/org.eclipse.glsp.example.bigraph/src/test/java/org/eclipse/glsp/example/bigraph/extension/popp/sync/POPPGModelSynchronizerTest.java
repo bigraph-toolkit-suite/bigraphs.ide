@@ -101,7 +101,7 @@ class POPPGModelSynchronizerTest {
 
         List<GEdge> decompositions = edges(POPPGModelTypes.DECOMPOSITION_EDGE);
         assertEquals(1, decompositions.size());
-        GEdge edge = decompositions.getFirst();
+        GEdge edge = decompositions.get(0);
         assertEquals(ids.toDecompositionEdgeId(parent, child), edge.getId());
         assertEquals(ids.toPortId(parent), edge.getSourceId());
         assertEquals(child.getId(), edge.getTargetId());
@@ -168,9 +168,9 @@ class POPPGModelSynchronizerTest {
         List<GEdge> causes = edges(POPPGModelTypes.of(RelationType.CAUSES));
         assertEquals(1, causes.size());
         Relation relation = model.getRelations().all().iterator().next();
-        assertEquals(ids.toRelationEdgeId(relation), causes.getFirst().getId());
-        assertEquals(goal.getId(), causes.getFirst().getSourceId());
-        assertEquals(criterion.getId(), causes.getFirst().getTargetId());
+        assertEquals(ids.toRelationEdgeId(relation), causes.get(0).getId());
+        assertEquals(goal.getId(), causes.get(0).getSourceId());
+        assertEquals(criterion.getId(), causes.get(0).getTargetId());
 
         model.unrelate(goal, criterion);
         assertTrue(edges(POPPGModelTypes.of(RelationType.CAUSES)).isEmpty());

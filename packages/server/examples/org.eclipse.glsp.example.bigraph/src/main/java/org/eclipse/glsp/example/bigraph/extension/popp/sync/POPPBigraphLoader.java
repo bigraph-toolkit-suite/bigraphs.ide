@@ -78,7 +78,7 @@ public final class POPPBigraphLoader {
             return model;
         }
 
-        BigraphEntity.NodeEntity<DynamicControl> container = structure.findPOPPContainer(bigraph.getRoots().getFirst());
+        BigraphEntity.NodeEntity<DynamicControl> container = structure.findPOPPContainer(bigraph.getRoots().get(0));
         if (container == null) {
             return model;
         }

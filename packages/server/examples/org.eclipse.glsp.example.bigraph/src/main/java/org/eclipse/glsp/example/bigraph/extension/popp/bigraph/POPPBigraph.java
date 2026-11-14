@@ -137,7 +137,7 @@ public class POPPBigraph {
         if (bigraph.getRoots().isEmpty()) {
             return bigraph.addRoot();
         }
-        return bigraph.getRoots().getFirst();
+        return bigraph.getRoots().get(0);
     }
 
     public BigraphEntity.NodeEntity<DynamicControl> findPOPPContainer(BigraphEntity.RootEntity root) {
@@ -354,7 +354,7 @@ public class POPPBigraph {
         } else if (childIds.size() == 1) {
             var topGate = addGateNode(parent, node.getKind(), type, nodeId + "_DECOMP");
             gateIds.add(nodeId + "_DECOMP");
-            moveAndNotify(requireNode(childIds.getFirst()), topGate);
+            moveAndNotify(requireNode(childIds.get(0)), topGate);
         } else {
             BigraphEntity.NodeEntity<DynamicControl> currentParent = parent;
             for (int i = 0; i < childIds.size() - 1; i++) {
@@ -364,7 +364,7 @@ public class POPPBigraph {
                 moveAndNotify(requireNode(childIds.get(i)), gateNode);
                 currentParent = gateNode;
             }
-            moveAndNotify(requireNode(childIds.getLast()), currentParent);
+            moveAndNotify(requireNode(childIds.get(childIds.size() - 1)), currentParent);
         }
 
         decompGateIds.put(nodeId, gateIds);

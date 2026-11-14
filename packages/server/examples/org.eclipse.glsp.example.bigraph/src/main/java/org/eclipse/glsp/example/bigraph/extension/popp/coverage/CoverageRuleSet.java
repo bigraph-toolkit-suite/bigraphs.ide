@@ -37,7 +37,7 @@ final class CoverageRuleSet {
 
     private CoverageRuleSet(List<CompiledRule> rules) {
         this.rules = List.copyOf(rules);
-        this.signature = rules.getFirst().rule().getRedex().getSignature();
+        this.signature = rules.get(0).rule().getRedex().getSignature();
         for (CompiledRule rule : rules) {
             receiverKinds.put(rule, nodeOf(rule, rule.receiverNode())
                     .flatMap(POPPBigraphSignature::forNode).flatMap(Control::treeKind));

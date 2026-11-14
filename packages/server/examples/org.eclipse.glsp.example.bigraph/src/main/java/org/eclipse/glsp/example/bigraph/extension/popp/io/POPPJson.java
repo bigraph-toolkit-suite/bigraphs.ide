@@ -60,8 +60,8 @@ public final class POPPJson {
         private final List<String> problems;
 
         InvalidDocumentException(List<String> problems) {
-            super(problems.size() == 1 ? problems.getFirst()
-                    : problems.size() + " problems, first: " + problems.getFirst());
+            super(problems.size() == 1 ? problems.get(0)
+                    : problems.size() + " problems, first: " + problems.get(0));
             this.problems = List.copyOf(problems);
         }
 

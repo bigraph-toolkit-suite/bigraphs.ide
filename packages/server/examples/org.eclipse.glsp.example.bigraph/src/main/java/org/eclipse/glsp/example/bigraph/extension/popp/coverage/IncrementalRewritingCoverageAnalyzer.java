@@ -215,7 +215,7 @@ public final class IncrementalRewritingCoverageAnalyzer implements CoverageAnaly
 
         private void added(Added op) {
             if (byName.containsKey(op.node())) return; // repeated announcement (the container)
-            BigraphEntity<?> parent = op.parent() == null ? bigraph.getRoots().getFirst() : byName.get(op.parent());
+            BigraphEntity<?> parent = op.parent() == null ? bigraph.getRoots().get(0) : byName.get(op.parent());
             var node = add(parent, op.control(), op.node());
             byName.put(op.node(), node);
             if (!isTree(node)) return; // container, stubs: no state

@@ -331,7 +331,7 @@ class TreeNodeTest {
         grandchild.setDescription("changed");
 
         assertEquals(1, events.size());
-        assertEquals(grandchild, ((POPPEvent.NodeDescriptionChanged) events.getFirst()).node());
+        assertEquals(grandchild, ((POPPEvent.NodeDescriptionChanged) events.get(0)).node());
     }
 
     @Test

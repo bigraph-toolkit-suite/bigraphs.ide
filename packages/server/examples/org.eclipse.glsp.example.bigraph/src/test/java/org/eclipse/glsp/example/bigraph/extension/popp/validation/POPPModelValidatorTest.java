@@ -41,7 +41,7 @@ class POPPModelValidatorTest {
         // the balanced tree has one proof per leaf, each its own root: the only finding is the warning about that
         assertEquals(report.issues(), issues(report, ValidationIssue.Code.MULTIPLE_TREES));
         assertEquals(1, report.warnings());
-        assertEquals(4, report.issues().getFirst().nodeIds().size());
+        assertEquals(4, report.issues().get(0).nodeIds().size());
     }
 
     @Test
@@ -55,8 +55,8 @@ class POPPModelValidatorTest {
         List<ValidationIssue> trees = issues(validate(popp), ValidationIssue.Code.MULTIPLE_TREES);
 
         assertEquals(1, trees.size());
-        assertEquals(java.util.Set.of(nodeA.getId(), nodeB.getId(), nodeC.getId()), java.util.Set.copyOf(trees.getFirst().nodeIds()));
-        assertEquals(ValidationIssue.Severity.WARNING, trees.getFirst().severity());
+        assertEquals(java.util.Set.of(nodeA.getId(), nodeB.getId(), nodeC.getId()), java.util.Set.copyOf(trees.get(0).nodeIds()));
+        assertEquals(ValidationIssue.Severity.WARNING, trees.get(0).severity());
     }
 
     @Test
@@ -81,7 +81,7 @@ class POPPModelValidatorTest {
         List<ValidationIssue> empty = issues(validate(popp), ValidationIssue.Code.EMPTY_DECOMPOSITION);
 
         assertEquals(1, empty.size());
-        assertEquals(List.of(goal.getId()), empty.getFirst().nodeIds());
+        assertEquals(List.of(goal.getId()), empty.get(0).nodeIds());
     }
 
     @Test
@@ -109,13 +109,13 @@ class POPPModelValidatorTest {
         assertFalse(report.valid());
         List<ValidationIssue> dangling = issues(report, ValidationIssue.Code.DANGLING_STUB);
         assertEquals(1, dangling.size(), report.issues()::toString);
-        assertEquals(List.of(problem.getId()), dangling.getFirst().nodeIds());
+        assertEquals(List.of(problem.getId()), dangling.get(0).nodeIds());
         List<ValidationIssue> stray = issues(report, ValidationIssue.Code.GATE_OUTSIDE_DECOMPOSITION);
         assertEquals(1, stray.size());
-        assertEquals(List.of("stray-gate"), stray.getFirst().elements());
+        assertEquals(List.of("stray-gate"), stray.get(0).elements());
         List<ValidationIssue> direct = issues(report, ValidationIssue.Code.CHILD_WITHOUT_DECOMPOSITION);
         assertEquals(1, direct.size());
-        assertEquals(List.of(problem.getId(), child.getId()), direct.getFirst().nodeIds());
+        assertEquals(List.of(problem.getId(), child.getId()), direct.get(0).nodeIds());
         assertEquals(3, report.errors(), report.issues()::toString);
     }
 
@@ -152,9 +152,9 @@ class POPPModelValidatorTest {
         List<ValidationIssue> misplaced = issues(validate(popp), ValidationIssue.Code.MISPLACED_STUB);
 
         assertEquals(1, misplaced.size());
-        assertEquals(List.of(stub.getName()), misplaced.getFirst().elements());
-        assertTrue(misplaced.getFirst().nodeIds().isEmpty(), "the container belongs to no POPP node");
-        assertEquals(ValidationIssue.Severity.ERROR, misplaced.getFirst().severity());
+        assertEquals(List.of(stub.getName()), misplaced.get(0).elements());
+        assertTrue(misplaced.get(0).nodeIds().isEmpty(), "the container belongs to no POPP node");
+        assertEquals(ValidationIssue.Severity.ERROR, misplaced.get(0).severity());
     }
 
     @Test
@@ -171,8 +171,8 @@ class POPPModelValidatorTest {
         List<ValidationIssue> misplaced = issues(validate(popp), ValidationIssue.Code.MISPLACED_STUB);
 
         assertEquals(1, misplaced.size());
-        assertEquals(List.of(parent.getId()), misplaced.getFirst().nodeIds());
-        assertTrue(misplaced.getFirst().message().contains("Goal \"parent\""), misplaced.getFirst().message());
+        assertEquals(List.of(parent.getId()), misplaced.get(0).nodeIds());
+        assertTrue(misplaced.get(0).message().contains("Goal \"parent\""), misplaced.get(0).message());
     }
 
     @Test
@@ -186,8 +186,8 @@ class POPPModelValidatorTest {
         List<ValidationIssue> direct = issues(validate(popp), ValidationIssue.Code.CHILD_WITHOUT_DECOMPOSITION);
 
         assertEquals(1, direct.size());
-        assertEquals(List.of(problem.getId(), goal.getId()), direct.getFirst().nodeIds());
-        assertTrue(direct.getFirst().message().endsWith("(a different kind)"), direct.getFirst().message());
+        assertEquals(List.of(problem.getId(), goal.getId()), direct.get(0).nodeIds());
+        assertTrue(direct.get(0).message().endsWith("(a different kind)"), direct.get(0).message());
     }
 
     @Test
@@ -201,7 +201,7 @@ class POPPModelValidatorTest {
                 controls.toArray(BigraphTestSupport.ControlSpec[]::new));
         PureBigraphMutable bigraph = BigraphTestSupport.emptyBigraph(signature);
         var container = BigraphTestSupport.addNode(
-                bigraph, bigraph.getRoots().getFirst(), "POPP", "POPP");
+                bigraph, bigraph.getRoots().get(0), "POPP", "POPP");
         var foreign = BigraphTestSupport.addNode(bigraph, container, "Foreign", "foreign");
         BigraphTestSupport.addNode(bigraph, foreign, "Goal", "hidden goal");
 
@@ -212,7 +212,7 @@ class POPPModelValidatorTest {
         assertFalse(snapshot.census().containsKey("Goal"), "nothing below an unknown node is copied");
         List<ValidationIssue> unknown = issues(report, ValidationIssue.Code.UNKNOWN_CONTROL);
         assertEquals(1, unknown.size());
-        assertEquals(List.of("foreign"), unknown.getFirst().elements());
+        assertEquals(List.of("foreign"), unknown.get(0).elements());
         assertFalse(report.valid());
         assertEquals(7, report.modelVersion());
     }
@@ -223,7 +223,7 @@ class POPPModelValidatorTest {
         Goal first = (Goal) popp.model.createNode(NodeKind.GOAL, "", 0, 0);
         popp.model.createNode(NodeKind.GOAL, "second", 0, 0);
 
-        ValidationIssue trees = issues(validate(popp), ValidationIssue.Code.MULTIPLE_TREES).getFirst();
+        ValidationIssue trees = issues(validate(popp), ValidationIssue.Code.MULTIPLE_TREES).get(0);
 
         assertTrue(trees.message().contains("Goal " + first.getId().substring(0, 8)), trees.message());
         assertTrue(trees.message().contains("Goal \"second\""), trees.message());

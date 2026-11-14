@@ -16,7 +16,7 @@ class POPPJsonTest {
         Synced popp = new Synced();
         CoverageTestModels.fullModel(popp.model, depth, false);
         // one OR decomposition, so both types occur
-        popp.model.getProblemRoots().getFirst().setDecompositionType(DecompositionType.OR);
+        popp.model.getProblemRoots().get(0).setDecompositionType(DecompositionType.OR);
         return popp;
     }
 
