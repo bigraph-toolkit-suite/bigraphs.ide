@@ -22,6 +22,7 @@ import org.eclipse.glsp.server.features.core.model.UpdateModelAction;
 import org.eclipse.glsp.server.features.directediting.ApplyLabelEditOperation;
 import org.eclipse.glsp.server.operations.CreateEdgeOperation;
 import org.eclipse.glsp.server.operations.CreateNodeOperation;
+import org.eclipse.glsp.server.operations.OperationActionHandler;
 import org.junit.jupiter.api.Test;
 
 /** Every POPP action handler, run against a real session (model, GModel and bigraph wired as in the editor). */
@@ -35,8 +36,19 @@ class POPPActionHandlersTest {
         inject(handler, "context", session.context);
         inject(handler, "actionDispatcher", session.dispatcher);
         inject(handler, "variantGate", session.variantGate());
+        inject(handler, "operationPipeline", (com.google.inject.Provider<OperationActionHandler>) () -> operationPipeline);
         return handler;
     }
+
+    /** Stands in for GLSP's generic operation dispatch and records what is handed back to it. */
+    private final List<Action> passedOn = new java.util.ArrayList<>();
+    private final OperationActionHandler operationPipeline = new OperationActionHandler() {
+        @Override
+        public List<Action> execute(final Action action) {
+            passedOn.add(action);
+            return List.of();
+        }
+    };
 
     private <H> H reading(H handler) {
         inject(handler, "context", session.context);
@@ -73,15 +85,38 @@ class POPPActionHandlersTest {
     }
 
     @Test
-    void nothingHappensWhileAnotherVariantIsActive() {
+    void anotherVariantsNodeCreationIsPassedOnToTheRegularOperationHandlers() {
         session.modelState.setActiveVariantId("bigraph");
+        CreateNodeOperation operation = new CreateNodeOperation("node", point(0, 0), null, Map.of("controlName", "Goal"));
 
-        List<Action> result = mutating(new CreateNodeOperationHandler())
-                .executeAction(new CreateNodeOperation("popp:goal", point(0, 0), null, Map.of("nodeType", "GOAL")));
+        List<Action> result = mutating(new CreateNodeOperationHandler()).executeAction(operation);
 
+        assertEquals(List.of(operation), passedOn);
         assertTrue(result.isEmpty());
         assertTrue(model.getAllNodes().isEmpty());
-        assertTrue(errors().getFirst().contains("'bigraph'"), errors()::toString);
+        assertTrue(session.dispatcher.dispatched(MessageAction.class).isEmpty(), errors()::toString);
+        assertTrue(session.dispatcher.dispatched(SetDirtyStateAction.class).isEmpty());
+    }
+
+    @Test
+    void anotherVariantsLabelEditIsPassedOnToTheRegularOperationHandlers() {
+        session.modelState.setActiveVariantId("bigraph");
+        ApplyLabelEditOperation operation = new ApplyLabelEditOperation("some-bigraph-label", "new");
+
+        List<Action> result = mutating(new EditDescriptionNodeHandler()).executeAction(operation);
+
+        assertEquals(List.of(operation), passedOn);
+        assertTrue(result.isEmpty());
+        assertTrue(session.dispatcher.dispatched(MessageAction.class).isEmpty(), errors()::toString);
+    }
+
+    @Test
+    void whileThePoppVariantIsActiveNothingIsPassedOn() {
+        mutating(new CreateNodeOperationHandler())
+                .executeAction(new CreateNodeOperation("popp:goal", point(0, 0), null, Map.of("nodeType", "GOAL")));
+
+        assertEquals(1, model.getAllNodes().size());
+        assertTrue(passedOn.isEmpty());
     }
 
     @Test
